@@ -21,6 +21,9 @@ const Index = () => {
             <Button asChild variant="outline" size="lg" className="px-8 py-6 text-lg">
               <Link to="/rooms">Browse Rooms</Link>
             </Button>
+            <Button asChild variant="secondary" size="lg" className="px-8 py-6 text-lg">
+              <Link to="/roles">Switch Roles</Link>
+            </Button>
           </div>
         </div>
       </div>

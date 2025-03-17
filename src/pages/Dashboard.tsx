@@ -7,14 +7,16 @@ import { ProfessorDashboard } from '@/components/dashboards/ProfessorDashboard';
 import { AdminDashboard } from '@/components/dashboards/AdminDashboard';
 import { SuperAdminDashboard } from '@/components/dashboards/SuperAdminDashboard';
 
-// Mock authenticated user - replace with actual auth logic later
-const mockUser = {
-  id: '1',
-  name: 'John Doe',
-  email: 'john@example.com',
-  role: 'student' as UserRole,
-  profileComplete: true,
-  avatar: '/placeholder.svg'
+// Default mock user - will be updated with saved role if available
+const createMockUser = (role: UserRole): User => {
+  return {
+    id: '1',
+    name: 'John Doe',
+    email: 'john@example.com',
+    role: role,
+    profileComplete: true,
+    avatar: '/placeholder.svg'
+  };
 };
 
 const Dashboard = () => {
@@ -22,9 +24,13 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Check if we have a saved role in localStorage
+    const savedRole = localStorage.getItem('mockUserRole') as UserRole | null;
+    const role = savedRole || 'student';
+    
     // Simulate API call to get user data
     setTimeout(() => {
-      setUser(mockUser);
+      setUser(createMockUser(role));
       setLoading(false);
     }, 500);
   }, []);
