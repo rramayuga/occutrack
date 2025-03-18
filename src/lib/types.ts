@@ -1,80 +1,51 @@
-
-export type UserRole = "student" | "professor" | "admin" | "superadmin";
-
+// User types
 export interface User {
   id: string;
   name: string;
   email: string;
-  role: UserRole;
-  profileComplete: boolean;
+  role: string;
   avatar?: string;
-  department?: string;
-  studentId?: string;
-  facultyId?: string;
 }
 
+// Authentication types
+export interface AuthState {
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+}
+
+// Room and building types
 export interface Room {
   id: string;
   name: string;
-  buildingId: string;
   capacity: number;
   type: string;
-  features: string[];
-  currentOccupancy: number;
   isAvailable: boolean;
-  image?: string;
+  floor: number;
+  buildingId: string;
 }
 
 export interface Building {
   id: string;
   name: string;
-  location: string;
+  location?: string;
   floors: number;
   roomCount: number;
-  image?: string;
 }
 
-export interface RoomType {
+export interface BuildingWithFloors {
   id: string;
   name: string;
-  description: string;
-  defaultCapacity: number;
-  features: string[];
+  floors: number[];
+  roomCount: number;
 }
 
-export interface Reservation {
+// Faculty types
+export interface Faculty {
   id: string;
-  roomId: string;
-  userId: string;
-  startTime: Date;
-  endTime: Date;
-  purpose: string;
-  status: "pending" | "approved" | "rejected" | "cancelled";
-}
-
-export interface Announcement {
-  id: string;
-  title: string;
-  content: string;
-  authorId: string;
-  createdAt: Date;
-  updatedAt: Date;
-  pinned: boolean;
-  tags: string[];
-}
-
-export interface CheckInRecord {
-  id: string;
-  userId: string;
-  roomId: string;
-  checkInTime: Date;
-  checkOutTime?: Date;
-  status: "active" | "completed";
-}
-
-export interface NavigationLink {
   name: string;
-  path: string;
-  icon?: React.ReactNode;
-  roles: UserRole[];
+  email: string;
+  department: string;
+  status: 'pending' | 'approved' | 'rejected';
+  dateApplied: string;
 }

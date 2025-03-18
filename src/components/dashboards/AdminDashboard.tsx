@@ -2,7 +2,9 @@
 import React from 'react';
 import { User } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { UsersRound, Building, AlertTriangle, Bell, ClipboardList } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { UsersRound, Building, AlertTriangle, Bell, ClipboardList, UserCheck } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface AdminDashboardProps {
   user: User;
@@ -13,6 +15,69 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-2">Administrator Dashboard</h1>
       <p className="text-muted-foreground mb-8">Welcome back, {user.name}!</p>
+
+      {/* Admin Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Room Management</CardTitle>
+            <CardDescription>Manage campus rooms and buildings</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              Add, edit, or remove rooms and buildings. Manage room availability and details.
+            </p>
+          </CardContent>
+          <CardFooter>
+            <Link to="/room-management" className="w-full">
+              <Button className="w-full">
+                <Building className="mr-2 h-4 w-4" />
+                Manage Rooms
+              </Button>
+            </Link>
+          </CardFooter>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Faculty Management</CardTitle>
+            <CardDescription>Approve faculty accounts</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              Review and approve faculty account requests. Manage faculty permissions.
+            </p>
+          </CardContent>
+          <CardFooter>
+            <Link to="/faculty-management" className="w-full">
+              <Button className="w-full">
+                <UserCheck className="mr-2 h-4 w-4" />
+                Manage Faculty
+              </Button>
+            </Link>
+          </CardFooter>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Campus Overview</CardTitle>
+            <CardDescription>View campus rooms</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              View all campus rooms and buildings. Check availability and details.
+            </p>
+          </CardContent>
+          <CardFooter>
+            <Link to="/rooms" className="w-full">
+              <Button className="w-full" variant="outline">
+                <Building className="mr-2 h-4 w-4" />
+                View Rooms
+              </Button>
+            </Link>
+          </CardFooter>
+        </Card>
+      </div>
 
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
