@@ -1,8 +1,10 @@
+
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { User as UserType, UserRole } from '@/lib/types';
 import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from '@/lib/auth';
 import { 
   Menu, X, User, FileText, Home, LogIn, 
   BookOpen, CalendarCheck, Settings, Users, Building, 
@@ -12,21 +14,12 @@ import {
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const [user, setUser] = useState<UserType | null>(null);
+  const { user, signOut } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    const checkAuth = () => {
-      const savedUser = localStorage.getItem('user');
-      if (savedUser) {
-        setUser(JSON.parse(savedUser));
-      }
-    };
-    
-    checkAuth();
-
     const handleScroll = () => {
       if (window.scrollY > 10) {
         setIsScrolled(true);
@@ -37,28 +30,35 @@ const Navbar = () => {
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [location.pathname]);
+  }, []);
 
   useEffect(() => {
     setIsOpen(false);
   }, [location.pathname]);
 
-  const handleSignOut = () => {
-    localStorage.removeItem('user');
-    localStorage.removeItem('mockUserRole');
-    setUser(null);
-    toast({
-      title: "Signed out",
-      description: "You have been successfully signed out."
-    });
-    navigate('/login');
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      toast({
+        title: "Signed out",
+        description: "You have been successfully signed out."
+      });
+      navigate('/login');
+    } catch (error) {
+      console.error('Sign out error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to sign out. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const navLinks = [
-    { name: 'Home', path: '/', icon: <Home size={18} />, roles: ['student', 'professor', 'admin', 'superadmin'] },
-    { name: 'Dashboard', path: '/dashboard', icon: <BookOpen size={18} />, roles: ['student', 'professor', 'admin', 'superadmin'] },
-    { name: 'Rooms', path: '/rooms', icon: <Building size={18} />, roles: ['student', 'professor', 'admin', 'superadmin'] },
-    { name: 'Announcements', path: '/announcements', icon: <Bell size={18} />, roles: ['student', 'professor', 'admin', 'superadmin'] },
+    { name: 'Home', path: '/', icon: <Home size={18} />, roles: ['student', 'faculty', 'admin', 'superadmin'] },
+    { name: 'Dashboard', path: '/dashboard', icon: <BookOpen size={18} />, roles: ['student', 'faculty', 'admin', 'superadmin'] },
+    { name: 'Rooms', path: '/rooms', icon: <Building size={18} />, roles: ['student', 'faculty', 'admin', 'superadmin'] },
+    { name: 'Announcements', path: '/announcements', icon: <Bell size={18} />, roles: ['student', 'faculty', 'admin', 'superadmin'] },
   ];
 
   const adminLinks = [

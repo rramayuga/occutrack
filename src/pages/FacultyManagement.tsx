@@ -9,8 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useToast } from '@/components/ui/use-toast';
 import Navbar from '@/components/layout/Navbar';
+import { supabase } from '@/integrations/supabase/client';
 import {
-  CheckCircle, XCircle, Search, UserCheck, UserX
+  CheckCircle, XCircle, Search, UserCheck, UserX, Clock
 } from 'lucide-react';
 import { Faculty } from '@/lib/types';
 
@@ -21,37 +22,30 @@ const FacultyManagement = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Fetch faculty data
-    const fetchData = async () => {
+    // Fetch faculty data from Supabase
+    const fetchFacultyRequests = async () => {
       try {
         setLoading(true);
-        // In a real app, this would be an API call
-        // For now, we're just checking localStorage for any saved data
-        const savedFaculty = localStorage.getItem('faculty');
         
-        if (savedFaculty) {
-          // Filter out pending faculty
-          const parsedFaculty = JSON.parse(savedFaculty);
-          const nonPendingFaculty = parsedFaculty.filter((f: Faculty) => f.status !== 'pending');
-          setFaculty(nonPendingFaculty);
-          localStorage.setItem('faculty', JSON.stringify(nonPendingFaculty));
-        } else {
-          // Default demo data - only approved faculty (removed all pending)
-          const demoFaculty: Faculty[] = [
-            {
-              id: 'faculty3',
-              name: 'Dr. Alice Johnson',
-              email: 'alice.johnson@university.edu',
-              department: 'Mathematics',
-              status: 'approved',
-              dateApplied: '2023-04-10'
-            }
-          ];
-          setFaculty(demoFaculty);
-          localStorage.setItem('faculty', JSON.stringify(demoFaculty));
+        const { data, error } = await supabase
+          .from('faculty_requests')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        
+        if (data) {
+          setFaculty(data.map(item => ({
+            id: item.id,
+            name: item.name,
+            email: item.email,
+            department: item.department,
+            status: item.status as 'pending' | 'approved' | 'rejected',
+            dateApplied: new Date(item.created_at).toISOString().split('T')[0]
+          })));
         }
       } catch (error) {
-        console.error("Error fetching data:", error);
+        console.error("Error fetching faculty requests:", error);
         toast({
           title: "Error loading data",
           description: "Could not load faculty data.",
@@ -62,48 +56,76 @@ const FacultyManagement = () => {
       }
     };
 
-    fetchData();
+    fetchFacultyRequests();
   }, [toast]);
 
-  // Save data to localStorage
-  const saveFacultyData = (updatedFaculty: Faculty[]) => {
+  // Approve faculty
+  const approveFaculty = async (id: string) => {
     try {
-      localStorage.setItem('faculty', JSON.stringify(updatedFaculty));
-      setFaculty(updatedFaculty);
-    } catch (error) {
-      console.error("Error saving data:", error);
+      const { error } = await supabase
+        .from('faculty_requests')
+        .update({ status: 'approved' })
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      // Update user role in the profiles table
+      const facultyToApprove = faculty.find(f => f.id === id);
+      if (facultyToApprove?.email) {
+        const { data: userData, error: userError } = await supabase
+          .from('profiles')
+          .update({ role: 'faculty' })
+          .eq('email', facultyToApprove.email);
+        
+        if (userError) throw userError;
+      }
+      
+      // Update local state
+      setFaculty(faculty.map(f => 
+        f.id === id ? { ...f, status: 'approved' as const } : f
+      ));
+      
       toast({
-        title: "Error saving data",
-        description: "Could not save faculty data.",
+        title: "Faculty approved",
+        description: "The faculty account has been approved."
+      });
+    } catch (error) {
+      console.error("Error approving faculty:", error);
+      toast({
+        title: "Error",
+        description: "Could not approve faculty request.",
         variant: "destructive"
       });
     }
   };
 
-  // Approve faculty
-  const approveFaculty = (id: string) => {
-    const updatedFaculty = faculty.map(f => 
-      f.id === id ? { ...f, status: 'approved' as const } : f
-    );
-    
-    saveFacultyData(updatedFaculty);
-    toast({
-      title: "Faculty approved",
-      description: "The faculty account has been approved."
-    });
-  };
-
   // Reject faculty
-  const rejectFaculty = (id: string) => {
-    const updatedFaculty = faculty.map(f => 
-      f.id === id ? { ...f, status: 'rejected' as const } : f
-    );
-    
-    saveFacultyData(updatedFaculty);
-    toast({
-      title: "Faculty rejected",
-      description: "The faculty account has been rejected."
-    });
+  const rejectFaculty = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('faculty_requests')
+        .update({ status: 'rejected' })
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      // Update local state
+      setFaculty(faculty.map(f => 
+        f.id === id ? { ...f, status: 'rejected' as const } : f
+      ));
+      
+      toast({
+        title: "Faculty rejected",
+        description: "The faculty account has been rejected."
+      });
+    } catch (error) {
+      console.error("Error rejecting faculty:", error);
+      toast({
+        title: "Error",
+        description: "Could not reject faculty request.",
+        variant: "destructive"
+      });
+    }
   };
 
   // Filter faculty based on search term
@@ -151,7 +173,68 @@ const FacultyManagement = () => {
             </div>
           ) : (
             <div className="space-y-6">
-              {/* No more Pending Faculty Queue - removed as requested */}
+              {/* Pending Faculty Queue */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex justify-between items-center">
+                    <CardTitle className="text-lg flex items-center">
+                      <Badge variant="outline" className="mr-2 bg-yellow-100 text-yellow-800 hover:bg-yellow-100 border-yellow-300">
+                        {pendingFaculty.length}
+                      </Badge>
+                      Pending Approval Requests
+                    </CardTitle>
+                  </div>
+                  <CardDescription>
+                    Faculty accounts waiting for approval
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {pendingFaculty.length === 0 ? (
+                    <div className="text-center py-6 border-2 border-dashed rounded-lg">
+                      <p className="text-muted-foreground">No pending faculty requests</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {pendingFaculty.map((faculty) => (
+                        <div key={faculty.id} className="p-4 border rounded-lg flex justify-between items-center">
+                          <div className="flex items-start gap-3">
+                            <div className="h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center">
+                              <Clock className="h-6 w-6 text-yellow-600" />
+                            </div>
+                            <div>
+                              <div className="font-medium">{faculty.name}</div>
+                              <div className="text-xs text-muted-foreground">{faculty.email}</div>
+                              <div className="text-xs text-muted-foreground mt-1">
+                                Department: {faculty.department} • Applied: {faculty.dateApplied}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex space-x-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="border-green-500 hover:bg-green-50 text-green-600"
+                              onClick={() => approveFaculty(faculty.id)}
+                            >
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              Approve
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="border-red-500 hover:bg-red-50 text-red-600"
+                              onClick={() => rejectFaculty(faculty.id)}
+                            >
+                              <XCircle className="h-4 w-4 mr-1" />
+                              Reject
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
               
               {/* Approved Faculty Section */}
               <Card>
