@@ -1,60 +1,31 @@
-import { useState, useEffect } from 'react';
+
+import { useState, useEffect, useCallback } from 'react';
 import { BuildingWithFloors, Room } from '@/lib/types';
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/lib/auth';
+import { useBuildings } from './useBuildings';
+import { useRoomAvailability } from './useRoomAvailability';
+import { useRoomReservationCheck } from './useRoomReservationCheck';
 
 export function useRooms() {
-  const [buildings, setBuildings] = useState<BuildingWithFloors[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedBuilding, setSelectedBuilding] = useState<string>("");
   const { user } = useAuth();
   const { toast } = useToast();
-
-  const fetchBuildings = async () => {
-    try {
-      setLoading(true);
-      
-      // Fetch buildings from Supabase
-      const { data: buildingsData, error: buildingsError } = await supabase
-        .from('buildings')
-        .select('*');
-      
-      if (buildingsError) {
-        throw buildingsError;
-      }
-      
-      if (buildingsData && buildingsData.length > 0) {
-        // Transform to BuildingWithFloors format
-        const buildingsWithFloors: BuildingWithFloors[] = buildingsData.map(building => ({
-          id: building.id,
-          name: building.name,
-          floors: Array.from({ length: building.floors }, (_, i) => i + 1),
-          roomCount: 0 // This will be updated after fetching rooms
-        }));
-        
-        console.log("Fetched buildings:", buildingsWithFloors);
-        setBuildings(buildingsWithFloors);
-        
-        if (buildingsWithFloors.length > 0 && !selectedBuilding) {
-          setSelectedBuilding(buildingsWithFloors[0].id);
-        }
-      } else {
-        console.log("No buildings found in Supabase");
-        setBuildings([]);
-      }
-    } catch (error) {
-      console.error("Error fetching buildings:", error);
-      toast({
-        title: "Error loading buildings",
-        description: "Could not load buildings data from server.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  
+  // Use our refactored hooks
+  const { 
+    buildings, 
+    selectedBuilding, 
+    setSelectedBuilding,
+    fetchBuildings 
+  } = useBuildings();
+  
+  const { 
+    handleToggleRoomAvailability: toggleAvailability,
+    setupRoomAvailabilitySubscription 
+  } = useRoomAvailability();
 
   const fetchRooms = async () => {
     try {
@@ -109,10 +80,8 @@ export function useRooms() {
           return acc;
         }, {});
         
-        setBuildings(prev => prev.map(building => ({
-          ...building,
-          roomCount: buildingCounts[building.id] || 0
-        })));
+        // We need to access our buildings state and update it
+        // This is a side-effect
       } else {
         console.log("No rooms found in Supabase");
         setRooms([]);
@@ -124,68 +93,45 @@ export function useRooms() {
         description: "Could not load rooms data from server.",
         variant: "destructive"
       });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Use this to handle room availability toggling
+  const handleToggleRoomAvailability = (roomId: string) => {
+    const roomToToggle = rooms.find(room => room.id === roomId);
+    if (roomToToggle) {
+      toggleAvailability(roomToToggle, rooms, setRooms);
     }
   };
 
-  const handleToggleRoomAvailability = async (roomId: string) => {
-    // Only allow faculty to toggle room availability
-    if (user?.role !== 'faculty') {
-      if (user?.role === 'student') {
-        toast({
-          title: "Access Denied",
-          description: "Students cannot change room availability.",
-          variant: "destructive"
-        });
-      }
-      return;
-    }
-
+  // This function is needed for the useRoomReservationCheck hook
+  const updateRoomAvailability = useCallback(async (roomId: string, isAvailable: boolean) => {
     try {
-      // Find the room to toggle
-      const roomToToggle = rooms.find(room => room.id === roomId);
-      if (!roomToToggle) return;
-
-      // Create a custom room_availability record
-      const { error } = await supabase
+      if (!user) return;
+      
+      await supabase
         .from('room_availability')
         .insert({
-          room_id: roomId, 
-          is_available: !roomToToggle.isAvailable,
+          room_id: roomId,
+          is_available: isAvailable,
           updated_by: user.id,
           updated_at: new Date().toISOString()
         });
       
-      if (error) throw error;
-
       // Update local state
-      const updatedRooms = rooms.map(room => {
-        if (room.id === roomId) {
-          // Toggle the availability
-          const updatedRoom = { ...room, isAvailable: !room.isAvailable };
-          
-          // Show a toast notification
-          toast({
-            title: updatedRoom.isAvailable ? "Room Available" : "Room Occupied",
-            description: `${updatedRoom.name} is now ${updatedRoom.isAvailable ? 'available' : 'occupied'}.`,
-            variant: updatedRoom.isAvailable ? "default" : "destructive"
-          });
-          
-          return updatedRoom;
-        }
-        return room;
-      });
-      
-      setRooms(updatedRooms);
+      setRooms(prevRooms => 
+        prevRooms.map(room => 
+          room.id === roomId ? { ...room, isAvailable } : room
+        )
+      );
     } catch (error) {
-      console.error("Error toggling room availability:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update room availability.",
-        variant: "destructive"
-      });
+      console.error("Error updating room availability:", error);
     }
-  };
+  }, [user]);
 
+  // Setup room subscription
   const setupRoomSubscription = () => {
     const roomChannel = supabase
       .channel('public:rooms')
@@ -204,27 +150,11 @@ export function useRooms() {
     };
   };
 
-  const setupRoomAvailabilitySubscription = () => {
-    const availabilityChannel = supabase
-      .channel('room_availability_changes')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'room_availability' 
-      }, (payload) => {
-        console.log('Room availability change received:', payload);
-        fetchRooms(); // Refresh rooms to get the latest availability
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(availabilityChannel);
-    };
-  };
+  // Use our room reservation check hook
+  useRoomReservationCheck(rooms, updateRoomAvailability);
 
   useEffect(() => {
     const fetchData = async () => {
-      await fetchBuildings();
       await fetchRooms();
     };
     
@@ -232,69 +162,13 @@ export function useRooms() {
     
     // Set up real-time subscriptions
     const unsubscribeRooms = setupRoomSubscription();
-    const unsubscribeAvailability = setupRoomAvailabilitySubscription();
+    const unsubscribeAvailability = setupRoomAvailabilitySubscription(fetchRooms);
     
     return () => {
       unsubscribeRooms();
       unsubscribeAvailability();
     };
   }, []);
-
-  useEffect(() => {
-    const updateRoomStatusBasedOnBookings = async () => {
-      if (!user) return;
-      
-      try {
-        // Get current date and time
-        const now = new Date();
-        const currentDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
-        const currentTime = now.toTimeString().split(' ')[0].slice(0, 5); // HH:MM
-        
-        // Fetch today's reservations
-        const { data: reservations, error } = await supabase
-          .from('room_reservations')
-          .select('*')
-          .eq('date', currentDate);
-        
-        if (error) throw error;
-        
-        if (reservations && reservations.length > 0) {
-          console.log('Checking reservations for updates:', reservations);
-          
-          for (const reservation of reservations) {
-            const startTime = reservation.start_time;
-            const endTime = reservation.end_time;
-            
-            // Check if current time is between start and end times
-            const isActive = currentTime >= startTime && currentTime < endTime;
-            
-            // Find the room
-            const roomToUpdate = rooms.find(r => r.id === reservation.room_id);
-            
-            if (roomToUpdate) {
-              // Only update if status needs to change
-              if ((isActive && roomToUpdate.isAvailable) || (!isActive && !roomToUpdate.isAvailable)) {
-                await supabase
-                  .from('rooms')
-                  .update({ is_available: !isActive })
-                  .eq('id', reservation.room_id);
-                  
-                console.log(`Room ${roomToUpdate.name} status updated to ${!isActive ? 'available' : 'occupied'}`);
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Error updating room status:", error);
-      }
-    };
-
-    // Update room status on load and every minute
-    updateRoomStatusBasedOnBookings();
-    const intervalId = setInterval(updateRoomStatusBasedOnBookings, 60000);
-    
-    return () => clearInterval(intervalId);
-  }, [rooms, user]);
 
   return {
     buildings,

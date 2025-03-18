@@ -1,70 +1,49 @@
 
 import { useState, useEffect } from 'react';
+import { BuildingWithFloors } from '@/lib/types';
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/lib/auth';
-import { Building } from '@/lib/types';
 
 export function useBuildings() {
-  const [buildings, setBuildings] = useState<Building[]>([]);
+  const [buildings, setBuildings] = useState<BuildingWithFloors[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedBuilding, setSelectedBuilding] = useState<string>("");
   const { user } = useAuth();
   const { toast } = useToast();
 
   const fetchBuildings = async () => {
-    if (!user) return;
-    
     try {
       setLoading(true);
       
-      // First, get all buildings
+      // Fetch buildings from Supabase
       const { data: buildingsData, error: buildingsError } = await supabase
         .from('buildings')
         .select('*');
       
-      if (buildingsError) throw buildingsError;
+      if (buildingsError) {
+        throw buildingsError;
+      }
       
-      if (!buildingsData || buildingsData.length === 0) {
+      if (buildingsData && buildingsData.length > 0) {
+        // Transform to BuildingWithFloors format
+        const buildingsWithFloors: BuildingWithFloors[] = buildingsData.map(building => ({
+          id: building.id,
+          name: building.name,
+          floors: Array.from({ length: building.floors }, (_, i) => i + 1),
+          roomCount: 0 // This will be updated after fetching rooms
+        }));
+        
+        console.log("Fetched buildings:", buildingsWithFloors);
+        setBuildings(buildingsWithFloors);
+        
+        if (buildingsWithFloors.length > 0 && !selectedBuilding) {
+          setSelectedBuilding(buildingsWithFloors[0].id);
+        }
+      } else {
+        console.log("No buildings found in Supabase");
         setBuildings([]);
-        return;
       }
-      
-      // For admin, filter to show only buildings they created
-      let filteredBuildings = buildingsData;
-      if (user.role === 'admin') {
-        filteredBuildings = buildingsData.filter(building => 
-          building.created_by === user.id
-        );
-      }
-      
-      // Get room counts for each building
-      const { data: roomsData, error: roomsError } = await supabase
-        .from('rooms')
-        .select('building_id, id');
-      
-      if (roomsError) throw roomsError;
-      
-      // Calculate room counts
-      const roomCounts: Record<string, number> = {};
-      if (roomsData) {
-        roomsData.forEach(room => {
-          const buildingId = room.building_id;
-          roomCounts[buildingId] = (roomCounts[buildingId] || 0) + 1;
-        });
-      }
-      
-      // Transform buildings data
-      const transformedBuildings = filteredBuildings.map(building => ({
-        id: building.id,
-        name: building.name,
-        floors: building.floors,
-        roomCount: roomCounts[building.id] || 0,
-        utilization: '0%', // This could be calculated based on room reservations
-        createdBy: building.created_by || ''
-      }));
-      
-      setBuildings(transformedBuildings);
-      console.log("Fetched buildings for admin:", transformedBuildings);
     } catch (error) {
       console.error("Error fetching buildings:", error);
       toast({
@@ -74,53 +53,6 @@ export function useBuildings() {
       });
     } finally {
       setLoading(false);
-    }
-  };
-
-  const addBuilding = async (name: string, floorCount: number, location?: string) => {
-    if (!user) {
-      toast({
-        title: "Authentication required",
-        description: "You must be logged in to add a building.",
-        variant: "destructive"
-      });
-      return null;
-    }
-    
-    try {
-      const newBuilding = {
-        name,
-        floors: floorCount,
-        location,
-        created_by: user.id
-      };
-      
-      const { data, error } = await supabase
-        .from('buildings')
-        .insert(newBuilding)
-        .select();
-      
-      if (error) throw error;
-      
-      if (data && data.length > 0) {
-        toast({
-          title: "Building added",
-          description: `${name} has been added successfully.`
-        });
-        
-        // Refresh buildings
-        fetchBuildings();
-        return data[0];
-      }
-      return null;
-    } catch (error) {
-      console.error("Error adding building:", error);
-      toast({
-        title: "Error",
-        description: "Failed to add building.",
-        variant: "destructive"
-      });
-      return null;
     }
   };
 
@@ -144,21 +76,21 @@ export function useBuildings() {
   };
 
   useEffect(() => {
-    if (user) {
-      fetchBuildings();
-      
-      const unsubscribe = setupBuildingSubscription();
-      
-      return () => {
-        unsubscribe();
-      };
-    }
-  }, [user?.id]);
+    fetchBuildings();
+    
+    // Set up real-time subscription
+    const unsubscribe = setupBuildingSubscription();
+    
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   return {
     buildings,
     loading,
-    fetchBuildings,
-    addBuilding
+    selectedBuilding,
+    setSelectedBuilding,
+    fetchBuildings
   };
 }
