@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { UserRole } from '@/lib/types';
 import { 
   Card, CardContent, CardDescription, 
   CardFooter, CardHeader, CardTitle 
@@ -14,7 +16,6 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
 import { Building, Mail, User, Lock, AlertCircle, Book } from 'lucide-react';
-import { UserRole } from '@/lib/types';
 
 interface LocationState {
   fromGoogle?: boolean;
@@ -39,7 +40,7 @@ const Register = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const showDepartmentField = role === 'professor';
+  const showDepartmentField = role === 'faculty';
   
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,7 +64,7 @@ const Register = () => {
     setError('');
     
     try {
-      if (role === 'professor') {
+      if (role === 'faculty') {
         const { error: requestError } = await supabase
           .from('faculty_requests')
           .insert([{
@@ -199,7 +200,7 @@ const Register = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="student">Student</SelectItem>
-                  <SelectItem value="professor">Faculty Member</SelectItem>
+                  <SelectItem value="faculty">Faculty Member</SelectItem>
                 </SelectContent>
               </Select>
             </div>

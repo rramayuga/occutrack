@@ -1,9 +1,8 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { AuthContext } from '@/lib/auth';
-import { User } from '@/lib/types';
+import { User, UserRole } from '@/lib/types';
 import { useToast } from './ui/use-toast';
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -49,7 +48,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           id: profile.id,
           name: profile.name,
           email: profile.email,
-          role: profile.role,
+          role: profile.role as UserRole,
           avatar: profile.avatar
         });
       }

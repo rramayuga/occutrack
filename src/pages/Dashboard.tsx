@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '@/components/layout/Navbar';
@@ -34,7 +33,7 @@ const Dashboard = () => {
     switch (user.role) {
       case 'student':
         return <StudentDashboard user={user} />;
-      case 'professor':
+      case 'faculty':
         return <ProfessorDashboard user={user} />;
       case 'admin':
         return <AdminDashboard user={user} />;
