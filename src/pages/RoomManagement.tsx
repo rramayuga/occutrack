@@ -7,7 +7,7 @@ import { Plus, Upload, Download, Search } from "lucide-react";
 import Navbar from '@/components/layout/Navbar';
 import { useAuth } from '@/lib/auth';
 import { useRooms } from '@/hooks/useRooms';
-import { useRoomsManagement } from '@/hooks/useRoomsManagement';
+import { useEnhancedRoomsManagement } from '@/hooks/useEnhancedRoomsManagement';
 import { Room } from '@/lib/types';
 import FloorRooms from '@/components/rooms/FloorRooms';
 import RoomForm, { RoomFormValues } from '@/components/admin/RoomForm';
@@ -35,9 +35,8 @@ const RoomManagement = () => {
     handleRoomCsvUpload, 
     exportRoomsToCsv,
     isUploading 
-  } = useRoomsManagement();
+  } = useEnhancedRoomsManagement();
 
-  // Filter rooms for the selected building
   const buildingRooms = rooms.filter(room => {
     const matchesBuilding = room.buildingId === selectedBuilding;
     const matchesFloor = selectedFloor === null || room.floor === selectedFloor;
@@ -48,7 +47,6 @@ const RoomManagement = () => {
     return matchesBuilding && matchesFloor && matchesSearch;
   });
   
-  // Get the floors for the selected building
   const selectedBuildingData = buildings.find(b => b.id === selectedBuilding);
   const floors = selectedBuildingData 
     ? Array.from({ length: selectedBuildingData.floors }, (_, i) => i + 1) 
@@ -60,7 +58,8 @@ const RoomManagement = () => {
       type: data.type,
       floor: data.floor,
       buildingId: data.buildingId,
-      isAvailable: data.isAvailable
+      isAvailable: data.isAvailable,
+      capacity: data.capacity || 30
     };
     
     const result = await addRoom(roomData);
@@ -83,7 +82,6 @@ const RoomManagement = () => {
     }
   };
 
-  // Determine if the current user can modify room availability
   const canModifyRooms = user?.role === 'admin' || user?.role === 'superadmin';
 
   const handleRoomSelect = (room: Room) => {
@@ -192,7 +190,6 @@ const RoomManagement = () => {
                     onSelectRoom={handleRoomSelect}
                   />
                 ) : (
-                  // Group rooms by floor when "All Floors" is selected
                   floors.map(floor => {
                     const floorRooms = buildingRooms.filter(room => room.floor === floor);
                     if (floorRooms.length === 0) return null;
@@ -215,7 +212,6 @@ const RoomManagement = () => {
         )}
       </div>
 
-      {/* Add Room Dialog */}
       <Dialog open={isRoomDialogOpen} onOpenChange={setIsRoomDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -228,7 +224,6 @@ const RoomManagement = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Upload CSV Dialog */}
       <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>

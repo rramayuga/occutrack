@@ -1,4 +1,3 @@
-
 // User types
 export interface User {
   id: string;
@@ -25,6 +24,7 @@ export interface Room {
   isAvailable: boolean;
   floor: number;
   buildingId: string;
+  capacity?: number; // Make capacity optional to handle both new and old data
 }
 
 export interface Building {

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { User, Room } from '@/lib/types';
 import { 
@@ -16,7 +15,7 @@ import BuildingCard from '@/components/admin/BuildingCard';
 import BuildingForm, { BuildingFormValues } from '@/components/admin/BuildingForm';
 import RoomForm, { RoomFormValues } from '@/components/admin/RoomForm';
 import { useBuildings } from '@/hooks/useBuildings';
-import { useRoomsManagement } from '@/hooks/useRoomsManagement';
+import { useEnhancedRoomsManagement } from '@/hooks/useEnhancedRoomsManagement';
 import { supabase } from "@/integrations/supabase/client";
 
 interface AdminDashboardProps {
@@ -28,10 +27,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const [isRoomDialogOpen, setIsRoomDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const { buildings, loading, addBuilding } = useBuildings();
-  const { addRoom } = useRoomsManagement();
+  const { addRoom } = useEnhancedRoomsManagement();
   const { toast } = useToast();
   
-  // Handle building form submission
   const onBuildingSubmit = async (data: BuildingFormValues) => {
     const result = await addBuilding(data.name, data.floorCount);
     if (result) {
@@ -39,13 +37,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
     }
   };
   
-  // Handle room form submission
   const onRoomSubmit = async (data: RoomFormValues) => {
-    // Ensure all required fields are present
     const roomData: Omit<Room, 'id'> = {
       name: data.name,
       type: data.type,
-      capacity: data.capacity,
+      capacity: data.capacity || 30,
       floor: data.floor,
       buildingId: data.buildingId,
       isAvailable: data.isAvailable
@@ -57,12 +53,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
     }
   };
   
-  // Handle building view
   const handleViewBuilding = (id: string) => {
     window.location.href = '/rooms';
   };
   
-  // Handle building edit
   const handleEditBuilding = (id: string) => {
     toast({
       title: "Feature coming soon",
@@ -70,7 +64,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
     });
   };
   
-  // Filter buildings based on search term
   const filteredBuildings = buildings.filter(building => {
     if (!searchTerm) return true;
     return building.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -93,7 +86,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
         </div>
       </div>
 
-      {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <Card>
           <CardHeader className="pb-2">
@@ -143,7 +135,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
         </Card>
       </div>
 
-      {/* Main Content Tabs */}
       <Tabs defaultValue="buildings" className="space-y-6">
         <TabsList className="grid w-full grid-cols-3 md:w-auto">
           <TabsTrigger value="buildings">Buildings</TabsTrigger>
@@ -151,7 +142,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
         
-        {/* Buildings Tab */}
         <TabsContent value="buildings" className="space-y-6">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-bold">Building Management</h2>
@@ -207,7 +197,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
           </div>
         </TabsContent>
         
-        {/* Faculty Tab */}
         <TabsContent value="faculty" className="space-y-6">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-bold">Faculty Management</h2>
@@ -257,7 +246,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
           </div>
         </TabsContent>
         
-        {/* Analytics Tab */}
         <TabsContent value="analytics" className="space-y-6">
           <Card>
             <CardHeader>
@@ -271,7 +259,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
         </TabsContent>
       </Tabs>
       
-      {/* Building Dialog */}
       <Dialog open={isBuildingDialogOpen} onOpenChange={setIsBuildingDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -284,7 +271,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
         </DialogContent>
       </Dialog>
       
-      {/* Room Dialog */}
       <Dialog open={isRoomDialogOpen} onOpenChange={setIsRoomDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
