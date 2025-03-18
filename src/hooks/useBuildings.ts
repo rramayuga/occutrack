@@ -31,7 +31,8 @@ export function useBuildings() {
           id: building.id,
           name: building.name,
           floors: Array.from({ length: building.floors }, (_, i) => i + 1),
-          roomCount: 0 // This will be updated after fetching rooms
+          roomCount: 0, // This will be updated after fetching rooms
+          utilization: building.utilization // Add utilization property
         }));
         
         console.log("Fetched buildings:", buildingsWithFloors);
