@@ -3,28 +3,7 @@ import { useState, useEffect } from 'react';
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/lib/auth';
-
-interface Reservation {
-  id: string;
-  building: string;
-  roomNumber: string;
-  roomId: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  purpose: string;
-  status: string;
-  faculty: string;
-}
-
-interface ReservationFormValues {
-  building: string;
-  roomNumber: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  purpose: string;
-}
+import { Reservation, ReservationFormValues } from '@/lib/types';
 
 export function useReservations() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -51,7 +30,7 @@ export function useReservations() {
           purpose,
           status,
           rooms(id, name, building_id),
-          buildings:rooms(buildings(id, name))
+          buildings:rooms(building_id(id, name))
         `)
         .eq('faculty_id', user.id);
       
@@ -63,7 +42,7 @@ export function useReservations() {
           id: item.id,
           roomId: item.room_id,
           roomNumber: item.rooms.name,
-          building: item.buildings.buildings.name,
+          building: item.buildings.building_id.name,
           date: item.date,
           startTime: item.start_time,
           endTime: item.end_time,

@@ -75,7 +75,7 @@ export function useRooms() {
           name: room.name,
           type: room.type,
           capacity: room.capacity,
-          isAvailable: room.is_available,
+          isAvailable: room.is_available || true,
           floor: room.floor,
           buildingId: room.building_id
         }));

@@ -44,7 +44,7 @@ interface Building {
 }
 
 interface RoomFormProps {
-  defaultValues?: RoomFormValues;
+  defaultValues?: Partial<RoomFormValues>;
   onSubmit: (data: RoomFormValues) => void;
   onCancel: () => void;
 }
@@ -59,13 +59,13 @@ const RoomForm: React.FC<RoomFormProps> = ({
   
   const form = useForm<RoomFormValues>({
     resolver: zodResolver(roomFormSchema),
-    defaultValues: defaultValues || {
-      name: '',
-      buildingId: '',
-      floor: 1,
-      type: 'Classroom',
-      capacity: 30,
-      isAvailable: true
+    defaultValues: {
+      name: defaultValues?.name || '',
+      buildingId: defaultValues?.buildingId || '',
+      floor: defaultValues?.floor || 1,
+      type: defaultValues?.type || 'Classroom',
+      capacity: defaultValues?.capacity || 30,
+      isAvailable: defaultValues?.isAvailable ?? true
     }
   });
   

@@ -3,15 +3,7 @@ import { useState, useEffect } from 'react';
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/lib/auth';
-
-interface Building {
-  id: string;
-  name: string;
-  floors: number;
-  roomCount: number;
-  utilization: string;
-  createdBy: string;
-}
+import { Building } from '@/lib/types';
 
 export function useBuildings() {
   const [buildings, setBuildings] = useState<Building[]>([]);
@@ -85,7 +77,7 @@ export function useBuildings() {
     }
   };
 
-  const addBuilding = async (name: string, floorCount: number) => {
+  const addBuilding = async (name: string, floorCount: number, location?: string) => {
     if (!user) {
       toast({
         title: "Authentication required",
@@ -99,6 +91,7 @@ export function useBuildings() {
       const newBuilding = {
         name,
         floors: floorCount,
+        location,
         created_by: user.id
       };
       

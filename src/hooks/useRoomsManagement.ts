@@ -1,18 +1,8 @@
-
 import { useState } from 'react';
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/lib/auth';
-
-interface Room {
-  id: string;
-  name: string;
-  type: string;
-  capacity: number;
-  isAvailable: boolean;
-  floor: number;
-  buildingId: string;
-}
+import { Room } from '@/lib/types';
 
 export function useRoomsManagement() {
   const [isUploading, setIsUploading] = useState(false);

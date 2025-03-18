@@ -1,3 +1,4 @@
+
 // User types
 export interface User {
   id: string;
@@ -50,4 +51,27 @@ export interface Faculty {
   department: string;
   status: 'pending' | 'approved' | 'rejected';
   dateApplied: string;
+}
+
+// Reservation types
+export interface Reservation {
+  id: string;
+  roomId: string;
+  roomNumber: string;
+  building: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  purpose: string;
+  status: string;
+  faculty: string;
+}
+
+export interface ReservationFormValues {
+  building: string;
+  roomNumber: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  purpose: string;
 }

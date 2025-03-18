@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Save } from 'lucide-react';
+import { useBuildings } from '@/hooks/useBuildings';
 
 // Define schema for the building form
 const buildingFormSchema = z.object({

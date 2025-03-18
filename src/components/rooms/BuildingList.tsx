@@ -21,13 +21,19 @@ const BuildingList: React.FC<BuildingListProps> = ({
         <TabsTrigger 
           key={building.id} 
           value={building.id}
-          className="min-w-max px-4 py-2"
+          className={`min-w-max px-4 py-2 ${building.id === selectedBuilding ? 'bg-primary text-primary-foreground' : ''}`}
           onClick={() => onBuildingChange(building.id)}
         >
           <Building className="w-4 h-4 mr-2" />
           {building.name}
         </TabsTrigger>
       ))}
+      
+      {buildings.length === 0 && (
+        <div className="text-muted-foreground p-2">
+          No buildings available
+        </div>
+      )}
     </TabsList>
   );
 };

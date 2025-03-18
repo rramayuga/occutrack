@@ -8,18 +8,21 @@ interface FloorRoomsProps {
   rooms: Room[];
   canModifyRooms: boolean;
   onToggleAvailability: (roomId: string) => void;
+  onSelectRoom?: (room: Room) => void;
 }
 
 const FloorRooms: React.FC<FloorRoomsProps> = ({ 
   floor, 
   rooms, 
   canModifyRooms, 
-  onToggleAvailability 
+  onToggleAvailability,
+  onSelectRoom
 }) => {
   const floorLabel = 
     floor === 1 ? "First" : 
     floor === 2 ? "Second" :
-    floor === 3 ? "Third" : "Fourth";
+    floor === 3 ? "Third" : 
+    floor === 4 ? "Fourth" : `${floor}th`;
 
   return (
     <div className="space-y-4">
@@ -39,6 +42,7 @@ const FloorRooms: React.FC<FloorRoomsProps> = ({
               room={room}
               canModifyRooms={canModifyRooms}
               onToggleAvailability={onToggleAvailability}
+              onClick={() => onSelectRoom && onSelectRoom(room)}
             />
           ))}
         </div>
