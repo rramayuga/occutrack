@@ -1,6 +1,6 @@
+
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
 import { 
   Card, CardContent, CardDescription, 
   CardFooter, CardHeader, CardTitle 
@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
 import { Building, Mail, Lock, AlertCircle } from 'lucide-react';
-import { UserRole } from '@/lib/types';
+import { handleLogin, handleGoogleSignIn } from '@/utils/auth-utils';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -21,7 +21,7 @@ const Login = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!email || !password) {
@@ -33,12 +33,7 @@ const Login = () => {
     setError('');
     
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
-      if (error) throw error;
+      const data = await handleLogin(email, password);
 
       if (data.user) {
         toast({
@@ -56,49 +51,24 @@ const Login = () => {
     }
   };
 
-  const handleGoogleSignIn = () => {
+  const handleGoogleAuth = async () => {
     setIsLoading(true);
     
-    // This would be replaced with actual Supabase Google auth
-    toast({
-      title: "Google Authentication",
-      description: "Processing Google sign-in...",
-    });
-    
-    // For demonstration: simulate Google sign-in and redirect to registration if needed
-    setTimeout(() => {
-      // Simulate new user detection
-      const isNewUser = Math.random() > 0.5; // Random for demo
-      
-      if (isNewUser) {
-        navigate('/register', { 
-          state: { 
-            fromGoogle: true,
-            email: 'google-user@gmail.com',
-            name: 'Google User'
-          } 
-        });
-      } else {
-        // Existing user - create session and redirect to dashboard
-        const mockUser = { 
-          id: 'google-user', 
-          name: 'Google User', 
-          email: 'google-user@gmail.com', 
-          role: 'student' as UserRole 
-        };
-        localStorage.setItem('user', JSON.stringify(mockUser));
-        localStorage.setItem('mockUserRole', mockUser.role); // For dashboard role switching
-        
-        toast({
-          title: "Google login successful",
-          description: "Welcome back!",
-        });
-        
-        navigate('/dashboard');
-      }
-      
+    try {
+      await handleGoogleSignIn();
+      toast({
+        title: "Google Authentication",
+        description: "Redirecting to Google sign-in...",
+      });
+    } catch (error: any) {
+      console.error('Google sign-in error:', error);
+      toast({
+        title: "Authentication Error",
+        description: error.message || "Failed to sign in with Google",
+        variant: "destructive"
+      });
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -123,7 +93,7 @@ const Login = () => {
             </div>
           )}
           
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLoginSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <div className="relative">
@@ -194,7 +164,7 @@ const Login = () => {
           <Button 
             variant="outline" 
             className="w-full" 
-            onClick={handleGoogleSignIn}
+            onClick={handleGoogleAuth}
             disabled={isLoading}
           >
             <svg viewBox="0 0 24 24" className="h-4 w-4 mr-2" aria-hidden="true">

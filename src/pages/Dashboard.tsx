@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '@/components/layout/Navbar';
@@ -6,28 +7,21 @@ import { StudentDashboard } from '@/components/dashboards/StudentDashboard';
 import { ProfessorDashboard } from '@/components/dashboards/ProfessorDashboard';
 import { AdminDashboard } from '@/components/dashboards/AdminDashboard';
 import { SuperAdminDashboard } from '@/components/dashboards/SuperAdminDashboard';
+import { useAuth } from '@/lib/auth';
 
 const Dashboard = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, isLoading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if we have a user in localStorage from login/register
-    const savedUser = localStorage.getItem('user');
-    
-    if (savedUser) {
-      // Use the actual saved user data
-      setUser(JSON.parse(savedUser));
-      setLoading(false);
-    } else {
+    if (!isLoading && !user) {
       // No user found, redirect to login
       navigate('/login');
     }
-  }, [navigate]);
+  }, [user, isLoading, navigate]);
 
   const renderDashboardByRole = () => {
-    if (loading) return <DashboardSkeleton />;
+    if (isLoading) return <DashboardSkeleton />;
     if (!user) return <NotAuthenticated />;
 
     switch (user.role) {
