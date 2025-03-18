@@ -1,16 +1,10 @@
 
-import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import Navbar from "@/components/layout/Navbar";
+import { Button } from "@/components/ui/button";
+import { UserCheck, Building } from "lucide-react";
 
 const Index = () => {
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    // Redirect to login page
-    navigate("/login");
-  }, [navigate]);
-
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -21,6 +15,25 @@ const Index = () => {
             Smart classroom and facility management for modern educational institutions.
             Track occupancy, reserve spaces, and optimize your campus resources.
           </p>
+          
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button asChild size="lg" className="px-8">
+              <Link to="/login">
+                Login
+              </Link>
+            </Button>
+            <Button asChild size="lg" variant="outline" className="px-8">
+              <Link to="/register">
+                Register
+              </Link>
+            </Button>
+            <Button asChild size="lg" variant="secondary" className="px-8">
+              <Link to="/roles">
+                <UserCheck className="mr-2" />
+                Change Role
+              </Link>
+            </Button>
+          </div>
         </div>
       </div>
     </div>

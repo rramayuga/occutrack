@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
@@ -54,15 +55,35 @@ const Login = () => {
           return;
         }
         
+        // Check for admin credentials
+        if (email === 'admin@neu.edu.ph' && password === 'admin123') {
+          const admin = { 
+            id: '1', 
+            name: 'Administrator', 
+            email, 
+            role: 'admin' as UserRole 
+          };
+          localStorage.setItem('user', JSON.stringify(admin));
+          
+          toast({
+            title: "Login successful",
+            description: "Welcome, Administrator!",
+          });
+          
+          navigate('/dashboard');
+          setIsLoading(false);
+          return;
+        }
+        
         // Mock different user roles for demo purposes
         let user: { id: string; name: string; email: string; role: UserRole } | null = null;
         
         if (email === 'admin@example.com') {
-          user = { id: '1', name: 'Admin User', email, role: 'admin' };
+          user = { id: '2', name: 'Admin User', email, role: 'admin' };
         } else if (email === 'professor@example.com') {
-          user = { id: '2', name: 'Professor User', email, role: 'professor' };
+          user = { id: '3', name: 'Professor User', email, role: 'professor' };
         } else if (email === 'student@example.com') {
-          user = { id: '3', name: 'Student User', email, role: 'student' };
+          user = { id: '4', name: 'Student User', email, role: 'student' };
         } else {
           setError('Invalid email or password. Please try again.');
           setIsLoading(false);
