@@ -34,7 +34,7 @@ export interface Building {
   location?: string;
   floors: number;
   roomCount: number;
-  utilization?: string; // Added utilization property
+  utilization?: string;
 }
 
 export interface BuildingWithFloors {
@@ -42,7 +42,7 @@ export interface BuildingWithFloors {
   name: string;
   floors: number[];
   roomCount: number;
-  utilization?: string; // Added utilization property
+  utilization?: string;
 }
 
 // Faculty types

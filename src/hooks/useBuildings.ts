@@ -32,7 +32,7 @@ export function useBuildings() {
           name: building.name,
           floors: Array.from({ length: building.floors }, (_, i) => i + 1),
           roomCount: 0, // This will be updated after fetching rooms
-          utilization: building.utilization // Add utilization property
+          utilization: building.utilization || '0%' // Add utilization property with default
         }));
         
         console.log("Fetched buildings:", buildingsWithFloors);
@@ -54,6 +54,55 @@ export function useBuildings() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Add the missing addBuilding function
+  const addBuilding = async (name: string, floorCount: number, location?: string) => {
+    try {
+      if (!user) {
+        toast({
+          title: "Authentication required",
+          description: "You must be logged in to add a building.",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      const newBuilding = {
+        name,
+        floors: floorCount,
+        location: location || null,
+        created_by: user.id
+      };
+
+      const { data, error } = await supabase
+        .from('buildings')
+        .insert(newBuilding)
+        .select('*')
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "Building added",
+        description: `The building "${name}" has been successfully added.`
+      });
+      
+      // Refresh buildings list
+      await fetchBuildings();
+      
+      return true;
+    } catch (error) {
+      console.error("Error adding building:", error);
+      toast({
+        title: "Error adding building",
+        description: "Could not add the building to the database.",
+        variant: "destructive"
+      });
+      return false;
     }
   };
 
@@ -92,6 +141,7 @@ export function useBuildings() {
     loading,
     selectedBuilding,
     setSelectedBuilding,
-    fetchBuildings
+    fetchBuildings,
+    addBuilding // Return the new function
   };
 }
