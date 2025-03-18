@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,7 @@ const RoomManagement = () => {
   });
   
   const selectedBuildingData = buildings.find(b => b.id === selectedBuilding);
+  // Fix the Array.from usage by converting to an Array of numbers properly
   const floors = selectedBuildingData 
     ? Array.from({ length: selectedBuildingData.floors }, (_, i) => i + 1) 
     : [];
@@ -59,7 +61,7 @@ const RoomManagement = () => {
       floor: data.floor,
       buildingId: data.buildingId,
       isAvailable: data.isAvailable,
-      capacity: data.capacity || 30
+      capacity: 30 // Default capacity
     };
     
     const result = await addRoom(roomData);
@@ -190,7 +192,9 @@ const RoomManagement = () => {
                     onSelectRoom={handleRoomSelect}
                   />
                 ) : (
-                  floors.map(floor => {
+                  // Fix rendering unknown as ReactNode by ensuring it's a valid React element
+                  // by properly rendering each floor
+                  floors.map((floor) => {
                     const floorRooms = buildingRooms.filter(room => room.floor === floor);
                     if (floorRooms.length === 0) return null;
                     

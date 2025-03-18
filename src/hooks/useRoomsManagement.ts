@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Room } from '@/lib/types';
 import { supabase } from "@/integrations/supabase/client";
@@ -9,9 +10,18 @@ export const useRoomsManagement = () => {
 
   const addRoom = async (roomData: Omit<Room, 'id'>) => {
     try {
+      // Map frontend field names to database column names
+      const dbRoomData = {
+        name: roomData.name,
+        type: roomData.type,
+        floor: roomData.floor,
+        building_id: roomData.buildingId, // Map buildingId to building_id
+        capacity: roomData.capacity || 30, // Ensure capacity is always provided
+      };
+
       const { data, error } = await supabase
         .from('rooms')
-        .insert([roomData]);
+        .insert([dbRoomData]);
 
       if (error) {
         console.error("Error adding room:", error);
@@ -60,12 +70,13 @@ export const useRoomsManagement = () => {
       for (let i = 1; i < lines.length; i++) {
         const data = lines[i].split(',');
         if (data.length === headers.length) {
-          const roomData: Omit<Room, 'id'> = {
+          const roomData = {
             name: data[headers.indexOf('name')],
             type: data[headers.indexOf('type')],
             floor: parseInt(data[headers.indexOf('floor')]),
-            buildingId: data[headers.indexOf('buildingId')],
-            isAvailable: data[headers.indexOf('isAvailable')] === 'true'
+            building_id: data[headers.indexOf('buildingId')], // Map buildingId to building_id
+            capacity: 30, // Default capacity
+            is_available: data[headers.indexOf('isAvailable')] === 'true'
           };
           rooms.push(roomData);
         }

@@ -41,10 +41,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
     const roomData: Omit<Room, 'id'> = {
       name: data.name,
       type: data.type,
-      capacity: data.capacity || 30,
       floor: data.floor,
       buildingId: data.buildingId,
-      isAvailable: data.isAvailable
+      isAvailable: data.isAvailable,
+      capacity: 30
     };
     
     const result = await addRoom(roomData);
