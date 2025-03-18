@@ -1,18 +1,167 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { User } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Building, Calendar, Bell, CheckCircle } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/use-toast";
+import { Users, Building, Calendar, Bell, CheckCircle, BookOpen } from 'lucide-react';
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 
 interface ProfessorDashboardProps {
   user: User;
 }
 
+// Define the booking form schema
+const bookingFormSchema = z.object({
+  roomNumber: z.string().min(1, { message: "Room number is required" }),
+  date: z.string().min(1, { message: "Date is required" }),
+  startTime: z.string().min(1, { message: "Start time is required" }),
+  endTime: z.string().min(1, { message: "End time is required" }),
+  purpose: z.string().min(1, { message: "Purpose is required" }).max(200, { message: "Purpose must be 200 characters or less" }),
+});
+
+type BookingFormValues = z.infer<typeof bookingFormSchema>;
+
 export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) => {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const { toast } = useToast();
+  
+  const form = useForm<BookingFormValues>({
+    resolver: zodResolver(bookingFormSchema),
+    defaultValues: {
+      roomNumber: "",
+      date: "",
+      startTime: "",
+      endTime: "",
+      purpose: "",
+    },
+  });
+
+  const onSubmit = (data: BookingFormValues) => {
+    console.log("Booking submitted:", data);
+    
+    // In a real app, we would save this to a database
+    // For now, we'll just show a success message
+    toast({
+      title: "Room booked successfully",
+      description: `You've booked ${data.roomNumber} on ${data.date} from ${data.startTime} to ${data.endTime}`,
+    });
+    
+    // Close the dialog and reset the form
+    setIsDialogOpen(false);
+    form.reset();
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-2">Professor Dashboard</h1>
-      <p className="text-muted-foreground mb-8">Welcome back, {user.name}!</p>
+      <div className="flex flex-wrap items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Professor Dashboard</h1>
+          <p className="text-muted-foreground">Welcome back, {user.name}!</p>
+        </div>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="mt-4 md:mt-0" size="lg">
+              <BookOpen className="mr-2 h-4 w-4" /> Book a Classroom
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Book a Classroom</DialogTitle>
+              <DialogDescription>
+                Enter the details of the room you want to book and the time slot.
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="roomNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Room Number</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., 305, Lab 2B" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Date</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="startTime"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Start Time</FormLabel>
+                        <FormControl>
+                          <Input type="time" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="endTime"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>End Time</FormLabel>
+                        <FormControl>
+                          <Input type="time" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name="purpose"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Purpose</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Describe why you need this room" 
+                          className="resize-none" 
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Briefly describe the purpose of your booking.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <DialogFooter>
+                  <Button type="submit">Book Room</Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+      </div>
 
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
