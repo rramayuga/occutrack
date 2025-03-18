@@ -71,7 +71,52 @@ const Rooms = () => {
     };
 
     fetchData();
-  }, [toast]);
+
+    // Check for room status updates every minute
+    const intervalId = setInterval(() => {
+      // Get bookings from localStorage
+      const checkRoomStatus = () => {
+        if (user?.role === 'faculty') {
+          const savedBookings = localStorage.getItem(`bookings-${user.id}`);
+          
+          if (savedBookings) {
+            const bookings = JSON.parse(savedBookings);
+            const now = new Date();
+            
+            // Check which bookings are currently active
+            bookings.forEach((booking: any) => {
+              const bookingDate = new Date(booking.date);
+              const startTimeParts = booking.startTime.split(':');
+              const endTimeParts = booking.endTime.split(':');
+              
+              const startDateTime = new Date(bookingDate);
+              startDateTime.setHours(parseInt(startTimeParts[0]), parseInt(startTimeParts[1]), 0);
+              
+              const endDateTime = new Date(bookingDate);
+              endDateTime.setHours(parseInt(endTimeParts[0]), parseInt(endTimeParts[1]), 0);
+              
+              // Check if current time is between start and end times
+              const isActive = now >= startDateTime && now < endDateTime;
+              
+              // Update the room status in local state
+              setRooms(prevRooms => {
+                return prevRooms.map(room => {
+                  if (room.name === booking.roomNumber) {
+                    return { ...room, isAvailable: !isActive };
+                  }
+                  return room;
+                });
+              });
+            });
+          }
+        }
+      };
+      
+      checkRoomStatus();
+    }, 60000);
+
+    return () => clearInterval(intervalId);
+  }, [toast, user]);
 
   // Toggle room availability (only for faculty)
   const handleToggleRoomAvailability = (roomId: string) => {

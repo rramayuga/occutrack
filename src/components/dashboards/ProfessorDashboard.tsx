@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { User } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,6 +7,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { Users, Building, Calendar, Bell, CheckCircle, BookOpen } from 'lucide-react';
 import { useForm } from "react-hook-form";
@@ -16,8 +18,9 @@ interface ProfessorDashboardProps {
   user: User;
 }
 
-// Define the booking form schema - removed capacity field
+// Define the booking form schema with building and room selection
 const bookingFormSchema = z.object({
+  building: z.string().min(1, { message: "Building is required" }),
   roomNumber: z.string().min(1, { message: "Room number is required" }),
   date: z.string().min(1, { message: "Date is required" }),
   startTime: z.string().min(1, { message: "Start time is required" }),
@@ -30,11 +33,18 @@ type BookingFormValues = z.infer<typeof bookingFormSchema>;
 export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [bookedRooms, setBookedRooms] = useState<any[]>([]);
+  const [buildings, setBuildings] = useState([
+    { id: '1', name: 'Main Building' },
+    { id: '2', name: 'Science Complex' },
+    { id: '3', name: 'Arts Center' },
+    { id: '4', name: 'Technology Block' }
+  ]);
   const { toast } = useToast();
   
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
     defaultValues: {
+      building: "",
       roomNumber: "",
       date: "",
       startTime: "",
@@ -130,6 +140,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
     // Create a new booking
     const newBooking = {
       id: `booking-${Date.now()}`,
+      building: data.building,
       roomNumber: data.roomNumber,
       date: data.date,
       startTime: data.startTime,
@@ -149,7 +160,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
     // Show success toast
     toast({
       title: "Room booked successfully",
-      description: `You've booked ${data.roomNumber} on ${data.date} from ${data.startTime} to ${data.endTime}`,
+      description: `You've booked ${data.roomNumber} in ${data.building} on ${data.date} from ${data.startTime} to ${data.endTime}`,
     });
     
     // Close the dialog and reset the form
@@ -188,6 +199,33 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="building"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Building</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a building" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {buildings.map((building) => (
+                            <SelectItem key={building.id} value={building.name}>
+                              {building.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <FormField
                   control={form.control}
                   name="roomNumber"
@@ -350,17 +388,22 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
               {bookedRooms.length > 0 ? (
                 bookedRooms.map((booking, i) => (
                   <div key={i} className="flex items-start gap-4 pb-4 border-b last:border-0">
-                    <div className="rounded-full p-2 bg-primary/10">
-                      <CheckCircle className="h-4 w-4 text-primary" />
+                    <div className={`rounded-full p-2 ${booking.status === 'occupied' ? 'bg-red-100' : 'bg-primary/10'}`}>
+                      <CheckCircle className={`h-4 w-4 ${booking.status === 'occupied' ? 'text-red-500' : 'text-primary'}`} />
                     </div>
                     <div>
                       <h4 className="text-sm font-medium">{booking.purpose}</h4>
-                      <p className="text-xs text-muted-foreground">{booking.roomNumber}</p>
+                      <p className="text-xs text-muted-foreground">{booking.building} - {booking.roomNumber}</p>
                     </div>
                     <div className="ml-auto text-right">
                       <span className="text-xs font-medium">
                         {booking.date.split('-').reverse().join('/')} • {booking.startTime} - {booking.endTime}
                       </span>
+                      <div className="text-xs mt-1">
+                        <span className={`${booking.status === 'occupied' ? 'text-red-500' : 'text-green-500'}`}>
+                          {booking.status === 'occupied' ? 'In Progress' : 'Scheduled'}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 ))
@@ -379,14 +422,14 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
           <CardContent>
             <div className="space-y-4">
               {[
-                {name: 'Study Room 101', features: ['Whiteboard', 'Projector']},
-                {name: 'Lecture Hall 2B', features: ['AV Equipment', 'Tiered Seating']},
-                {name: 'Meeting Room 305', features: ['Conference Table', 'Smart Board']}
+                {name: 'Study Room 101', building: 'Main Building', features: ['Whiteboard', 'Projector']},
+                {name: 'Lecture Hall 2B', building: 'Science Complex', features: ['AV Equipment', 'Tiered Seating']},
+                {name: 'Meeting Room 305', building: 'Arts Center', features: ['Conference Table', 'Smart Board']}
               ].map((room, i) => (
                 <div key={i} className="pb-4 border-b last:border-0">
                   <h4 className="text-sm font-medium">{room.name}</h4>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Features: {room.features.join(', ')}
+                    {room.building} • Features: {room.features.join(', ')}
                   </p>
                   <div className="mt-2">
                     <a 
@@ -395,6 +438,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
                       onClick={(e) => {
                         e.preventDefault();
                         setIsDialogOpen(true);
+                        form.setValue('building', room.building);
                         form.setValue('roomNumber', room.name);
                       }}
                     >
