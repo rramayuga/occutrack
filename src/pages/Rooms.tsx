@@ -50,25 +50,29 @@ const Rooms = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        // In a real app, this would be an API call
-        // For now, we're just checking localStorage for any saved data
-        const savedBuildings = localStorage.getItem('buildingsWithFloors');
-        const savedRooms = localStorage.getItem('rooms');
         
-        if (savedBuildings) {
-          const parsedBuildings = JSON.parse(savedBuildings);
+        // Fetch buildings data
+        const buildingsWithFloors = localStorage.getItem('buildingsWithFloors');
+        if (buildingsWithFloors) {
+          const parsedBuildings = JSON.parse(buildingsWithFloors);
+          console.log("Fetched buildings:", parsedBuildings);
           setBuildings(parsedBuildings);
           if (parsedBuildings.length > 0) {
             setSelectedBuilding(parsedBuildings[0].id);
           }
         } else {
-          // Default empty state
+          console.log("No buildings found in localStorage");
           setBuildings([]);
         }
 
+        // Fetch rooms data
+        const savedRooms = localStorage.getItem('rooms');
         if (savedRooms) {
-          setRooms(JSON.parse(savedRooms));
+          const parsedRooms = JSON.parse(savedRooms);
+          console.log("Fetched rooms:", parsedRooms);
+          setRooms(parsedRooms);
         } else {
+          console.log("No rooms found in localStorage");
           setRooms([]);
         }
       } catch (error) {
@@ -87,106 +91,76 @@ const Rooms = () => {
 
     // Check for room status updates every minute
     const intervalId = setInterval(() => {
-      // Get bookings from localStorage
-      const checkRoomStatus = () => {
-        if (user?.role === 'faculty') {
-          const bookingsKey = `bookings-${user.id}`;
-          const savedBookings = localStorage.getItem(bookingsKey);
-          
-          if (savedBookings) {
-            const bookings: Booking[] = JSON.parse(savedBookings);
-            const now = new Date();
-            
-            // Check which bookings are currently active
-            const updatedRooms = [...rooms];
-            let roomsUpdated = false;
-            
-            bookings.forEach((booking: Booking) => {
-              const bookingDate = new Date(booking.date);
-              const startTimeParts = booking.startTime.split(':');
-              const endTimeParts = booking.endTime.split(':');
-              
-              const startDateTime = new Date(bookingDate);
-              startDateTime.setHours(parseInt(startTimeParts[0]), parseInt(startTimeParts[1]), 0);
-              
-              const endDateTime = new Date(bookingDate);
-              endDateTime.setHours(parseInt(endTimeParts[0]), parseInt(endTimeParts[1]), 0);
-              
-              // Check if current time is between start and end times
-              const isActive = now >= startDateTime && now < endDateTime;
-              
-              // Update the room status in local state
-              updatedRooms.forEach((room, index) => {
-                if (room.name === booking.roomNumber) {
-                  if (room.isAvailable === isActive) {
-                    updatedRooms[index] = { ...room, isAvailable: !isActive };
-                    roomsUpdated = true;
-                  }
-                }
-              });
-            });
-            
-            if (roomsUpdated) {
-              setRooms(updatedRooms);
-              localStorage.setItem('rooms', JSON.stringify(updatedRooms));
-            }
-          }
-        }
-      };
-      
-      checkRoomStatus();
+      updateRoomStatusBasedOnBookings();
     }, 60000);
     
     // Run the check immediately on load
-    if (user?.role === 'faculty') {
-      setTimeout(() => {
-        const checkRoomStatus = () => {
-          const bookingsKey = `bookings-${user.id}`;
-          const savedBookings = localStorage.getItem(bookingsKey);
-          
-          if (savedBookings) {
-            const bookings: Booking[] = JSON.parse(savedBookings);
-            const now = new Date();
-            
-            const updatedRooms = [...rooms];
-            let roomsUpdated = false;
-            
-            bookings.forEach((booking: Booking) => {
-              const bookingDate = new Date(booking.date);
-              const startTimeParts = booking.startTime.split(':');
-              const endTimeParts = booking.endTime.split(':');
-              
-              const startDateTime = new Date(bookingDate);
-              startDateTime.setHours(parseInt(startTimeParts[0]), parseInt(startTimeParts[1]), 0);
-              
-              const endDateTime = new Date(bookingDate);
-              endDateTime.setHours(parseInt(endTimeParts[0]), parseInt(endTimeParts[1]), 0);
-              
-              const isActive = now >= startDateTime && now < endDateTime;
-              
-              updatedRooms.forEach((room, index) => {
-                if (room.name === booking.roomNumber) {
-                  if (room.isAvailable === isActive) {
-                    updatedRooms[index] = { ...room, isAvailable: !isActive };
-                    roomsUpdated = true;
-                  }
-                }
-              });
-            });
-            
-            if (roomsUpdated) {
-              setRooms(updatedRooms);
-              localStorage.setItem('rooms', JSON.stringify(updatedRooms));
-            }
-          }
-        };
-        
-        checkRoomStatus();
-      }, 1000); // Run after 1 second to ensure rooms are loaded
-    }
+    setTimeout(() => {
+      updateRoomStatusBasedOnBookings();
+    }, 1000);
 
     return () => clearInterval(intervalId);
-  }, [toast, user, rooms]);
+  }, [toast, user]);
+
+  // Update room status based on bookings
+  const updateRoomStatusBasedOnBookings = () => {
+    if (!user) return;
+    
+    // Get all bookings from localStorage
+    const allBookingsStr = localStorage.getItem('allBookings');
+    if (!allBookingsStr) return;
+    
+    try {
+      const allBookings: Booking[] = JSON.parse(allBookingsStr);
+      const now = new Date();
+      
+      // Check which bookings are currently active
+      const updatedRooms = [...rooms];
+      let roomsUpdated = false;
+      
+      allBookings.forEach((booking: Booking) => {
+        const bookingDate = new Date(booking.date);
+        const today = new Date();
+        
+        // Only check bookings for today
+        if (bookingDate.getDate() === today.getDate() && 
+            bookingDate.getMonth() === today.getMonth() && 
+            bookingDate.getFullYear() === today.getFullYear()) {
+          
+          const startTimeParts = booking.startTime.split(':');
+          const endTimeParts = booking.endTime.split(':');
+          
+          const startDateTime = new Date(bookingDate);
+          startDateTime.setHours(parseInt(startTimeParts[0]), parseInt(startTimeParts[1]), 0);
+          
+          const endDateTime = new Date(bookingDate);
+          endDateTime.setHours(parseInt(endTimeParts[0]), parseInt(endTimeParts[1]), 0);
+          
+          // Check if current time is between start and end times
+          const isActive = now >= startDateTime && now < endDateTime;
+          
+          // Update the room status in local state
+          updatedRooms.forEach((room, index) => {
+            if (room.name === booking.roomNumber) {
+              // If room status needs to change
+              if ((isActive && room.isAvailable) || (!isActive && !room.isAvailable)) {
+                updatedRooms[index] = { ...room, isAvailable: !isActive };
+                roomsUpdated = true;
+                console.log(`Room ${room.name} status updated to ${!isActive ? 'available' : 'occupied'}`);
+              }
+            }
+          });
+        }
+      });
+      
+      if (roomsUpdated) {
+        setRooms(updatedRooms);
+        localStorage.setItem('rooms', JSON.stringify(updatedRooms));
+      }
+    } catch (error) {
+      console.error("Error updating room status:", error);
+    }
+  };
 
   // Toggle room availability (only for faculty)
   const handleToggleRoomAvailability = (roomId: string) => {
@@ -243,6 +217,13 @@ const Rooms = () => {
 
   // Determine if the current user can modify room availability
   const canModifyRooms = user?.role === 'faculty';
+
+  console.log("Rendering Rooms component with:", { 
+    buildingsCount: buildings.length, 
+    roomsCount: rooms.length,
+    selectedBuilding,
+    floors
+  });
 
   return (
     <div className="min-h-screen flex flex-col">

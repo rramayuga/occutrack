@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { User } from '@/lib/types';
 import { 
@@ -70,28 +69,54 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
     // Load buildings from localStorage
     const fetchBuildings = async () => {
       try {
-        // First try to load from localStorage for a smoother demo experience
+        console.log("Fetching buildings for admin:", user.id);
+        
+        // Load from localStorage
         const savedBuildings = localStorage.getItem('buildings');
+        let adminBuildings = [];
+        
         if (savedBuildings) {
           const allBuildings = JSON.parse(savedBuildings);
-          // Filter buildings to show only those created by the current admin
-          const adminBuildings = [
-            { id: '1', name: 'Main Building', rooms: 48, utilization: '85%', createdBy: user.id },
-            { id: '2', name: 'Science Complex', rooms: 32, utilization: '72%', createdBy: user.id },
-            { id: '3', name: 'Arts Center', rooms: 24, utilization: '68%', createdBy: '123' },
-            { id: '4', name: 'Technology Block', rooms: 24, utilization: '91%', createdBy: '123' }
-          ].filter(building => building.createdBy === user.id);
+          console.log("All buildings from localStorage:", allBuildings);
           
-          setBuildings(adminBuildings);
-        } else {
-          // If no buildings in localStorage, create default data
-          const defaultBuildings = [
-            { id: '1', name: 'Main Building', rooms: 48, utilization: '85%', createdBy: user.id },
-            { id: '2', name: 'Science Complex', rooms: 32, utilization: '72%', createdBy: user.id }
+          // Filter buildings to show only those created by the current admin
+          adminBuildings = allBuildings.filter((building: Building) => building.createdBy === user.id);
+          console.log("Admin buildings after filtering:", adminBuildings);
+        } 
+        
+        // If no buildings found for this admin, set empty array
+        if (adminBuildings.length === 0) {
+          console.log("No buildings found for this admin, creating default set");
+          adminBuildings = [
+            { id: '1', name: 'Main Building', rooms: 0, utilization: '0%', createdBy: user.id },
+            { id: '2', name: 'Science Complex', rooms: 0, utilization: '0%', createdBy: user.id }
           ];
-          localStorage.setItem('buildings', JSON.stringify(defaultBuildings));
-          setBuildings(defaultBuildings);
+          
+          // Save these default buildings to localStorage
+          const savedAllBuildings = localStorage.getItem('buildings');
+          let allBuildings = adminBuildings;
+          
+          if (savedAllBuildings) {
+            const existingBuildings = JSON.parse(savedAllBuildings);
+            // Keep buildings from other admins
+            const otherBuildings = existingBuildings.filter((b: Building) => b.createdBy !== user.id);
+            allBuildings = [...otherBuildings, ...adminBuildings];
+          }
+          
+          localStorage.setItem('buildings', JSON.stringify(allBuildings));
+          console.log("Saved default buildings to localStorage");
+          
+          // Also create buildings with floors data
+          const buildingsWithFloors = [
+            { id: '1', name: 'Main Building', floors: [1, 2, 3], roomCount: 0 },
+            { id: '2', name: 'Science Complex', floors: [1, 2], roomCount: 0 }
+          ];
+          
+          localStorage.setItem('buildingsWithFloors', JSON.stringify(buildingsWithFloors));
+          console.log("Saved default buildingsWithFloors to localStorage");
         }
+        
+        setBuildings(adminBuildings);
       } catch (error) {
         console.error("Error fetching buildings:", error);
         toast({
@@ -106,6 +131,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   }, [user.id, toast]);
 
   const onAddBuilding = (data: any) => {
+    console.log("Adding new building:", data);
+    
     const newBuilding = {
       id: Date.now().toString(),
       name: data.name,
@@ -130,17 +157,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
       allBuildings = [newBuilding];
     }
     localStorage.setItem('buildings', JSON.stringify(allBuildings));
+    console.log("All buildings saved to localStorage:", allBuildings);
     
-    // Also save to floors data for the building
-    const savedFloorsData = localStorage.getItem('buildingFloors');
-    let floorsData = {};
-    if (savedFloorsData) {
-      floorsData = JSON.parse(savedFloorsData);
-    }
     // Create floors array: [1, 2, ..., data.floors]
     const floors = Array.from({ length: data.floors }, (_, i) => i + 1);
-    floorsData = { ...floorsData, [newBuilding.id]: floors };
-    localStorage.setItem('buildingFloors', JSON.stringify(floorsData));
     
     // Create building with floors in a format for rooms page
     const buildingsWithFloors = localStorage.getItem('buildingsWithFloors');
@@ -158,6 +178,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
     
     buildingsFloorData = [...buildingsFloorData.filter((b: any) => b.id !== newBuilding.id), newBuildingWithFloors];
     localStorage.setItem('buildingsWithFloors', JSON.stringify(buildingsFloorData));
+    console.log("Buildings with floors saved to localStorage:", buildingsFloorData);
     
     toast({
       title: "Building added",
@@ -169,6 +190,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   };
 
   const onAddRoom = (data: any) => {
+    console.log("Adding new room:", data);
+    
     // Add room to rooms data
     const savedRooms = localStorage.getItem('rooms');
     let rooms = [];
@@ -187,6 +210,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
     
     rooms = [...rooms, newRoom];
     localStorage.setItem('rooms', JSON.stringify(rooms));
+    console.log("All rooms saved to localStorage:", rooms);
     
     // Update building room count
     const updatedBuildings = buildings.map(building => {
@@ -215,6 +239,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
         return b;
       });
       localStorage.setItem('buildings', JSON.stringify(updatedAllBuildings));
+      console.log("Updated buildings with new room count:", updatedAllBuildings);
     }
     
     // Also update buildings with floors data
@@ -231,6 +256,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
         return b;
       });
       localStorage.setItem('buildingsWithFloors', JSON.stringify(updatedBuildingsFloorData));
+      console.log("Updated buildingsWithFloors with new room count:", updatedBuildingsFloorData);
     }
     
     toast({
@@ -568,3 +594,5 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
     </div>
   );
 };
+
+export default AdminDashboard;
