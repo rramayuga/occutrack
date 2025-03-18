@@ -75,6 +75,27 @@ export const handleLogin = async (email: string, password: string) => {
     password
   });
   
-  if (error) throw error;
-  return data;
+  if (error) {
+    console.error('Login error:', error);
+    throw error;
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', data.user.id)
+    .single();
+
+  if (!profile) {
+    throw new Error('Profile not found');
+  }
+
+  return { 
+    user: {
+      ...data.user,
+      role: profile.role,
+      name: profile.name,
+    },
+    session: data.session 
+  };
 };
