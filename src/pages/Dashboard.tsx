@@ -8,17 +8,6 @@ import { ProfessorDashboard } from '@/components/dashboards/ProfessorDashboard';
 import { AdminDashboard } from '@/components/dashboards/AdminDashboard';
 import { SuperAdminDashboard } from '@/components/dashboards/SuperAdminDashboard';
 
-// Default mock user - will be updated with saved role if available
-const createMockUser = (role: UserRole): User => {
-  return {
-    id: '1',
-    name: 'John Doe',
-    email: 'john@example.com',
-    role: role,
-    avatar: '/placeholder.svg'
-  };
-};
-
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -27,23 +16,14 @@ const Dashboard = () => {
   useEffect(() => {
     // Check if we have a user in localStorage from login/register
     const savedUser = localStorage.getItem('user');
-    const savedRole = localStorage.getItem('mockUserRole') as UserRole | null;
     
     if (savedUser) {
       // Use the actual saved user data
       setUser(JSON.parse(savedUser));
       setLoading(false);
-    } else if (savedRole) {
-      // Fallback to mock user with saved role
-      setUser(createMockUser(savedRole));
-      setLoading(false);
     } else {
-      // No user found, use default or redirect to login
-      // For demo we'll use a mock user, but in a real app would redirect to login
-      setTimeout(() => {
-        setUser(createMockUser('student'));
-        setLoading(false);
-      }, 500);
+      // No user found, redirect to login
+      navigate('/login');
     }
   }, [navigate]);
 
