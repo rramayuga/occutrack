@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { UserRole } from '@/lib/types';
@@ -11,7 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
 import { Building } from 'lucide-react';
 import RegistrationForm from '@/components/auth/RegistrationForm';
-import { handleStudentRegistration, handleFacultyRegistration } from '@/utils/auth-utils';
+import { handleStudentRegistration, handleFacultyRegistration, handleGoogleSignIn } from '@/utils/auth-utils';
 
 interface LocationState {
   fromGoogle?: boolean;
@@ -51,7 +50,7 @@ const Register = () => {
       return;
     }
     
-    if (showDepartmentField && !department) {
+    if (role === 'faculty' && !department) {
       setError('Please select a department.');
       return;
     }
@@ -61,15 +60,17 @@ const Register = () => {
     
     try {
       if (role === 'faculty') {
-        await handleFacultyRegistration(email, password || '', name, department);
-        toast({
-          title: "Registration Submitted",
-          description: "Your faculty account request has been submitted for approval.",
-        });
-        navigate('/faculty-confirmation');
+        const authData = await handleFacultyRegistration(email, password || '', name, department);
+        if (authData.user) {
+          toast({
+            title: "Registration Submitted",
+            description: "Your faculty account request has been submitted for approval.",
+          });
+          navigate('/faculty-confirmation');
+        }
       } else {
-        const { data } = await handleStudentRegistration(email, password || '', name);
-        if (data.user) {
+        const authData = await handleStudentRegistration(email, password || '', name);
+        if (authData.user) {
           toast({
             title: "Registration Successful",
             description: "Welcome to OccuTrack!",
@@ -85,25 +86,23 @@ const Register = () => {
     }
   };
   
-  const handleGoogleSignIn = () => {
+  const handleGoogleAuth = async () => {
     setIsLoading(true);
-    
-    toast({
-      title: "Google Authentication",
-      description: "Processing Google sign-in...",
-    });
-    
-    setTimeout(() => {
-      setIsGoogleSignIn(true);
-      setEmail('google-user@gmail.com');
-      setName('Google User');
-      setIsLoading(false);
-      
+    try {
+      await handleGoogleSignIn();
       toast({
-        title: "Complete Your Profile",
-        description: "Please choose your role to complete registration.",
+        title: "Google Authentication",
+        description: "Redirecting to Google sign-in...",
       });
-    }, 1000);
+    } catch (error: any) {
+      console.error('Google sign-in error:', error);
+      toast({
+        title: "Authentication Error",
+        description: error.message || "Failed to sign in with Google",
+        variant: "destructive"
+      });
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -132,7 +131,7 @@ const Register = () => {
             isLoading={isLoading}
             error={error}
             isGoogleSignIn={isGoogleSignIn}
-            showDepartmentField={showDepartmentField}
+            showDepartmentField={role === 'faculty'}
             onNameChange={setName}
             onEmailChange={setEmail}
             onPasswordChange={setPassword}
@@ -140,35 +139,8 @@ const Register = () => {
             onRoleChange={setRole}
             onDepartmentChange={setDepartment}
             onSubmit={handleRegister}
-            onGoogleSignIn={handleGoogleSignIn}
+            onGoogleSignIn={handleGoogleAuth}
           />
-          
-          {!isGoogleSignIn && (
-            <>
-              <div className="relative mt-4">
-                <div className="absolute inset-0 flex items-center">
-                  <Separator className="w-full" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">
-                    Or continue with
-                  </span>
-                </div>
-              </div>
-              
-              <Button 
-                variant="outline" 
-                className="w-full mt-4" 
-                onClick={handleGoogleSignIn}
-                disabled={isLoading}
-              >
-                <svg viewBox="0 0 24 24" className="h-4 w-4 mr-2" aria-hidden="true">
-                  <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z" fill="currentColor"/>
-                </svg>
-                Google
-              </Button>
-            </>
-          )}
         </CardContent>
         
         <CardFooter className="flex flex-col space-y-4">

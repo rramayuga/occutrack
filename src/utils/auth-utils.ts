@@ -7,7 +7,7 @@ export const handleStudentRegistration = async (
   password: string,
   name: string
 ) => {
-  const { data, error: signUpError } = await supabase.auth.signUp({
+  const { data: authData, error: signUpError } = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -19,7 +19,7 @@ export const handleStudentRegistration = async (
   });
 
   if (signUpError) throw signUpError;
-  return data;
+  return authData;
 };
 
 export const handleFacultyRegistration = async (
@@ -34,7 +34,7 @@ export const handleFacultyRegistration = async (
     options: {
       data: {
         name,
-        role: 'student'
+        role: 'faculty'
       }
     }
   });
@@ -56,4 +56,16 @@ export const handleFacultyRegistration = async (
   }
 
   return authData;
+};
+
+export const handleGoogleSignIn = async () => {
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.origin
+    }
+  });
+  
+  if (error) throw error;
+  return data;
 };
