@@ -100,7 +100,17 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
       return;
     }
     
-    const result = await createReservation(data, selectedRoomId);
+    // Ensure we're passing a complete ReservationFormValues object
+    const reservationData: ReservationFormValues = {
+      building: data.building,
+      roomNumber: data.roomNumber,
+      date: data.date,
+      startTime: data.startTime,
+      endTime: data.endTime,
+      purpose: data.purpose
+    };
+    
+    const result = await createReservation(reservationData, selectedRoomId);
     if (result) {
       setIsDialogOpen(false);
       form.reset();

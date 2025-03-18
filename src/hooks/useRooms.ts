@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { BuildingWithFloors, Room } from '@/lib/types';
 import { useToast } from "@/components/ui/use-toast";
@@ -75,7 +74,7 @@ export function useRooms() {
           name: room.name,
           type: room.type,
           capacity: room.capacity,
-          isAvailable: room.is_available || true,
+          isAvailable: true, // Default to available since there's no is_available field
           floor: room.floor,
           buildingId: room.building_id
         }));
@@ -108,7 +107,6 @@ export function useRooms() {
     }
   };
 
-  // Toggle room availability (only for faculty)
   const handleToggleRoomAvailability = async (roomId: string) => {
     // Only allow faculty to toggle room availability
     if (user?.role !== 'faculty') {
@@ -127,11 +125,15 @@ export function useRooms() {
       const roomToToggle = rooms.find(room => room.id === roomId);
       if (!roomToToggle) return;
 
-      // Update the room in Supabase
+      // Create a custom room_availability record instead of updating the rooms table
       const { error } = await supabase
-        .from('rooms')
-        .update({ is_available: !roomToToggle.isAvailable })
-        .eq('id', roomId);
+        .from('room_availability')
+        .upsert({ 
+          room_id: roomId, 
+          is_available: !roomToToggle.isAvailable,
+          updated_by: user.id,
+          updated_at: new Date().toISOString()
+        });
       
       if (error) throw error;
 
@@ -164,7 +166,6 @@ export function useRooms() {
     }
   };
 
-  // Setup real-time subscription for room updates
   const setupRoomSubscription = () => {
     const roomChannel = supabase
       .channel('public:rooms')
@@ -199,7 +200,6 @@ export function useRooms() {
     };
   }, []);
 
-  // Update room availability based on reservations
   useEffect(() => {
     const updateRoomStatusBasedOnBookings = async () => {
       if (!user) return;
