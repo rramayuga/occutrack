@@ -8,11 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/components/ui/use-toast";
 import { Users, Building, Calendar, Bell, CheckCircle, BookOpen } from 'lucide-react';
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useRooms } from '@/hooks/useRooms';
+import { useReservations } from '@/hooks/useReservations';
+import { supabase } from "@/integrations/supabase/client";
 
 interface ProfessorDashboardProps {
   user: User;
@@ -30,29 +32,12 @@ const bookingFormSchema = z.object({
 
 type BookingFormValues = z.infer<typeof bookingFormSchema>;
 
-interface Room {
-  id: string;
-  name: string;
-  type: string;
-  isAvailable: boolean;
-  floor: number;
-  buildingId: string;
-}
-
-interface BuildingWithRooms {
-  id: string;
-  name: string;
-  rooms: Room[];
-}
-
 export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [bookedRooms, setBookedRooms] = useState<any[]>([]);
-  const [buildings, setBuildings] = useState<any[]>([]);
-  const [rooms, setRooms] = useState<Room[]>([]);
   const [selectedBuilding, setSelectedBuilding] = useState("");
-  const [availableRooms, setAvailableRooms] = useState<Room[]>([]);
-  const { toast } = useToast();
+  const [selectedRoomId, setSelectedRoomId] = useState("");
+  const { buildings, rooms } = useRooms();
+  const { reservations, createReservation } = useReservations();
   
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
@@ -66,161 +51,8 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
     },
   });
 
-  // Load buildings, rooms, and bookings from localStorage on component mount
-  useEffect(() => {
-    // Load bookings
-    const bookingsKey = `bookings-${user.id}`;
-    const savedBookings = localStorage.getItem(bookingsKey);
-    if (savedBookings) {
-      setBookedRooms(JSON.parse(savedBookings));
-    }
-
-    // Load buildings
-    const savedBuildings = localStorage.getItem('buildings');
-    if (savedBuildings) {
-      setBuildings(JSON.parse(savedBuildings));
-    } else {
-      // Default buildings if none exist
-      const defaultBuildings = [
-        { id: '1', name: 'Main Building', rooms: 0 },
-        { id: '2', name: 'Science Complex', rooms: 0 },
-        { id: '3', name: 'Arts Center', rooms: 0 },
-        { id: '4', name: 'Technology Block', rooms: 0 }
-      ];
-      setBuildings(defaultBuildings);
-    }
-
-    // Load rooms
-    const savedRooms = localStorage.getItem('rooms');
-    if (savedRooms) {
-      setRooms(JSON.parse(savedRooms));
-    }
-  }, [user.id]);
-
-  // Update available rooms when selected building changes
-  useEffect(() => {
-    if (selectedBuilding) {
-      const buildingRooms = rooms.filter(room => {
-        // Find the building ID from the name
-        const building = buildings.find(b => b.name === selectedBuilding);
-        return building && room.buildingId === building.id;
-      });
-      setAvailableRooms(buildingRooms);
-    } else {
-      setAvailableRooms([]);
-    }
-  }, [selectedBuilding, rooms, buildings]);
-
-  // Check for room reservations and update status
-  useEffect(() => {
-    const checkRoomStatus = () => {
-      // Get current date and time
-      const now = new Date();
-      
-      // Check each booked room
-      const updatedBookings = bookedRooms.map(booking => {
-        const bookingDate = new Date(booking.date);
-        const startTimeParts = booking.startTime.split(':');
-        const endTimeParts = booking.endTime.split(':');
-        
-        // Create Date objects for start and end times
-        const startDateTime = new Date(bookingDate);
-        startDateTime.setHours(parseInt(startTimeParts[0]), parseInt(startTimeParts[1]), 0);
-        
-        const endDateTime = new Date(bookingDate);
-        endDateTime.setHours(parseInt(endTimeParts[0]), parseInt(endTimeParts[1]), 0);
-        
-        // Check if current time is between start and end times
-        const isActive = now >= startDateTime && now < endDateTime;
-        
-        return {
-          ...booking,
-          status: isActive ? 'occupied' : 'available'
-        };
-      });
-      
-      // Update room status in localStorage
-      const savedRooms = localStorage.getItem('rooms');
-      if (savedRooms) {
-        const allRooms = JSON.parse(savedRooms);
-        
-        const updatedRooms = allRooms.map((room: any) => {
-          // Find if this room is currently booked and active
-          const activeBooking = updatedBookings.find(
-            booking => booking.roomNumber === room.name && booking.status === 'occupied'
-          );
-          
-          if (activeBooking) {
-            return { ...room, isAvailable: false };
-          } else {
-            // Only update rooms that were previously booked by this faculty
-            const wasBooked = updatedBookings.find(
-              booking => booking.roomNumber === room.name
-            );
-            
-            if (wasBooked) {
-              return { ...room, isAvailable: true };
-            }
-            
-            // Return unchanged for rooms not managed by this faculty
-            return room;
-          }
-        });
-        
-        localStorage.setItem('rooms', JSON.stringify(updatedRooms));
-        setRooms(updatedRooms);
-      }
-      
-      setBookedRooms(updatedBookings);
-      localStorage.setItem(bookingsKey, JSON.stringify(updatedBookings));
-    };
-    
-    // Check room status every minute
-    const intervalId = setInterval(checkRoomStatus, 60000);
-    
-    // Initial check
-    checkRoomStatus();
-    
-    return () => clearInterval(intervalId);
-  }, [bookedRooms, user.id]);
-
-  const onSubmit = (data: BookingFormValues) => {
-    console.log("Booking submitted:", data);
-    
-    // Create a new booking
-    const newBooking = {
-      id: `booking-${Date.now()}`,
-      building: data.building,
-      roomNumber: data.roomNumber,
-      date: data.date,
-      startTime: data.startTime,
-      endTime: data.endTime,
-      purpose: data.purpose,
-      status: 'available', // Default status
-      faculty: user.name
-    };
-    
-    // Add to state
-    const updatedBookings = [...bookedRooms, newBooking];
-    setBookedRooms(updatedBookings);
-    
-    // Save to localStorage with user-specific key
-    const bookingsKey = `bookings-${user.id}`;
-    localStorage.setItem(bookingsKey, JSON.stringify(updatedBookings));
-    
-    // Show success toast
-    toast({
-      title: "Room booked successfully",
-      description: `You've booked ${data.roomNumber} in ${data.building} on ${data.date} from ${data.startTime} to ${data.endTime}`,
-    });
-    
-    // Close the dialog and reset the form
-    setIsDialogOpen(false);
-    form.reset();
-  };
-
-  // Get today's schedule from bookings
-  const todaySchedule = bookedRooms.filter(booking => {
+  // Get today's schedule from reservations
+  const todaySchedule = reservations.filter(booking => {
     const bookingDate = new Date(booking.date);
     const today = new Date();
     return bookingDate.getDate() === today.getDate() && 
@@ -230,26 +62,51 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
 
   // Handle building selection
   const handleBuildingChange = (value: string) => {
-    form.setValue('building', value);
-    setSelectedBuilding(value);
-    // Reset room selection when building changes
-    form.setValue('roomNumber', '');
+    const building = buildings.find(b => b.name === value);
+    if (building) {
+      form.setValue('building', value);
+      setSelectedBuilding(building.id);
+      // Reset room selection when building changes
+      form.setValue('roomNumber', '');
+      setSelectedRoomId("");
+    }
+  };
+
+  // Handle room selection
+  const handleRoomChange = (roomName: string) => {
+    const room = getBuildingRooms().find(r => r.name === roomName);
+    if (room) {
+      form.setValue('roomNumber', roomName);
+      setSelectedRoomId(room.id);
+    }
   };
 
   // Get room options for selected building
-  const getRoomOptions = () => {
+  const getBuildingRooms = () => {
     // If no building is selected, return empty array
     if (!selectedBuilding) return [];
     
-    // Find building ID from name
-    const building = buildings.find(b => b.name === selectedBuilding);
-    if (!building) return [];
-    
     // Get rooms for the building
-    return rooms.filter(room => room.buildingId === building.id);
+    return rooms.filter(room => room.buildingId === selectedBuilding);
   };
 
-  const bookingsKey = `bookings-${user.id}`;
+  const onSubmit = async (data: BookingFormValues) => {
+    console.log("Booking submitted:", data, "Room ID:", selectedRoomId);
+    
+    if (!selectedRoomId) {
+      form.setError("roomNumber", { 
+        type: "manual", 
+        message: "Invalid room selection" 
+      });
+      return;
+    }
+    
+    const result = await createReservation(data, selectedRoomId);
+    if (result) {
+      setIsDialogOpen(false);
+      form.reset();
+    }
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -307,7 +164,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
                     <FormItem>
                       <FormLabel>Room</FormLabel>
                       <Select
-                        onValueChange={field.onChange}
+                        onValueChange={(value) => handleRoomChange(value)}
                         defaultValue={field.value}
                         disabled={!selectedBuilding}
                       >
@@ -317,7 +174,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {getRoomOptions().map((room) => (
+                          {getBuildingRooms().map((room) => (
                             <SelectItem key={room.id} value={room.name}>
                               {room.name} ({room.type})
                             </SelectItem>
@@ -440,12 +297,12 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
           </CardHeader>
           <CardContent>
             <div className="flex justify-between items-center">
-              <span className="text-3xl font-bold">2</span>
+              <span className="text-3xl font-bold">{reservations.length}</span>
               <Building className="h-5 w-5 text-muted-foreground" />
             </div>
           </CardContent>
           <CardFooter className="pt-0">
-            <p className="text-xs text-muted-foreground">Pending approval</p>
+            <p className="text-xs text-muted-foreground">Total reservations</p>
           </CardFooter>
         </Card>
 
@@ -474,28 +331,49 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {bookedRooms.length > 0 ? (
-                bookedRooms.map((booking, i) => (
-                  <div key={i} className="flex items-start gap-4 pb-4 border-b last:border-0">
-                    <div className={`rounded-full p-2 ${booking.status === 'occupied' ? 'bg-red-100' : 'bg-primary/10'}`}>
-                      <CheckCircle className={`h-4 w-4 ${booking.status === 'occupied' ? 'text-red-500' : 'text-primary'}`} />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-medium">{booking.purpose}</h4>
-                      <p className="text-xs text-muted-foreground">{booking.building} - {booking.roomNumber}</p>
-                    </div>
-                    <div className="ml-auto text-right">
-                      <span className="text-xs font-medium">
-                        {new Date(booking.date).toLocaleDateString()} • {booking.startTime} - {booking.endTime}
-                      </span>
-                      <div className="text-xs mt-1">
-                        <span className={`${booking.status === 'occupied' ? 'text-red-500' : 'text-green-500'}`}>
-                          {booking.status === 'occupied' ? 'In Progress' : 'Scheduled'}
+              {reservations.length > 0 ? (
+                reservations.map((booking) => {
+                  // Determine if the booking is currently active
+                  const now = new Date();
+                  const bookingDate = new Date(booking.date);
+                  const today = new Date();
+                  const isToday = bookingDate.getDate() === today.getDate() && 
+                                bookingDate.getMonth() === today.getMonth() && 
+                                bookingDate.getFullYear() === today.getFullYear();
+                  
+                  const startTimeParts = booking.startTime.split(':');
+                  const endTimeParts = booking.endTime.split(':');
+                  
+                  const startDateTime = new Date(bookingDate);
+                  startDateTime.setHours(parseInt(startTimeParts[0]), parseInt(startTimeParts[1]), 0);
+                  
+                  const endDateTime = new Date(bookingDate);
+                  endDateTime.setHours(parseInt(endTimeParts[0]), parseInt(endTimeParts[1]), 0);
+                  
+                  const isActive = now >= startDateTime && now < endDateTime;
+                  
+                  return (
+                    <div key={booking.id} className="flex items-start gap-4 pb-4 border-b last:border-0">
+                      <div className={`rounded-full p-2 ${isActive ? 'bg-red-100' : 'bg-primary/10'}`}>
+                        <CheckCircle className={`h-4 w-4 ${isActive ? 'text-red-500' : 'text-primary'}`} />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-medium">{booking.purpose}</h4>
+                        <p className="text-xs text-muted-foreground">{booking.building} - {booking.roomNumber}</p>
+                      </div>
+                      <div className="ml-auto text-right">
+                        <span className="text-xs font-medium">
+                          {new Date(booking.date).toLocaleDateString()} • {booking.startTime} - {booking.endTime}
                         </span>
+                        <div className="text-xs mt-1">
+                          <span className={`${isActive ? 'text-red-500' : (isToday ? 'text-orange-500' : 'text-green-500')}`}>
+                            {isActive ? 'In Progress' : (isToday ? 'Today' : 'Scheduled')}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <p className="text-center text-muted-foreground py-8">No classes scheduled yet. Book a room to get started.</p>
               )}
@@ -510,29 +388,36 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {availableRooms.length > 0 ? (
-                availableRooms.filter(room => room.isAvailable).slice(0, 3).map((room, i) => (
-                  <div key={i} className="pb-4 border-b last:border-0">
-                    <h4 className="text-sm font-medium">{room.name}</h4>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {selectedBuilding} • Type: {room.type}
-                    </p>
-                    <div className="mt-2">
-                      <a 
-                        href="#reserve" 
-                        className="text-xs text-primary hover:underline"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setIsDialogOpen(true);
-                          form.setValue('building', selectedBuilding);
-                          form.setValue('roomNumber', room.name);
-                        }}
-                      >
-                        Reserve
-                      </a>
+              {rooms.filter(room => room.isAvailable).slice(0, 3).length > 0 ? (
+                rooms.filter(room => room.isAvailable).slice(0, 3).map((room) => {
+                  const building = buildings.find(b => b.id === room.buildingId);
+                  return (
+                    <div key={room.id} className="pb-4 border-b last:border-0">
+                      <h4 className="text-sm font-medium">{room.name}</h4>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {building?.name || 'Unknown Building'} • Type: {room.type}
+                      </p>
+                      <div className="mt-2">
+                        <a 
+                          href="#reserve" 
+                          className="text-xs text-primary hover:underline"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            if (building) {
+                              setIsDialogOpen(true);
+                              form.setValue('building', building.name);
+                              form.setValue('roomNumber', room.name);
+                              setSelectedBuilding(building.id);
+                              setSelectedRoomId(room.id);
+                            }
+                          }}
+                        >
+                          Reserve
+                        </a>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <p className="text-center text-muted-foreground py-4">No available rooms found.</p>
               )}
