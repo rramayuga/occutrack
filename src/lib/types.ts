@@ -1,11 +1,14 @@
+
 // User types
 export interface User {
   id: string;
   name: string;
   email: string;
-  role: string;
+  role: UserRole;
   avatar?: string;
 }
+
+export type UserRole = 'student' | 'professor' | 'admin' | 'superadmin';
 
 // Authentication types
 export interface AuthState {
