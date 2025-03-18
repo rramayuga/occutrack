@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export const handleStudentRegistration = async (
@@ -83,6 +84,7 @@ export const handleLogin = async (email: string, password: string) => {
     throw error;
   }
 
+  // Fetch the user's profile to get their role
   const { data: profile } = await supabase
     .from('profiles')
     .select('*')
@@ -102,3 +104,4 @@ export const handleLogin = async (email: string, password: string) => {
     session: data.session 
   };
 };
+

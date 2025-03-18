@@ -41,6 +41,7 @@ const Login = () => {
           description: "Welcome back!",
         });
         
+        // Redirect based on user role
         navigate('/dashboard');
       }
     } catch (error: any) {
