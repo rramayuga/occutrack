@@ -10,6 +10,13 @@ import {
   BarChart, Users, Building, Settings, Plus, Search
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AdminDashboardProps {
   user: User;
@@ -23,25 +30,217 @@ interface Building {
   createdBy: string;
 }
 
+const buildingFormSchema = z.object({
+  name: z.string().min(2, { message: "Building name must be at least 2 characters." }),
+  floors: z.string().transform(val => parseInt(val, 10)),
+});
+
+const roomFormSchema = z.object({
+  name: z.string().min(2, { message: "Room name must be at least 2 characters." }),
+  type: z.string().min(2, { message: "Room type must be at least 2 characters." }),
+  floor: z.string().transform(val => parseInt(val, 10)),
+  buildingId: z.string().min(1, { message: "Please select a building." }),
+});
+
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const [buildings, setBuildings] = useState<Building[]>([]);
+  const [isBuildingDialogOpen, setIsBuildingDialogOpen] = useState(false);
+  const [isRoomDialogOpen, setIsRoomDialogOpen] = useState(false);
+  const { toast } = useToast();
+  
+  const buildingForm = useForm({
+    resolver: zodResolver(buildingFormSchema),
+    defaultValues: {
+      name: "",
+      floors: "1",
+    },
+  });
+  
+  const roomForm = useForm({
+    resolver: zodResolver(roomFormSchema),
+    defaultValues: {
+      name: "",
+      type: "",
+      floor: "1",
+      buildingId: "",
+    },
+  });
   
   useEffect(() => {
     // Load buildings from localStorage
+    const fetchBuildings = async () => {
+      try {
+        // First try to load from localStorage for a smoother demo experience
+        const savedBuildings = localStorage.getItem('buildings');
+        if (savedBuildings) {
+          const allBuildings = JSON.parse(savedBuildings);
+          // Filter buildings to show only those created by the current admin
+          const adminBuildings = [
+            { id: '1', name: 'Main Building', rooms: 48, utilization: '85%', createdBy: user.id },
+            { id: '2', name: 'Science Complex', rooms: 32, utilization: '72%', createdBy: user.id },
+            { id: '3', name: 'Arts Center', rooms: 24, utilization: '68%', createdBy: '123' },
+            { id: '4', name: 'Technology Block', rooms: 24, utilization: '91%', createdBy: '123' }
+          ].filter(building => building.createdBy === user.id);
+          
+          setBuildings(adminBuildings);
+        } else {
+          // If no buildings in localStorage, create default data
+          const defaultBuildings = [
+            { id: '1', name: 'Main Building', rooms: 48, utilization: '85%', createdBy: user.id },
+            { id: '2', name: 'Science Complex', rooms: 32, utilization: '72%', createdBy: user.id }
+          ];
+          localStorage.setItem('buildings', JSON.stringify(defaultBuildings));
+          setBuildings(defaultBuildings);
+        }
+      } catch (error) {
+        console.error("Error fetching buildings:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load buildings data.",
+          variant: "destructive"
+        });
+      }
+    };
+    
+    fetchBuildings();
+  }, [user.id, toast]);
+
+  const onAddBuilding = (data: any) => {
+    const newBuilding = {
+      id: Date.now().toString(),
+      name: data.name,
+      rooms: 0,
+      utilization: '0%',
+      createdBy: user.id
+    };
+    
+    const updatedBuildings = [...buildings, newBuilding];
+    setBuildings(updatedBuildings);
+    
+    // Update localStorage with all buildings (including ones from other admins)
+    const savedBuildings = localStorage.getItem('buildings');
+    let allBuildings = [];
+    if (savedBuildings) {
+      allBuildings = JSON.parse(savedBuildings);
+      // Filter out buildings from other admins
+      const otherBuildings = allBuildings.filter((b: Building) => b.createdBy !== user.id);
+      // Add all buildings from this admin
+      allBuildings = [...otherBuildings, ...updatedBuildings];
+    } else {
+      allBuildings = [newBuilding];
+    }
+    localStorage.setItem('buildings', JSON.stringify(allBuildings));
+    
+    // Also save to floors data for the building
+    const savedFloorsData = localStorage.getItem('buildingFloors');
+    let floorsData = {};
+    if (savedFloorsData) {
+      floorsData = JSON.parse(savedFloorsData);
+    }
+    // Create floors array: [1, 2, ..., data.floors]
+    const floors = Array.from({ length: data.floors }, (_, i) => i + 1);
+    floorsData = { ...floorsData, [newBuilding.id]: floors };
+    localStorage.setItem('buildingFloors', JSON.stringify(floorsData));
+    
+    // Create building with floors in a format for rooms page
+    const buildingsWithFloors = localStorage.getItem('buildingsWithFloors');
+    let buildingsFloorData = [];
+    if (buildingsWithFloors) {
+      buildingsFloorData = JSON.parse(buildingsWithFloors);
+    }
+    
+    const newBuildingWithFloors = {
+      id: newBuilding.id,
+      name: newBuilding.name,
+      floors: floors,
+      roomCount: 0
+    };
+    
+    buildingsFloorData = [...buildingsFloorData.filter((b: any) => b.id !== newBuilding.id), newBuildingWithFloors];
+    localStorage.setItem('buildingsWithFloors', JSON.stringify(buildingsFloorData));
+    
+    toast({
+      title: "Building added",
+      description: `${data.name} has been added successfully.`
+    });
+    
+    buildingForm.reset();
+    setIsBuildingDialogOpen(false);
+  };
+
+  const onAddRoom = (data: any) => {
+    // Add room to rooms data
+    const savedRooms = localStorage.getItem('rooms');
+    let rooms = [];
+    if (savedRooms) {
+      rooms = JSON.parse(savedRooms);
+    }
+    
+    const newRoom = {
+      id: Date.now().toString(),
+      name: data.name,
+      type: data.type,
+      isAvailable: true,
+      floor: data.floor,
+      buildingId: data.buildingId
+    };
+    
+    rooms = [...rooms, newRoom];
+    localStorage.setItem('rooms', JSON.stringify(rooms));
+    
+    // Update building room count
+    const updatedBuildings = buildings.map(building => {
+      if (building.id === data.buildingId) {
+        return {
+          ...building,
+          rooms: building.rooms + 1
+        };
+      }
+      return building;
+    });
+    
+    setBuildings(updatedBuildings);
+    
+    // Update all buildings in localStorage
     const savedBuildings = localStorage.getItem('buildings');
     if (savedBuildings) {
       const allBuildings = JSON.parse(savedBuildings);
-      // Filter buildings to show only those created by the current admin
-      const adminBuildings = [
-        { id: '1', name: 'Main Building', rooms: 48, utilization: '85%', createdBy: user.id },
-        { id: '2', name: 'Science Complex', rooms: 32, utilization: '72%', createdBy: user.id },
-        { id: '3', name: 'Arts Center', rooms: 24, utilization: '68%', createdBy: '123' },
-        { id: '4', name: 'Technology Block', rooms: 24, utilization: '91%', createdBy: '123' }
-      ].filter(building => building.createdBy === user.id);
-      
-      setBuildings(adminBuildings);
+      const updatedAllBuildings = allBuildings.map((b: Building) => {
+        if (b.id === data.buildingId) {
+          return {
+            ...b,
+            rooms: b.rooms + 1
+          };
+        }
+        return b;
+      });
+      localStorage.setItem('buildings', JSON.stringify(updatedAllBuildings));
     }
-  }, [user.id]);
+    
+    // Also update buildings with floors data
+    const buildingsWithFloors = localStorage.getItem('buildingsWithFloors');
+    if (buildingsWithFloors) {
+      const buildingsFloorData = JSON.parse(buildingsWithFloors);
+      const updatedBuildingsFloorData = buildingsFloorData.map((b: any) => {
+        if (b.id === data.buildingId) {
+          return {
+            ...b,
+            roomCount: b.roomCount + 1
+          };
+        }
+        return b;
+      });
+      localStorage.setItem('buildingsWithFloors', JSON.stringify(updatedBuildingsFloorData));
+    }
+    
+    toast({
+      title: "Room added",
+      description: `${data.name} has been added to the selected building.`
+    });
+    
+    roomForm.reset();
+    setIsRoomDialogOpen(false);
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -54,7 +253,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
           <Button variant="outline">
             <Search className="h-4 w-4 mr-2" /> Search
           </Button>
-          <Button>
+          <Button onClick={() => setIsRoomDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" /> Add New Room
           </Button>
         </div>
@@ -127,7 +326,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                 className="max-w-xs" 
                 placeholder="Search buildings..." 
               />
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={() => setIsBuildingDialogOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" /> Add
               </Button>
             </div>
@@ -246,6 +445,126 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Building Dialog */}
+      <Dialog open={isBuildingDialogOpen} onOpenChange={setIsBuildingDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Building</DialogTitle>
+          </DialogHeader>
+          <Form {...buildingForm}>
+            <form onSubmit={buildingForm.handleSubmit(onAddBuilding)} className="space-y-4">
+              <FormField
+                control={buildingForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Building Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter building name" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={buildingForm.control}
+                name="floors"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Number of Floors</FormLabel>
+                    <FormControl>
+                      <Input type="number" min="1" placeholder="Enter number of floors" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button type="submit">Add Building</Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Room Dialog */}
+      <Dialog open={isRoomDialogOpen} onOpenChange={setIsRoomDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Room</DialogTitle>
+          </DialogHeader>
+          <Form {...roomForm}>
+            <form onSubmit={roomForm.handleSubmit(onAddRoom)} className="space-y-4">
+              <FormField
+                control={roomForm.control}
+                name="buildingId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Building</FormLabel>
+                    <FormControl>
+                      <select 
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        {...field}
+                      >
+                        <option value="">Select a building</option>
+                        {buildings.map((building) => (
+                          <option key={building.id} value={building.id}>
+                            {building.name}
+                          </option>
+                        ))}
+                      </select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={roomForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Room Name/Number</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., 101, Lab 2" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={roomForm.control}
+                name="type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Room Type</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., Classroom, Lab, Office" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={roomForm.control}
+                name="floor"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Floor</FormLabel>
+                    <FormControl>
+                      <Input type="number" min="1" placeholder="Floor number" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button type="submit">Add Room</Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

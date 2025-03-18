@@ -30,15 +30,28 @@ const bookingFormSchema = z.object({
 
 type BookingFormValues = z.infer<typeof bookingFormSchema>;
 
+interface Room {
+  id: string;
+  name: string;
+  type: string;
+  isAvailable: boolean;
+  floor: number;
+  buildingId: string;
+}
+
+interface BuildingWithRooms {
+  id: string;
+  name: string;
+  rooms: Room[];
+}
+
 export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [bookedRooms, setBookedRooms] = useState<any[]>([]);
-  const [buildings, setBuildings] = useState([
-    { id: '1', name: 'Main Building' },
-    { id: '2', name: 'Science Complex' },
-    { id: '3', name: 'Arts Center' },
-    { id: '4', name: 'Technology Block' }
-  ]);
+  const [buildings, setBuildings] = useState<any[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [selectedBuilding, setSelectedBuilding] = useState("");
+  const [availableRooms, setAvailableRooms] = useState<Room[]>([]);
   const { toast } = useToast();
   
   const form = useForm<BookingFormValues>({
@@ -53,14 +66,50 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
     },
   });
 
-  // Load bookings from localStorage on component mount
+  // Load buildings, rooms, and bookings from localStorage on component mount
   useEffect(() => {
+    // Load bookings
     const bookingsKey = `bookings-${user.id}`;
     const savedBookings = localStorage.getItem(bookingsKey);
     if (savedBookings) {
       setBookedRooms(JSON.parse(savedBookings));
     }
+
+    // Load buildings
+    const savedBuildings = localStorage.getItem('buildings');
+    if (savedBuildings) {
+      setBuildings(JSON.parse(savedBuildings));
+    } else {
+      // Default buildings if none exist
+      const defaultBuildings = [
+        { id: '1', name: 'Main Building', rooms: 0 },
+        { id: '2', name: 'Science Complex', rooms: 0 },
+        { id: '3', name: 'Arts Center', rooms: 0 },
+        { id: '4', name: 'Technology Block', rooms: 0 }
+      ];
+      setBuildings(defaultBuildings);
+    }
+
+    // Load rooms
+    const savedRooms = localStorage.getItem('rooms');
+    if (savedRooms) {
+      setRooms(JSON.parse(savedRooms));
+    }
   }, [user.id]);
+
+  // Update available rooms when selected building changes
+  useEffect(() => {
+    if (selectedBuilding) {
+      const buildingRooms = rooms.filter(room => {
+        // Find the building ID from the name
+        const building = buildings.find(b => b.name === selectedBuilding);
+        return building && room.buildingId === building.id;
+      });
+      setAvailableRooms(buildingRooms);
+    } else {
+      setAvailableRooms([]);
+    }
+  }, [selectedBuilding, rooms, buildings]);
 
   // Check for room reservations and update status
   useEffect(() => {
@@ -93,9 +142,9 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
       // Update room status in localStorage
       const savedRooms = localStorage.getItem('rooms');
       if (savedRooms) {
-        const rooms = JSON.parse(savedRooms);
+        const allRooms = JSON.parse(savedRooms);
         
-        const updatedRooms = rooms.map((room: any) => {
+        const updatedRooms = allRooms.map((room: any) => {
           // Find if this room is currently booked and active
           const activeBooking = updatedBookings.find(
             booking => booking.roomNumber === room.name && booking.status === 'occupied'
@@ -119,9 +168,11 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
         });
         
         localStorage.setItem('rooms', JSON.stringify(updatedRooms));
+        setRooms(updatedRooms);
       }
       
       setBookedRooms(updatedBookings);
+      localStorage.setItem(bookingsKey, JSON.stringify(updatedBookings));
     };
     
     // Check room status every minute
@@ -177,6 +228,29 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
            bookingDate.getFullYear() === today.getFullYear();
   });
 
+  // Handle building selection
+  const handleBuildingChange = (value: string) => {
+    form.setValue('building', value);
+    setSelectedBuilding(value);
+    // Reset room selection when building changes
+    form.setValue('roomNumber', '');
+  };
+
+  // Get room options for selected building
+  const getRoomOptions = () => {
+    // If no building is selected, return empty array
+    if (!selectedBuilding) return [];
+    
+    // Find building ID from name
+    const building = buildings.find(b => b.name === selectedBuilding);
+    if (!building) return [];
+    
+    // Get rooms for the building
+    return rooms.filter(room => room.buildingId === building.id);
+  };
+
+  const bookingsKey = `bookings-${user.id}`;
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex flex-wrap items-center justify-between mb-8">
@@ -206,7 +280,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
                     <FormItem>
                       <FormLabel>Building</FormLabel>
                       <Select
-                        onValueChange={field.onChange}
+                        onValueChange={(value) => handleBuildingChange(value)}
                         defaultValue={field.value}
                       >
                         <FormControl>
@@ -231,10 +305,25 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
                   name="roomNumber"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Room Number</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., 305, Lab 2B" {...field} />
-                      </FormControl>
+                      <FormLabel>Room</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        disabled={!selectedBuilding}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a room" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {getRoomOptions().map((room) => (
+                            <SelectItem key={room.id} value={room.name}>
+                              {room.name} ({room.type})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -421,32 +510,32 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {[
-                {name: 'Study Room 101', building: 'Main Building', features: ['Whiteboard', 'Projector']},
-                {name: 'Lecture Hall 2B', building: 'Science Complex', features: ['AV Equipment', 'Tiered Seating']},
-                {name: 'Meeting Room 305', building: 'Arts Center', features: ['Conference Table', 'Smart Board']}
-              ].map((room, i) => (
-                <div key={i} className="pb-4 border-b last:border-0">
-                  <h4 className="text-sm font-medium">{room.name}</h4>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {room.building} • Features: {room.features.join(', ')}
-                  </p>
-                  <div className="mt-2">
-                    <a 
-                      href="#reserve" 
-                      className="text-xs text-primary hover:underline"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setIsDialogOpen(true);
-                        form.setValue('building', room.building);
-                        form.setValue('roomNumber', room.name);
-                      }}
-                    >
-                      Reserve
-                    </a>
+              {availableRooms.length > 0 ? (
+                availableRooms.filter(room => room.isAvailable).slice(0, 3).map((room, i) => (
+                  <div key={i} className="pb-4 border-b last:border-0">
+                    <h4 className="text-sm font-medium">{room.name}</h4>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {selectedBuilding} • Type: {room.type}
+                    </p>
+                    <div className="mt-2">
+                      <a 
+                        href="#reserve" 
+                        className="text-xs text-primary hover:underline"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setIsDialogOpen(true);
+                          form.setValue('building', selectedBuilding);
+                          form.setValue('roomNumber', room.name);
+                        }}
+                      >
+                        Reserve
+                      </a>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-center text-muted-foreground py-4">No available rooms found.</p>
+              )}
             </div>
           </CardContent>
           <CardFooter>

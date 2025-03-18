@@ -52,7 +52,7 @@ const Rooms = () => {
         setLoading(true);
         // In a real app, this would be an API call
         // For now, we're just checking localStorage for any saved data
-        const savedBuildings = localStorage.getItem('buildings');
+        const savedBuildings = localStorage.getItem('buildingsWithFloors');
         const savedRooms = localStorage.getItem('rooms');
         
         if (savedBuildings) {
