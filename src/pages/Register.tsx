@@ -1,21 +1,17 @@
+
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
 import { UserRole } from '@/lib/types';
 import { 
   Card, CardContent, CardDescription, 
   CardFooter, CardHeader, CardTitle 
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { 
-  Select, SelectContent, SelectItem, 
-  SelectTrigger, SelectValue 
-} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
-import { Building, Mail, User, Lock, AlertCircle, Book } from 'lucide-react';
+import { Building } from 'lucide-react';
+import RegistrationForm from '@/components/auth/RegistrationForm';
+import { handleStudentRegistration, handleFacultyRegistration } from '@/utils/auth-utils';
 
 interface LocationState {
   fromGoogle?: boolean;
@@ -65,59 +61,19 @@ const Register = () => {
     
     try {
       if (role === 'faculty') {
-        const { data: authData, error: signUpError } = await supabase.auth.signUp({
-          email,
-          password: password || '',
-          options: {
-            data: {
-              name,
-              role: 'student'
-            }
-          }
+        await handleFacultyRegistration(email, password || '', name, department);
+        toast({
+          title: "Registration Submitted",
+          description: "Your faculty account request has been submitted for approval.",
         });
-
-        if (signUpError) throw signUpError;
-
-        if (authData.user) {
-          const { error: requestError } = await supabase
-            .from('faculty_requests')
-            .insert({
-              user_id: authData.user.id,
-              name,
-              email,
-              department,
-              status: 'pending'
-            });
-
-          if (requestError) throw requestError;
-          
-          toast({
-            title: "Registration Submitted",
-            description: "Your faculty account request has been submitted for approval.",
-          });
-          
-          navigate('/faculty-confirmation');
-        }
+        navigate('/faculty-confirmation');
       } else {
-        const { data, error: signUpError } = await supabase.auth.signUp({
-          email,
-          password: password || '',
-          options: {
-            data: {
-              name,
-              role: 'student'
-            }
-          }
-        });
-
-        if (signUpError) throw signUpError;
-        
+        const { data } = await handleStudentRegistration(email, password || '', name);
         if (data.user) {
           toast({
             title: "Registration Successful",
             description: "Welcome to OccuTrack!",
           });
-          
           navigate('/dashboard');
         }
       }
@@ -164,149 +120,32 @@ const Register = () => {
             Enter your details to register for OccuTrack
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {error && (
-            <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm flex items-center">
-              <AlertCircle className="h-4 w-4 mr-2" />
-              {error}
-            </div>
-          )}
-          
-          <form onSubmit={handleRegister} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
-              <div className="relative">
-                <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input 
-                  id="name" 
-                  placeholder="John Doe" 
-                  className="pl-10"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  disabled={isLoading || (isGoogleSignIn && !!name)}
-                />
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input 
-                  id="email" 
-                  type="email" 
-                  placeholder="m.example@university.edu" 
-                  className="pl-10"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={isLoading || (isGoogleSignIn && !!email)}
-                />
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="role">I am a...</Label>
-              <Select 
-                value={role} 
-                onValueChange={(value) => setRole(value as UserRole)}
-                disabled={isLoading}
-              >
-                <SelectTrigger id="role" className="w-full">
-                  <SelectValue placeholder="Select your role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="student">Student</SelectItem>
-                  <SelectItem value="faculty">Faculty Member</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            {showDepartmentField && (
-              <div className="space-y-2">
-                <Label htmlFor="department">Department</Label>
-                <div className="relative">
-                  <Book className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Select 
-                    value={department} 
-                    onValueChange={setDepartment}
-                    disabled={isLoading}
-                  >
-                    <SelectTrigger id="department" className="pl-10 w-full">
-                      <SelectValue placeholder="Select your department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Computer Science">Computer Science</SelectItem>
-                      <SelectItem value="Engineering">Engineering</SelectItem>
-                      <SelectItem value="Mathematics">Mathematics</SelectItem>
-                      <SelectItem value="Physics">Physics</SelectItem>
-                      <SelectItem value="Chemistry">Chemistry</SelectItem>
-                      <SelectItem value="Biology">Biology</SelectItem>
-                      <SelectItem value="Business">Business</SelectItem>
-                      <SelectItem value="Arts">Arts</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            )}
-            
-            {!isGoogleSignIn && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                      id="password" 
-                      type="password" 
-                      placeholder="••••••••" 
-                      className="pl-10"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      disabled={isLoading}
-                    />
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Confirm Password</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                      id="confirmPassword" 
-                      type="password" 
-                      placeholder="••••••••" 
-                      className="pl-10"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      disabled={isLoading}
-                    />
-                  </div>
-                </div>
-              </>
-            )}
-            
-            <Button 
-              type="submit" 
-              className="w-full" 
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Processing...
-                </>
-              ) : (
-                'Create Account'
-              )}
-            </Button>
-          </form>
+        
+        <CardContent>
+          <RegistrationForm
+            name={name}
+            email={email}
+            password={password}
+            confirmPassword={confirmPassword}
+            role={role}
+            department={department}
+            isLoading={isLoading}
+            error={error}
+            isGoogleSignIn={isGoogleSignIn}
+            showDepartmentField={showDepartmentField}
+            onNameChange={setName}
+            onEmailChange={setEmail}
+            onPasswordChange={setPassword}
+            onConfirmPasswordChange={setConfirmPassword}
+            onRoleChange={setRole}
+            onDepartmentChange={setDepartment}
+            onSubmit={handleRegister}
+            onGoogleSignIn={handleGoogleSignIn}
+          />
           
           {!isGoogleSignIn && (
             <>
-              <div className="relative">
+              <div className="relative mt-4">
                 <div className="absolute inset-0 flex items-center">
                   <Separator className="w-full" />
                 </div>
@@ -319,7 +158,7 @@ const Register = () => {
               
               <Button 
                 variant="outline" 
-                className="w-full" 
+                className="w-full mt-4" 
                 onClick={handleGoogleSignIn}
                 disabled={isLoading}
               >
@@ -331,6 +170,7 @@ const Register = () => {
             </>
           )}
         </CardContent>
+        
         <CardFooter className="flex flex-col space-y-4">
           <div className="text-center text-sm">
             Already have an account?{" "}
