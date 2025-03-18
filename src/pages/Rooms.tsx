@@ -2,10 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
-import Navbar from '@/components/layout/Navbar';
 import { Building, AlertCircle } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import Navbar from '@/components/layout/Navbar';
+import { useAuth } from '@/lib/auth';
 
 // Simplified room and building types for the component
 interface Room {
@@ -30,6 +30,7 @@ const Rooms = () => {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedBuilding, setSelectedBuilding] = useState<string>("");
+  const { user } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -73,6 +74,43 @@ const Rooms = () => {
     fetchData();
   }, [toast]);
 
+  // Toggle room availability (only for faculty)
+  const handleToggleRoomAvailability = (roomId: string) => {
+    // Only allow faculty to toggle room availability
+    if (user?.role !== 'faculty') {
+      if (user?.role === 'student') {
+        toast({
+          title: "Access Denied",
+          description: "Students cannot change room availability.",
+          variant: "destructive"
+        });
+      }
+      return;
+    }
+
+    // Update the room's availability status
+    const updatedRooms = rooms.map(room => {
+      if (room.id === roomId) {
+        // Toggle the availability
+        const updatedRoom = { ...room, isAvailable: !room.isAvailable };
+        
+        // Show a toast notification
+        toast({
+          title: updatedRoom.isAvailable ? "Room Available" : "Room Occupied",
+          description: `${updatedRoom.name} is now ${updatedRoom.isAvailable ? 'available' : 'occupied'}.`,
+          variant: updatedRoom.isAvailable ? "default" : "destructive"
+        });
+        
+        return updatedRoom;
+      }
+      return room;
+    });
+    
+    // Update state and localStorage
+    setRooms(updatedRooms);
+    localStorage.setItem('rooms', JSON.stringify(updatedRooms));
+  };
+
   // Filter rooms for the selected building
   const buildingRooms = rooms.filter(room => room.buildingId === selectedBuilding);
   
@@ -88,6 +126,9 @@ const Rooms = () => {
   // Get the floors for the selected building
   const selectedBuildingData = buildings.find(b => b.id === selectedBuilding);
   const floors = selectedBuildingData?.floors || [];
+
+  // Determine if the current user can modify room availability
+  const canModifyRooms = user?.role === 'faculty';
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -156,9 +197,12 @@ const Rooms = () => {
                                 {floorRooms.map((room) => (
                                   <Card 
                                     key={room.id} 
-                                    className={`cursor-pointer hover:shadow-md transition-shadow ${
-                                      room.isAvailable ? 'border-green-500 border-2' : 'border-red-300 border'
-                                    }`}
+                                    className={`
+                                      ${canModifyRooms ? 'cursor-pointer' : ''}
+                                      hover:shadow-md transition-shadow
+                                      ${room.isAvailable ? 'border-green-500 border-2' : 'border-red-300 border'}
+                                    `}
+                                    onClick={() => canModifyRooms && handleToggleRoomAvailability(room.id)}
                                   >
                                     <CardHeader className="pb-2">
                                       <CardTitle className="text-lg">{room.name}</CardTitle>
@@ -179,6 +223,11 @@ const Rooms = () => {
                                             {room.isAvailable ? "Available" : "Occupied"}
                                           </span>
                                         </div>
+                                        {canModifyRooms && (
+                                          <div className="mt-2 pt-2 border-t text-center text-xs text-muted-foreground">
+                                            Click to {room.isAvailable ? 'occupy' : 'free up'} this room
+                                          </div>
+                                        )}
                                       </div>
                                     </CardContent>
                                   </Card>
