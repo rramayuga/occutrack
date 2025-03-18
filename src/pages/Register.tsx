@@ -65,23 +65,39 @@ const Register = () => {
     
     try {
       if (role === 'faculty') {
-        const { error: requestError } = await supabase
-          .from('faculty_requests')
-          .insert([{
-            name,
-            email,
-            department,
-            status: 'pending'
-          }]);
-
-        if (requestError) throw requestError;
-        
-        toast({
-          title: "Registration Submitted",
-          description: "Your faculty account request has been submitted for approval.",
+        const { data: authData, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password: password || '',
+          options: {
+            data: {
+              name,
+              role: 'student'
+            }
+          }
         });
-        
-        navigate('/faculty-confirmation');
+
+        if (signUpError) throw signUpError;
+
+        if (authData.user) {
+          const { error: requestError } = await supabase
+            .from('faculty_requests')
+            .insert({
+              user_id: authData.user.id,
+              name,
+              email,
+              department,
+              status: 'pending'
+            });
+
+          if (requestError) throw requestError;
+          
+          toast({
+            title: "Registration Submitted",
+            description: "Your faculty account request has been submitted for approval.",
+          });
+          
+          navigate('/faculty-confirmation');
+        }
       } else {
         const { data, error: signUpError } = await supabase.auth.signUp({
           email,
