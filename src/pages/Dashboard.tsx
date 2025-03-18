@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import Navbar from '@/components/layout/Navbar';
 import { User, UserRole } from '@/lib/types';
@@ -14,7 +13,6 @@ const createMockUser = (role: UserRole): User => {
     name: 'John Doe',
     email: 'john@example.com',
     role: role,
-    profileComplete: true,
     avatar: '/placeholder.svg'
   };
 };
