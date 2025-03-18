@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
@@ -33,79 +32,25 @@ const Login = () => {
     setError('');
     
     try {
-      // This is a mock login - would be replaced with Supabase auth
-      setTimeout(() => {
-        // Check for superadmin credentials
-        if (email === 'superadmin@neu.edu.ph' && password === 'superadmin123') {
-          const superadmin = { 
-            id: '0', 
-            name: 'Super Administrator', 
-            email, 
-            role: 'superadmin' as UserRole 
-          };
-          localStorage.setItem('user', JSON.stringify(superadmin));
-          
-          toast({
-            title: "Login successful",
-            description: "Welcome, Super Administrator!",
-          });
-          
-          navigate('/dashboard');
-          setIsLoading(false);
-          return;
-        }
-        
-        // Check for admin credentials
-        if (email === 'admin@neu.edu.ph' && password === 'admin123') {
-          const admin = { 
-            id: '1', 
-            name: 'Administrator', 
-            email, 
-            role: 'admin' as UserRole 
-          };
-          localStorage.setItem('user', JSON.stringify(admin));
-          
-          toast({
-            title: "Login successful",
-            description: "Welcome, Administrator!",
-          });
-          
-          navigate('/dashboard');
-          setIsLoading(false);
-          return;
-        }
-        
-        // Mock different user roles for demo purposes
-        let user: { id: string; name: string; email: string; role: UserRole } | null = null;
-        
-        if (email === 'admin@example.com') {
-          user = { id: '2', name: 'Admin User', email, role: 'admin' };
-        } else if (email === 'professor@example.com') {
-          user = { id: '3', name: 'Professor User', email, role: 'professor' };
-        } else if (email === 'student@example.com') {
-          user = { id: '4', name: 'Student User', email, role: 'student' };
-        } else {
-          setError('Invalid email or password. Please try again.');
-          setIsLoading(false);
-          return;
-        }
-        
-        // Store user in localStorage (would be a secure session with Supabase)
-        localStorage.setItem('user', JSON.stringify(user));
-        
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) throw error;
+
+      if (data.user) {
         toast({
           title: "Login successful",
-          description: `Welcome back, ${user.name}!`,
+          description: "Welcome back!",
         });
         
-        // Redirect to dashboard
         navigate('/dashboard');
-        
-        setIsLoading(false);
-      }, 1000);
-    } catch (error) {
+      }
+    } catch (error: any) {
       console.error('Login error:', error);
-      setError('Invalid email or password. Please try again.');
+      setError(error.message || 'Invalid email or password. Please try again.');
+    } finally {
       setIsLoading(false);
     }
   };

@@ -1,4 +1,3 @@
-
 // User types
 export interface User {
   id: string;
@@ -8,7 +7,7 @@ export interface User {
   avatar?: string;
 }
 
-export type UserRole = 'student' | 'professor' | 'admin' | 'superadmin';
+export type UserRole = 'student' | 'faculty' | 'admin' | 'superadmin';
 
 // Authentication types
 export interface AuthState {

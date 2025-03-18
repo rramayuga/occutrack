@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
@@ -40,13 +39,11 @@ const Register = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Show form fields based on role
   const showDepartmentField = role === 'professor';
   
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Form validation
     if (!name || !email || (!isGoogleSignIn && (!password || !confirmPassword))) {
       setError('Please fill in all required fields.');
       return;
@@ -66,41 +63,39 @@ const Register = () => {
     setError('');
     
     try {
-      // This is a mock registration - would be replaced with Supabase auth
-      setTimeout(() => {
-        if (role === 'professor') {
-          // For professors, store their application in pending faculty
-          const existingFaculty = JSON.parse(localStorage.getItem('faculty') || '[]');
-          const newFaculty = {
-            id: `faculty-${Date.now()}`,
+      if (role === 'professor') {
+        const { error: requestError } = await supabase
+          .from('faculty_requests')
+          .insert([{
             name,
             email,
             department,
-            status: 'pending' as const,
-            dateApplied: new Date().toISOString().split('T')[0]
-          };
-          
-          localStorage.setItem('faculty', JSON.stringify([...existingFaculty, newFaculty]));
-          
-          // Redirect to faculty confirmation page
-          toast({
-            title: "Registration Submitted",
-            description: "Your faculty account request has been submitted for approval.",
-          });
-          
-          navigate('/faculty-confirmation');
-        } else {
-          // For students, create a user account and log them in
-          const user = {
-            id: `user-${Date.now()}`,
-            name,
-            email,
-            role
-          };
-          
-          localStorage.setItem('user', JSON.stringify(user));
-          localStorage.setItem('mockUserRole', user.role); // For dashboard role switching
-          
+            status: 'pending'
+          }]);
+
+        if (requestError) throw requestError;
+        
+        toast({
+          title: "Registration Submitted",
+          description: "Your faculty account request has been submitted for approval.",
+        });
+        
+        navigate('/faculty-confirmation');
+      } else {
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password: password || '',
+          options: {
+            data: {
+              name,
+              role: 'student'
+            }
+          }
+        });
+
+        if (signUpError) throw signUpError;
+        
+        if (data.user) {
           toast({
             title: "Registration Successful",
             description: "Welcome to OccuTrack!",
@@ -108,12 +103,11 @@ const Register = () => {
           
           navigate('/dashboard');
         }
-        
-        setIsLoading(false);
-      }, 1000);
-    } catch (error) {
+      }
+    } catch (error: any) {
       console.error('Registration error:', error);
-      setError('Registration failed. Please try again.');
+      setError(error.message || 'Registration failed. Please try again.');
+    } finally {
       setIsLoading(false);
     }
   };
@@ -121,13 +115,11 @@ const Register = () => {
   const handleGoogleSignIn = () => {
     setIsLoading(true);
     
-    // This would be replaced with actual Supabase Google auth
     toast({
       title: "Google Authentication",
       description: "Processing Google sign-in...",
     });
     
-    // For demonstration only
     setTimeout(() => {
       setIsGoogleSignIn(true);
       setEmail('google-user@gmail.com');
