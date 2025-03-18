@@ -6,6 +6,7 @@ import { Building, AlertCircle } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import Navbar from '@/components/layout/Navbar';
 import { useAuth } from '@/lib/auth';
+import { supabase } from "@/integrations/supabase/client";
 
 // Simplified room and building types for the component
 interface Room {
@@ -22,6 +23,18 @@ interface BuildingWithFloors {
   name: string;
   floors: number[];
   roomCount: number;
+}
+
+interface Booking {
+  id: string;
+  building: string;
+  roomNumber: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  purpose: string;
+  status: string;
+  faculty: string;
 }
 
 const Rooms = () => {
@@ -77,14 +90,18 @@ const Rooms = () => {
       // Get bookings from localStorage
       const checkRoomStatus = () => {
         if (user?.role === 'faculty') {
-          const savedBookings = localStorage.getItem(`bookings-${user.id}`);
+          const bookingsKey = `bookings-${user.id}`;
+          const savedBookings = localStorage.getItem(bookingsKey);
           
           if (savedBookings) {
-            const bookings = JSON.parse(savedBookings);
+            const bookings: Booking[] = JSON.parse(savedBookings);
             const now = new Date();
             
             // Check which bookings are currently active
-            bookings.forEach((booking: any) => {
+            const updatedRooms = [...rooms];
+            let roomsUpdated = false;
+            
+            bookings.forEach((booking: Booking) => {
               const bookingDate = new Date(booking.date);
               const startTimeParts = booking.startTime.split(':');
               const endTimeParts = booking.endTime.split(':');
@@ -99,24 +116,77 @@ const Rooms = () => {
               const isActive = now >= startDateTime && now < endDateTime;
               
               // Update the room status in local state
-              setRooms(prevRooms => {
-                return prevRooms.map(room => {
-                  if (room.name === booking.roomNumber) {
-                    return { ...room, isAvailable: !isActive };
+              updatedRooms.forEach((room, index) => {
+                if (room.name === booking.roomNumber) {
+                  if (room.isAvailable === isActive) {
+                    updatedRooms[index] = { ...room, isAvailable: !isActive };
+                    roomsUpdated = true;
                   }
-                  return room;
-                });
+                }
               });
             });
+            
+            if (roomsUpdated) {
+              setRooms(updatedRooms);
+              localStorage.setItem('rooms', JSON.stringify(updatedRooms));
+            }
           }
         }
       };
       
       checkRoomStatus();
     }, 60000);
+    
+    // Run the check immediately on load
+    if (user?.role === 'faculty') {
+      setTimeout(() => {
+        const checkRoomStatus = () => {
+          const bookingsKey = `bookings-${user.id}`;
+          const savedBookings = localStorage.getItem(bookingsKey);
+          
+          if (savedBookings) {
+            const bookings: Booking[] = JSON.parse(savedBookings);
+            const now = new Date();
+            
+            const updatedRooms = [...rooms];
+            let roomsUpdated = false;
+            
+            bookings.forEach((booking: Booking) => {
+              const bookingDate = new Date(booking.date);
+              const startTimeParts = booking.startTime.split(':');
+              const endTimeParts = booking.endTime.split(':');
+              
+              const startDateTime = new Date(bookingDate);
+              startDateTime.setHours(parseInt(startTimeParts[0]), parseInt(startTimeParts[1]), 0);
+              
+              const endDateTime = new Date(bookingDate);
+              endDateTime.setHours(parseInt(endTimeParts[0]), parseInt(endTimeParts[1]), 0);
+              
+              const isActive = now >= startDateTime && now < endDateTime;
+              
+              updatedRooms.forEach((room, index) => {
+                if (room.name === booking.roomNumber) {
+                  if (room.isAvailable === isActive) {
+                    updatedRooms[index] = { ...room, isAvailable: !isActive };
+                    roomsUpdated = true;
+                  }
+                }
+              });
+            });
+            
+            if (roomsUpdated) {
+              setRooms(updatedRooms);
+              localStorage.setItem('rooms', JSON.stringify(updatedRooms));
+            }
+          }
+        };
+        
+        checkRoomStatus();
+      }, 1000); // Run after 1 second to ensure rooms are loaded
+    }
 
     return () => clearInterval(intervalId);
-  }, [toast, user]);
+  }, [toast, user, rooms]);
 
   // Toggle room availability (only for faculty)
   const handleToggleRoomAvailability = (roomId: string) => {

@@ -22,7 +22,7 @@ const NavLinkList: React.FC<NavLinkListProps> = ({ links, userRole }) => {
     : links;
   
   return (
-    <ul className="space-y-1">
+    <div className="flex space-x-4">
       {filteredLinks.map(link => (
         <NavLink
           key={link.path}
@@ -31,7 +31,7 @@ const NavLinkList: React.FC<NavLinkListProps> = ({ links, userRole }) => {
           icon={link.icon}
         />
       ))}
-    </ul>
+    </div>
   );
 };
 

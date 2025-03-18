@@ -53,6 +53,15 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
     },
   });
 
+  // Load bookings from localStorage on component mount
+  useEffect(() => {
+    const bookingsKey = `bookings-${user.id}`;
+    const savedBookings = localStorage.getItem(bookingsKey);
+    if (savedBookings) {
+      setBookedRooms(JSON.parse(savedBookings));
+    }
+  }, [user.id]);
+
   // Check for room reservations and update status
   useEffect(() => {
     const checkRoomStatus = () => {
@@ -115,16 +124,6 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
       setBookedRooms(updatedBookings);
     };
     
-    // Load existing bookings from localStorage
-    const loadBookings = () => {
-      const savedBookings = localStorage.getItem(`bookings-${user.id}`);
-      if (savedBookings) {
-        setBookedRooms(JSON.parse(savedBookings));
-      }
-    };
-    
-    loadBookings();
-    
     // Check room status every minute
     const intervalId = setInterval(checkRoomStatus, 60000);
     
@@ -154,8 +153,9 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
     const updatedBookings = [...bookedRooms, newBooking];
     setBookedRooms(updatedBookings);
     
-    // Save to localStorage
-    localStorage.setItem(`bookings-${user.id}`, JSON.stringify(updatedBookings));
+    // Save to localStorage with user-specific key
+    const bookingsKey = `bookings-${user.id}`;
+    localStorage.setItem(bookingsKey, JSON.stringify(updatedBookings));
     
     // Show success toast
     toast({
@@ -397,7 +397,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
                     </div>
                     <div className="ml-auto text-right">
                       <span className="text-xs font-medium">
-                        {booking.date.split('-').reverse().join('/')} • {booking.startTime} - {booking.endTime}
+                        {new Date(booking.date).toLocaleDateString()} • {booking.startTime} - {booking.endTime}
                       </span>
                       <div className="text-xs mt-1">
                         <span className={`${booking.status === 'occupied' ? 'text-red-500' : 'text-green-500'}`}>

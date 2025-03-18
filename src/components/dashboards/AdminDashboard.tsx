@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { User } from '@/lib/types';
 import { 
   Card, CardContent, CardDescription, CardHeader, CardTitle 
@@ -15,7 +15,34 @@ interface AdminDashboardProps {
   user: User;
 }
 
+interface Building {
+  id: string;
+  name: string;
+  rooms: number;
+  utilization: string;
+  createdBy: string;
+}
+
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
+  const [buildings, setBuildings] = useState<Building[]>([]);
+  
+  useEffect(() => {
+    // Load buildings from localStorage
+    const savedBuildings = localStorage.getItem('buildings');
+    if (savedBuildings) {
+      const allBuildings = JSON.parse(savedBuildings);
+      // Filter buildings to show only those created by the current admin
+      const adminBuildings = [
+        { id: '1', name: 'Main Building', rooms: 48, utilization: '85%', createdBy: user.id },
+        { id: '2', name: 'Science Complex', rooms: 32, utilization: '72%', createdBy: user.id },
+        { id: '3', name: 'Arts Center', rooms: 24, utilization: '68%', createdBy: '123' },
+        { id: '4', name: 'Technology Block', rooms: 24, utilization: '91%', createdBy: '123' }
+      ].filter(building => building.createdBy === user.id);
+      
+      setBuildings(adminBuildings);
+    }
+  }, [user.id]);
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex flex-wrap items-center justify-between mb-8">
@@ -41,7 +68,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
           </CardHeader>
           <CardContent>
             <div className="flex justify-between items-center">
-              <span className="text-3xl font-bold">4</span>
+              <span className="text-3xl font-bold">{buildings.length}</span>
               <Building className="h-5 w-5 text-muted-foreground" />
             </div>
           </CardContent>
@@ -52,7 +79,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
           </CardHeader>
           <CardContent>
             <div className="flex justify-between items-center">
-              <span className="text-3xl font-bold">128</span>
+              <span className="text-3xl font-bold">
+                {buildings.reduce((total, building) => total + building.rooms, 0)}
+              </span>
               <Settings className="h-5 w-5 text-muted-foreground" />
             </div>
           </CardContent>
@@ -105,12 +134,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[
-              { name: 'Main Building', rooms: 48, utilization: '85%' },
-              { name: 'Science Complex', rooms: 32, utilization: '72%' },
-              { name: 'Arts Center', rooms: 24, utilization: '68%' },
-              { name: 'Technology Block', rooms: 24, utilization: '91%' }
-            ].map((building, i) => (
+            {buildings.map((building, i) => (
               <Card key={i}>
                 <CardHeader>
                   <CardTitle>{building.name}</CardTitle>
@@ -130,6 +154,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                 </CardContent>
               </Card>
             ))}
+            {buildings.length === 0 && (
+              <div className="col-span-3 text-center p-8 border rounded-lg">
+                <p className="text-muted-foreground">No buildings available. Add a building to get started.</p>
+              </div>
+            )}
           </div>
         </TabsContent>
         
