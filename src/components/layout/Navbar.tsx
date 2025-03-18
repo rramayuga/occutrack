@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
@@ -19,7 +18,6 @@ const Navbar = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check for authenticated user
     const checkAuth = () => {
       const savedUser = localStorage.getItem('user');
       if (savedUser) {
@@ -39,9 +37,8 @@ const Navbar = () => {
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [location.pathname]); // Re-check auth when route changes
+  }, [location.pathname]);
 
-  // Close mobile menu when route changes
   useEffect(() => {
     setIsOpen(false);
   }, [location.pathname]);
@@ -72,7 +69,6 @@ const Navbar = () => {
     { name: 'System Settings', path: '/admin/settings', icon: <Settings size={18} />, roles: ['superadmin'] },
   ];
 
-  // Filter links based on user role
   const filteredNavLinks = user ? navLinks.filter(link => link.roles.includes(user.role)) : [];
   const filteredAdminLinks = user ? adminLinks.filter(link => link.roles.includes(user.role)) : [];
   
@@ -103,15 +99,13 @@ const Navbar = () => {
     >
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Logo */}
           <Link to="/" className="flex items-center space-x-2 font-medium">
             <div className="h-8 w-8 rounded-md bg-primary flex items-center justify-center">
               <Building size={20} className="text-white" />
             </div>
-            <span className="text-lg font-semibold">OccuTrack</span>
+            <span className="text-lg font-semibold">Facility Tracker</span>
           </Link>
 
-          {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-6">
             <ul className="flex items-center space-x-2">
               {renderNavLinks(filteredNavLinks)}
@@ -160,7 +154,6 @@ const Navbar = () => {
             )}
           </nav>
 
-          {/* Mobile Menu Button */}
           <button
             onClick={() => setIsOpen(!isOpen)}
             className="md:hidden rounded-md p-2 text-gray-700 hover:bg-gray-100 focus:outline-none"
@@ -170,7 +163,6 @@ const Navbar = () => {
         </div>
       </div>
 
-      {/* Mobile Menu */}
       <div 
         className={`fixed inset-0 z-40 transform ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
@@ -183,7 +175,7 @@ const Navbar = () => {
               <div className="h-8 w-8 rounded-md bg-primary flex items-center justify-center">
                 <Building size={20} className="text-white" />
               </div>
-              <span className="text-lg font-semibold">OccuTrack</span>
+              <span className="text-lg font-semibold">Facility Tracker</span>
             </Link>
             <button
               onClick={() => setIsOpen(false)}

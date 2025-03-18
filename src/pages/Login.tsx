@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
@@ -34,8 +33,27 @@ const Login = () => {
     
     try {
       // This is a mock login - would be replaced with Supabase auth
-      // Simulate successful login with mock data
       setTimeout(() => {
+        // Check for superadmin credentials
+        if (email === 'superadmin@neu.edu.ph' && password === 'superadmin123') {
+          const superadmin = { 
+            id: '0', 
+            name: 'Super Administrator', 
+            email, 
+            role: 'superadmin' as UserRole 
+          };
+          localStorage.setItem('user', JSON.stringify(superadmin));
+          
+          toast({
+            title: "Login successful",
+            description: "Welcome, Super Administrator!",
+          });
+          
+          navigate('/dashboard');
+          setIsLoading(false);
+          return;
+        }
+        
         // Mock different user roles for demo purposes
         let user: { id: string; name: string; email: string; role: UserRole } | null = null;
         
@@ -46,20 +64,20 @@ const Login = () => {
         } else if (email === 'student@example.com') {
           user = { id: '3', name: 'Student User', email, role: 'student' };
         } else {
-          // Default to student for demo
-          user = { id: '4', name: 'Demo User', email, role: 'student' };
+          setError('Invalid email or password. Please try again.');
+          setIsLoading(false);
+          return;
         }
         
         // Store user in localStorage (would be a secure session with Supabase)
         localStorage.setItem('user', JSON.stringify(user));
-        localStorage.setItem('mockUserRole', user.role); // For dashboard role switching
         
         toast({
           title: "Login successful",
           description: `Welcome back, ${user.name}!`,
         });
         
-        // Redirect to dashboard (role-based content will be shown there)
+        // Redirect to dashboard
         navigate('/dashboard');
         
         setIsLoading(false);
@@ -125,7 +143,7 @@ const Login = () => {
               <Building className="h-6 w-6 text-primary-foreground" />
             </div>
           </div>
-          <CardTitle className="text-2xl">Sign in to OccuTrack</CardTitle>
+          <CardTitle className="text-2xl">Sign in to Facility Tracker</CardTitle>
           <CardDescription>
             Enter your email and password to access your account
           </CardDescription>
