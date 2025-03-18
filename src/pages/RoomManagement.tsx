@@ -51,15 +51,14 @@ const RoomManagement = () => {
   
   // Get the floors for the selected building
   const selectedBuildingData = buildings.find(b => b.id === selectedBuilding);
-  const floors = selectedBuildingData ? 
-    Array.from({ length: selectedBuildingData.floors }, (_, i) => i + 1) : 
-    [];
+  const floors = selectedBuildingData 
+    ? Array.from({ length: selectedBuildingData.floors }, (_, i) => i + 1) 
+    : [];
 
   const handleAddRoom = async (data: RoomFormValues) => {
     const roomData: Omit<Room, 'id'> = {
       name: data.name,
       type: data.type,
-      capacity: data.capacity,
       floor: data.floor,
       buildingId: data.buildingId,
       isAvailable: data.isAvailable

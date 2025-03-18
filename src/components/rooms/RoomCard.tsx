@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Users, Lock } from 'lucide-react';
+import { CheckCircle, Lock } from 'lucide-react';
 import { Room } from '@/lib/types';
 
 export interface RoomCardProps {
@@ -48,10 +48,6 @@ const RoomCard: React.FC<RoomCardProps> = ({
       </CardHeader>
       <CardContent className="pb-2">
         <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <div className="flex items-center">
-            <Users className="h-4 w-4 mr-1" />
-            <span>Capacity: {room.capacity}</span>
-          </div>
           <div>{room.type}</div>
         </div>
       </CardContent>

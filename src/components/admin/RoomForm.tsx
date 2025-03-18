@@ -31,7 +31,6 @@ const roomFormSchema = z.object({
   buildingId: z.string().min(1, { message: "Building is required" }),
   floor: z.coerce.number().min(1, { message: "Floor is required" }),
   type: z.string().min(2, { message: "Room type must be at least 2 characters." }),
-  capacity: z.coerce.number().min(1, { message: "Capacity must be at least 1" }),
   isAvailable: z.boolean().default(true),
 });
 
@@ -64,7 +63,6 @@ const RoomForm: React.FC<RoomFormProps> = ({
       buildingId: defaultValues?.buildingId || '',
       floor: defaultValues?.floor || 1,
       type: defaultValues?.type || 'Classroom',
-      capacity: defaultValues?.capacity || 30,
       isAvailable: defaultValues?.isAvailable ?? true
     }
   });
@@ -184,7 +182,7 @@ const RoomForm: React.FC<RoomFormProps> = ({
                 <SelectContent>
                   {floors.map(floor => (
                     <SelectItem 
-                      key={floor} 
+                      key={floor.toString()} 
                       value={floor.toString()}
                     >
                       {floor === 1 ? "1st Floor" : 
@@ -223,24 +221,6 @@ const RoomForm: React.FC<RoomFormProps> = ({
                   <SelectItem value="Computer Lab">Computer Lab</SelectItem>
                 </SelectContent>
               </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        
-        <FormField
-          control={form.control}
-          name="capacity"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Capacity</FormLabel>
-              <FormControl>
-                <Input 
-                  type="number" 
-                  min="1" 
-                  {...field}
-                />
-              </FormControl>
               <FormMessage />
             </FormItem>
           )}

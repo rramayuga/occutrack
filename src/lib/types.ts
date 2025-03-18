@@ -21,7 +21,6 @@ export interface AuthState {
 export interface Room {
   id: string;
   name: string;
-  capacity: number;
   type: string;
   isAvailable: boolean;
   floor: number;

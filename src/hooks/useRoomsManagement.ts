@@ -24,7 +24,6 @@ export function useRoomsManagement() {
       const newRoom = {
         name: roomData.name,
         type: roomData.type,
-        capacity: roomData.capacity,
         floor: roomData.floor,
         building_id: roomData.buildingId,
         created_by: user.id
@@ -83,7 +82,6 @@ export function useRoomsManagement() {
           id,
           name,
           type,
-          capacity,
           is_available,
           floor,
           building_id
@@ -100,7 +98,7 @@ export function useRoomsManagement() {
         return;
       }
       
-      const headers = ['id', 'name', 'capacity', 'type', 'floor', 'building_id', 'is_available'];
+      const headers = ['id', 'name', 'type', 'floor', 'building_id', 'is_available'];
       const csvContent = [
         headers.join(','),
         ...rooms.map(room => 
@@ -158,7 +156,7 @@ export function useRoomsManagement() {
       const headers = lines[0].split(',').map(header => header.trim());
       
       // Validate headers
-      const requiredHeaders = ['name', 'capacity', 'type', 'floor', 'building_id', 'is_available'];
+      const requiredHeaders = ['name', 'type', 'floor', 'building_id', 'is_available'];
       const hasAllHeaders = requiredHeaders.every(header => 
         headers.includes(header)
       );
@@ -179,7 +177,7 @@ export function useRoomsManagement() {
         };
         
         headers.forEach((header, index) => {
-          if (header === 'capacity' || header === 'floor') {
+          if (header === 'floor') {
             roomData[header] = parseInt(values[index], 10);
           } else if (header === 'is_available') {
             roomData[header] = values[index].toLowerCase() === 'true';
