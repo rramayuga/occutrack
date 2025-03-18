@@ -1,4 +1,6 @@
+
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '@/components/layout/Navbar';
 import { User, UserRole } from '@/lib/types';
 import { StudentDashboard } from '@/components/dashboards/StudentDashboard';
@@ -20,18 +22,30 @@ const createMockUser = (role: UserRole): User => {
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if we have a saved role in localStorage
+    // Check if we have a user in localStorage from login/register
+    const savedUser = localStorage.getItem('user');
     const savedRole = localStorage.getItem('mockUserRole') as UserRole | null;
-    const role = savedRole || 'student';
     
-    // Simulate API call to get user data
-    setTimeout(() => {
-      setUser(createMockUser(role));
+    if (savedUser) {
+      // Use the actual saved user data
+      setUser(JSON.parse(savedUser));
       setLoading(false);
-    }, 500);
-  }, []);
+    } else if (savedRole) {
+      // Fallback to mock user with saved role
+      setUser(createMockUser(savedRole));
+      setLoading(false);
+    } else {
+      // No user found, use default or redirect to login
+      // For demo we'll use a mock user, but in a real app would redirect to login
+      setTimeout(() => {
+        setUser(createMockUser('student'));
+        setLoading(false);
+      }, 500);
+    }
+  }, [navigate]);
 
   const renderDashboardByRole = () => {
     if (loading) return <DashboardSkeleton />;

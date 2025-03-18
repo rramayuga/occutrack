@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
@@ -45,29 +46,24 @@ const Login = () => {
         } else if (email === 'student@example.com') {
           user = { id: '3', name: 'Student User', email, role: 'student' };
         } else {
-          // For demo purposes, default to student
+          // Default to student for demo
           user = { id: '4', name: 'Demo User', email, role: 'student' };
         }
         
         // Store user in localStorage (would be a secure session with Supabase)
         localStorage.setItem('user', JSON.stringify(user));
+        localStorage.setItem('mockUserRole', user.role); // For dashboard role switching
         
         toast({
           title: "Login successful",
           description: `Welcome back, ${user.name}!`,
         });
         
-        // Redirect based on role
-        if (user.role === 'admin' || user.role === 'superadmin') {
-          navigate('/dashboard');
-        } else if (user.role === 'professor') {
-          navigate('/dashboard');
-        } else {
-          navigate('/dashboard');
-        }
+        // Redirect to dashboard (role-based content will be shown there)
+        navigate('/dashboard');
         
         setIsLoading(false);
-      }, 1500);
+      }, 1000);
     } catch (error) {
       console.error('Login error:', error);
       setError('Invalid email or password. Please try again.');
@@ -81,12 +77,12 @@ const Login = () => {
     // This would be replaced with actual Supabase Google auth
     toast({
       title: "Google Authentication",
-      description: "In a real app, this would connect to Supabase Google Auth.",
+      description: "Processing Google sign-in...",
     });
     
     // For demonstration: simulate Google sign-in and redirect to registration if needed
     setTimeout(() => {
-      // Simulate new user detection and redirect to registration
+      // Simulate new user detection
       const isNewUser = Math.random() > 0.5; // Random for demo
       
       if (isNewUser) {
@@ -106,11 +102,18 @@ const Login = () => {
           role: 'student' as UserRole 
         };
         localStorage.setItem('user', JSON.stringify(mockUser));
+        localStorage.setItem('mockUserRole', mockUser.role); // For dashboard role switching
+        
+        toast({
+          title: "Google login successful",
+          description: "Welcome back!",
+        });
+        
         navigate('/dashboard');
       }
       
       setIsLoading(false);
-    }, 1500);
+    }, 1000);
   };
 
   return (

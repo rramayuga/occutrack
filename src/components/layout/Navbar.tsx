@@ -1,34 +1,33 @@
 
 import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { UserRole } from '@/lib/types';
+import { User as UserType, UserRole } from '@/lib/types';
+import { useToast } from "@/components/ui/use-toast";
 import { 
   Menu, X, User, FileText, Home, LogIn, 
   BookOpen, CalendarCheck, Settings, Users, Building, 
   Bell, LogOut, Award, Shield
 } from 'lucide-react';
 
-// Mock authentication until we have a real auth system
-const mockUser = {
-  id: '1',
-  name: 'John Doe',
-  email: 'john@example.com',
-  role: 'student' as UserRole,
-  profileComplete: true
-};
-
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const [user, setUser] = useState<typeof mockUser | null>(null);
+  const [user, setUser] = useState<UserType | null>(null);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   useEffect(() => {
-    // For demo purposes, simulate authentication check
-    setTimeout(() => {
-      setUser(mockUser);
-    }, 500);
+    // Check for authenticated user
+    const checkAuth = () => {
+      const savedUser = localStorage.getItem('user');
+      if (savedUser) {
+        setUser(JSON.parse(savedUser));
+      }
+    };
+    
+    checkAuth();
 
     const handleScroll = () => {
       if (window.scrollY > 10) {
@@ -40,12 +39,23 @@ const Navbar = () => {
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [location.pathname]); // Re-check auth when route changes
 
   // Close mobile menu when route changes
   useEffect(() => {
     setIsOpen(false);
   }, [location.pathname]);
+
+  const handleSignOut = () => {
+    localStorage.removeItem('user');
+    localStorage.removeItem('mockUserRole');
+    setUser(null);
+    toast({
+      title: "Signed out",
+      description: "You have been successfully signed out."
+    });
+    navigate('/login');
+  };
 
   const navLinks = [
     { name: 'Home', path: '/', icon: <Home size={18} />, roles: ['student', 'professor', 'admin', 'superadmin'] },
@@ -55,11 +65,10 @@ const Navbar = () => {
   ];
 
   const adminLinks = [
-    { name: 'Manage Rooms', path: '/admin/rooms', icon: <CalendarCheck size={18} />, roles: ['admin', 'superadmin'] },
-    { name: 'Manage Users', path: '/admin/users', icon: <Users size={18} />, roles: ['admin', 'superadmin'] },
+    { name: 'Room Management', path: '/room-management', icon: <CalendarCheck size={18} />, roles: ['admin', 'superadmin'] },
+    { name: 'Faculty Management', path: '/faculty-management', icon: <Users size={18} />, roles: ['admin', 'superadmin'] },
     { name: 'Buildings & Types', path: '/admin/buildings', icon: <Building size={18} />, roles: ['admin', 'superadmin'] },
     { name: 'Post Announcements', path: '/admin/announcements', icon: <FileText size={18} />, roles: ['admin', 'superadmin'] },
-    { name: 'Approve Accounts', path: '/admin/approvals', icon: <Award size={18} />, roles: ['admin', 'superadmin'] },
     { name: 'System Settings', path: '/admin/settings', icon: <Settings size={18} />, roles: ['superadmin'] },
   ];
 
@@ -133,7 +142,12 @@ const Navbar = () => {
                   <User size={18} />
                   <span>{user.name.split(' ')[0]}</span>
                 </Link>
-                <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-muted-foreground hover:text-foreground"
+                  onClick={handleSignOut}
+                >
                   <LogOut size={18} className="mr-1" /> Sign Out
                 </Button>
               </div>
@@ -223,7 +237,11 @@ const Navbar = () => {
           
           {user && (
             <div className="mt-auto pt-6">
-              <Button variant="ghost" className="w-full justify-center text-muted-foreground hover:text-foreground">
+              <Button 
+                variant="ghost" 
+                className="w-full justify-center text-muted-foreground hover:text-foreground"
+                onClick={handleSignOut}
+              >
                 <LogOut size={18} className="mr-2" /> Sign Out
               </Button>
             </div>

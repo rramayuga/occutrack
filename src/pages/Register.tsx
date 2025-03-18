@@ -68,7 +68,6 @@ const Register = () => {
     try {
       // This is a mock registration - would be replaced with Supabase auth
       setTimeout(() => {
-        // Successful registration simulation
         if (role === 'professor') {
           // For professors, store their application in pending faculty
           const existingFaculty = JSON.parse(localStorage.getItem('faculty') || '[]');
@@ -83,10 +82,10 @@ const Register = () => {
           
           localStorage.setItem('faculty', JSON.stringify([...existingFaculty, newFaculty]));
           
-          // Redirect to a confirmation page for faculty
+          // Redirect to faculty confirmation page
           toast({
-            title: "Registration Successful",
-            description: "Contact Administration to Approve/Activate your Account.",
+            title: "Registration Submitted",
+            description: "Your faculty account request has been submitted for approval.",
           });
           
           navigate('/faculty-confirmation');
@@ -100,6 +99,7 @@ const Register = () => {
           };
           
           localStorage.setItem('user', JSON.stringify(user));
+          localStorage.setItem('mockUserRole', user.role); // For dashboard role switching
           
           toast({
             title: "Registration Successful",
@@ -110,7 +110,7 @@ const Register = () => {
         }
         
         setIsLoading(false);
-      }, 1500);
+      }, 1000);
     } catch (error) {
       console.error('Registration error:', error);
       setError('Registration failed. Please try again.');
@@ -124,7 +124,7 @@ const Register = () => {
     // This would be replaced with actual Supabase Google auth
     toast({
       title: "Google Authentication",
-      description: "In a real app, this would connect to Supabase Google Auth.",
+      description: "Processing Google sign-in...",
     });
     
     // For demonstration only
