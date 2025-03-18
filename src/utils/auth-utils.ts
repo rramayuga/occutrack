@@ -1,13 +1,11 @@
-
 import { supabase } from '@/integrations/supabase/client';
-import { UserRole } from '@/lib/types';
 
 export const handleStudentRegistration = async (
   email: string,
   password: string,
   name: string
 ) => {
-  const { user, session, error: signUpError } = await supabase.auth.signUp({
+  const { data, error: signUpError } = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -19,7 +17,7 @@ export const handleStudentRegistration = async (
   });
 
   if (signUpError) throw signUpError;
-  return { user, session };
+  return { user: data.user, session: data.session };
 };
 
 export const handleFacultyRegistration = async (
@@ -28,7 +26,7 @@ export const handleFacultyRegistration = async (
   name: string,
   department: string
 ) => {
-  const { user, session, error: signUpError } = await supabase.auth.signUp({
+  const { data, error: signUpError } = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -41,11 +39,11 @@ export const handleFacultyRegistration = async (
 
   if (signUpError) throw signUpError;
 
-  if (user) {
+  if (data.user) {
     const { error: requestError } = await supabase
       .from('faculty_requests')
       .insert({
-        user_id: user.id,
+        user_id: data.user.id,
         name,
         email,
         department,
@@ -55,7 +53,7 @@ export const handleFacultyRegistration = async (
     if (requestError) throw requestError;
   }
 
-  return { user, session };
+  return { user: data.user, session: data.session };
 };
 
 export const handleGoogleSignIn = async () => {
