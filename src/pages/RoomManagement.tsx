@@ -148,13 +148,12 @@ const RoomManagement = () => {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full"
-                  prefix={<Search className="h-4 w-4 text-muted-foreground" />}
                 />
               </div>
               
               <select 
                 className="px-4 py-2 rounded-md border border-input bg-background"
-                value={selectedBuilding}
+                value={selectedBuilding || ""}
                 onChange={(e) => setSelectedBuilding(e.target.value)}
               >
                 {buildings.map(building => (
@@ -171,7 +170,7 @@ const RoomManagement = () => {
               >
                 <option value="">All Floors</option>
                 {floors.map(floor => (
-                  <option key={floor} value={floor.toString()}>
+                  <option key={floor.toString()} value={floor.toString()}>
                     Floor {floor}
                   </option>
                 ))}
@@ -202,7 +201,7 @@ const RoomManagement = () => {
                     
                     return (
                       <FloorRooms
-                        key={floor}
+                        key={floor.toString()}
                         floor={floor}
                         rooms={floorRooms}
                         canModifyRooms={canModifyRooms}
