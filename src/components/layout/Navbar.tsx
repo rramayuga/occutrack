@@ -5,7 +5,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from '@/lib/auth';
 import { Menu } from 'lucide-react';
 
-// Import our newly created components
+// Import our components
 import Logo from './navbar/Logo';
 import NavLinkList from './navbar/NavLinkList';
 import AdminDropdown from './navbar/AdminDropdown';
@@ -59,15 +59,15 @@ const Navbar = () => {
   return (
     <header 
       className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 ${
-        isScrolled ? 'bg-white/80 backdrop-blur-md shadow-subtle' : 'bg-transparent'
+        isScrolled ? 'bg-white/90 backdrop-blur-md shadow-sm' : 'bg-white/70 backdrop-blur-sm'
       }`}
     >
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <Logo />
 
-          <nav className="hidden md:flex items-center space-x-6">
-            <ul className="flex items-center space-x-2">
+          <nav className="hidden md:flex items-center space-x-8">
+            <ul className="flex items-center space-x-4">
               <NavLinkList links={navLinks} userRole={user?.role} />
               
               {filteredAdminLinks.length > 0 && (
@@ -92,7 +92,7 @@ const Navbar = () => {
         onClose={() => setIsOpen(false)}
         user={user}
         navLinks={navLinks}
-        adminLinks={adminLinks}
+        adminLinks={filteredAdminLinks}
         onSignOut={handleSignOut}
       />
     </header>

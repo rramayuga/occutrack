@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -17,7 +16,7 @@ interface ProfessorDashboardProps {
   user: User;
 }
 
-// Define the booking form schema
+// Define the booking form schema - removed capacity field
 const bookingFormSchema = z.object({
   roomNumber: z.string().min(1, { message: "Room number is required" }),
   date: z.string().min(1, { message: "Date is required" }),
@@ -30,6 +29,7 @@ type BookingFormValues = z.infer<typeof bookingFormSchema>;
 
 export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [bookedRooms, setBookedRooms] = useState<any[]>([]);
   const { toast } = useToast();
   
   const form = useForm<BookingFormValues>({
@@ -43,11 +43,110 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
     },
   });
 
+  // Check for room reservations and update status
+  useEffect(() => {
+    const checkRoomStatus = () => {
+      // Get current date and time
+      const now = new Date();
+      
+      // Check each booked room
+      const updatedBookings = bookedRooms.map(booking => {
+        const bookingDate = new Date(booking.date);
+        const startTimeParts = booking.startTime.split(':');
+        const endTimeParts = booking.endTime.split(':');
+        
+        // Create Date objects for start and end times
+        const startDateTime = new Date(bookingDate);
+        startDateTime.setHours(parseInt(startTimeParts[0]), parseInt(startTimeParts[1]), 0);
+        
+        const endDateTime = new Date(bookingDate);
+        endDateTime.setHours(parseInt(endTimeParts[0]), parseInt(endTimeParts[1]), 0);
+        
+        // Check if current time is between start and end times
+        const isActive = now >= startDateTime && now < endDateTime;
+        
+        return {
+          ...booking,
+          status: isActive ? 'occupied' : 'available'
+        };
+      });
+      
+      // Update room status in localStorage
+      const savedRooms = localStorage.getItem('rooms');
+      if (savedRooms) {
+        const rooms = JSON.parse(savedRooms);
+        
+        const updatedRooms = rooms.map((room: any) => {
+          // Find if this room is currently booked and active
+          const activeBooking = updatedBookings.find(
+            booking => booking.roomNumber === room.name && booking.status === 'occupied'
+          );
+          
+          if (activeBooking) {
+            return { ...room, isAvailable: false };
+          } else {
+            // Only update rooms that were previously booked by this faculty
+            const wasBooked = updatedBookings.find(
+              booking => booking.roomNumber === room.name
+            );
+            
+            if (wasBooked) {
+              return { ...room, isAvailable: true };
+            }
+            
+            // Return unchanged for rooms not managed by this faculty
+            return room;
+          }
+        });
+        
+        localStorage.setItem('rooms', JSON.stringify(updatedRooms));
+      }
+      
+      setBookedRooms(updatedBookings);
+    };
+    
+    // Load existing bookings from localStorage
+    const loadBookings = () => {
+      const savedBookings = localStorage.getItem(`bookings-${user.id}`);
+      if (savedBookings) {
+        setBookedRooms(JSON.parse(savedBookings));
+      }
+    };
+    
+    loadBookings();
+    
+    // Check room status every minute
+    const intervalId = setInterval(checkRoomStatus, 60000);
+    
+    // Initial check
+    checkRoomStatus();
+    
+    return () => clearInterval(intervalId);
+  }, [bookedRooms, user.id]);
+
   const onSubmit = (data: BookingFormValues) => {
     console.log("Booking submitted:", data);
     
-    // In a real app, we would save this to a database
-    // For now, we'll just show a success message
+    // Create a new booking
+    const newBooking = {
+      id: `booking-${Date.now()}`,
+      roomNumber: data.roomNumber,
+      date: data.date,
+      startTime: data.startTime,
+      endTime: data.endTime,
+      purpose: data.purpose,
+      status: 'available', // Default status
+      faculty: user.name
+    };
+    
+    // Add to state
+    const updatedBookings = [...bookedRooms, newBooking];
+    setBookedRooms(updatedBookings);
+    
+    // Save to localStorage
+    localStorage.setItem(`bookings-${user.id}`, JSON.stringify(updatedBookings));
+    
+    // Show success toast
     toast({
       title: "Room booked successfully",
       description: `You've booked ${data.roomNumber} on ${data.date} from ${data.startTime} to ${data.endTime}`,
@@ -57,6 +156,15 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
     setIsDialogOpen(false);
     form.reset();
   };
+
+  // Get today's schedule from bookings
+  const todaySchedule = bookedRooms.filter(booking => {
+    const bookingDate = new Date(booking.date);
+    const today = new Date();
+    return bookingDate.getDate() === today.getDate() && 
+           bookingDate.getMonth() === today.getMonth() && 
+           bookingDate.getFullYear() === today.getFullYear();
+  });
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -171,12 +279,16 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
           </CardHeader>
           <CardContent>
             <div className="flex justify-between items-center">
-              <span className="text-3xl font-bold">3</span>
+              <span className="text-3xl font-bold">{todaySchedule.length}</span>
               <Users className="h-5 w-5 text-muted-foreground" />
             </div>
           </CardContent>
           <CardFooter className="pt-0">
-            <p className="text-xs text-muted-foreground">Next class: 2:00 PM in Room 305</p>
+            <p className="text-xs text-muted-foreground">
+              {todaySchedule.length > 0 
+                ? `Next class: ${todaySchedule[0].startTime} in ${todaySchedule[0].roomNumber}` 
+                : "No classes scheduled for today"}
+            </p>
           </CardFooter>
         </Card>
 
@@ -231,28 +343,30 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Teaching Schedule</CardTitle>
-            <CardDescription>Today's classes and locations</CardDescription>
+            <CardDescription>Your booked classes and locations</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {[
-                {time: '10:00 AM - 11:30 AM', course: 'Computer Science 101', room: 'Lecture Hall 1A'},
-                {time: '2:00 PM - 3:30 PM', course: 'Algorithm Design', room: 'Room 305'},
-                {time: '4:00 PM - 5:30 PM', course: 'Advanced Database Systems', room: 'Computer Lab 2'}
-              ].map((schedule, i) => (
-                <div key={i} className="flex items-start gap-4 pb-4 border-b last:border-0">
-                  <div className="rounded-full p-2 bg-primary/10">
-                    <CheckCircle className="h-4 w-4 text-primary" />
+              {bookedRooms.length > 0 ? (
+                bookedRooms.map((booking, i) => (
+                  <div key={i} className="flex items-start gap-4 pb-4 border-b last:border-0">
+                    <div className="rounded-full p-2 bg-primary/10">
+                      <CheckCircle className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium">{booking.purpose}</h4>
+                      <p className="text-xs text-muted-foreground">{booking.roomNumber}</p>
+                    </div>
+                    <div className="ml-auto text-right">
+                      <span className="text-xs font-medium">
+                        {booking.date.split('-').reverse().join('/')} • {booking.startTime} - {booking.endTime}
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="text-sm font-medium">{schedule.course}</h4>
-                    <p className="text-xs text-muted-foreground">{schedule.room}</p>
-                  </div>
-                  <div className="ml-auto text-right">
-                    <span className="text-xs font-medium">{schedule.time}</span>
-                  </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-center text-muted-foreground py-8">No classes scheduled yet. Book a room to get started.</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -265,19 +379,24 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
           <CardContent>
             <div className="space-y-4">
               {[
-                {name: 'Study Room 101', capacity: 8, features: ['Whiteboard', 'Projector']},
-                {name: 'Lecture Hall 2B', capacity: 120, features: ['AV Equipment', 'Tiered Seating']},
-                {name: 'Meeting Room 305', capacity: 15, features: ['Conference Table', 'Smart Board']}
+                {name: 'Study Room 101', features: ['Whiteboard', 'Projector']},
+                {name: 'Lecture Hall 2B', features: ['AV Equipment', 'Tiered Seating']},
+                {name: 'Meeting Room 305', features: ['Conference Table', 'Smart Board']}
               ].map((room, i) => (
                 <div key={i} className="pb-4 border-b last:border-0">
                   <h4 className="text-sm font-medium">{room.name}</h4>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Capacity: {room.capacity} • {room.features.join(', ')}
+                    Features: {room.features.join(', ')}
                   </p>
                   <div className="mt-2">
                     <a 
                       href="#reserve" 
                       className="text-xs text-primary hover:underline"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setIsDialogOpen(true);
+                        form.setValue('roomNumber', room.name);
+                      }}
                     >
                       Reserve
                     </a>

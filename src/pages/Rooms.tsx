@@ -11,7 +11,6 @@ import { useAuth } from '@/lib/auth';
 interface Room {
   id: string;
   name: string;
-  capacity: number;
   type: string;
   isAvailable: boolean;
   floor: number;
@@ -209,10 +208,6 @@ const Rooms = () => {
                                     </CardHeader>
                                     <CardContent>
                                       <div className="text-sm space-y-1">
-                                        <div className="flex justify-between">
-                                          <span className="text-muted-foreground">Capacity:</span>
-                                          <span>{room.capacity}</span>
-                                        </div>
                                         <div className="flex justify-between">
                                           <span className="text-muted-foreground">Type:</span>
                                           <span>{room.type}</span>
