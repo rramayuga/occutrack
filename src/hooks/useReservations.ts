@@ -29,20 +29,37 @@ export function useReservations() {
           end_time,
           purpose,
           status,
-          rooms(id, name, building_id),
-          buildings:rooms(building_id(id, name))
+          rooms (name, building_id),
+          buildings:rooms!inner (building_id)
         `)
         .eq('faculty_id', user.id);
       
       if (error) throw error;
       
       if (data && data.length > 0) {
+        // Additional query to get building names
+        const buildingIds = [...new Set(data.map(item => item.rooms.building_id))];
+        const { data: buildingsData, error: buildingsError } = await supabase
+          .from('buildings')
+          .select('id, name')
+          .in('id', buildingIds);
+          
+        if (buildingsError) throw buildingsError;
+        
+        // Create a mapping of building ids to names
+        const buildingNames: {[key: string]: string} = {};
+        if (buildingsData) {
+          buildingsData.forEach(building => {
+            buildingNames[building.id] = building.name;
+          });
+        }
+        
         // Transform the data
         const transformedReservations: Reservation[] = data.map(item => ({
           id: item.id,
           roomId: item.room_id,
           roomNumber: item.rooms.name,
-          building: item.buildings.building_id.name,
+          building: buildingNames[item.rooms.building_id] || 'Unknown Building',
           date: item.date,
           startTime: item.start_time,
           endTime: item.end_time,

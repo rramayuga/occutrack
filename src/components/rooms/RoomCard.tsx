@@ -1,51 +1,78 @@
 
 import React from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { CheckCircle, Users, Lock } from 'lucide-react';
 import { Room } from '@/lib/types';
 
-interface RoomCardProps {
+export interface RoomCardProps {
   room: Room;
   canModifyRooms: boolean;
   onToggleAvailability: (roomId: string) => void;
+  onSelectRoom?: () => void;
 }
 
 const RoomCard: React.FC<RoomCardProps> = ({ 
   room, 
   canModifyRooms, 
-  onToggleAvailability 
+  onToggleAvailability,
+  onSelectRoom
 }) => {
+  const handleCardClick = () => {
+    if (onSelectRoom) {
+      onSelectRoom();
+    }
+  };
+
+  const handleToggleAvailability = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click when toggle button is clicked
+    onToggleAvailability(room.id);
+  };
+
   return (
     <Card 
-      key={room.id} 
-      className={`
-        ${canModifyRooms ? 'cursor-pointer' : ''}
-        hover:shadow-md transition-shadow
-        ${room.isAvailable ? 'border-green-500 border-2' : 'border-red-300 border'}
-      `}
-      onClick={() => canModifyRooms && onToggleAvailability(room.id)}
+      className={`hover:shadow-md transition-shadow ${onSelectRoom ? 'cursor-pointer' : ''} ${room.isAvailable ? '' : 'border-red-200'}`}
+      onClick={onSelectRoom ? handleCardClick : undefined}
     >
       <CardHeader className="pb-2">
-        <CardTitle className="text-lg">{room.name}</CardTitle>
+        <div className="flex justify-between items-start">
+          <CardTitle className="text-base">{room.name}</CardTitle>
+          <Badge 
+            variant={room.isAvailable ? "outline" : "destructive"}
+            className="text-xs"
+          >
+            {room.isAvailable ? 'Available' : 'Occupied'}
+          </Badge>
+        </div>
       </CardHeader>
-      <CardContent>
-        <div className="text-sm space-y-1">
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Type:</span>
-            <span>{room.type}</span>
+      <CardContent className="pb-2">
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <div className="flex items-center">
+            <Users className="h-4 w-4 mr-1" />
+            <span>Capacity: {room.capacity}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Status:</span>
-            <span className={room.isAvailable ? "text-green-500 font-medium" : "text-red-500 font-medium"}>
-              {room.isAvailable ? "Available" : "Occupied"}
-            </span>
-          </div>
-          {canModifyRooms && (
-            <div className="mt-2 pt-2 border-t text-center text-xs text-muted-foreground">
-              Click to {room.isAvailable ? 'occupy' : 'free up'} this room
-            </div>
-          )}
+          <div>{room.type}</div>
         </div>
       </CardContent>
+      <CardFooter className="pt-1 justify-between">
+        {canModifyRooms ? (
+          <Button 
+            variant={room.isAvailable ? "outline" : "default"}
+            size="sm"
+            className="w-full"
+            onClick={handleToggleAvailability}
+          >
+            <CheckCircle className="h-4 w-4 mr-1" />
+            {room.isAvailable ? 'Mark as Occupied' : 'Mark as Available'}
+          </Button>
+        ) : (
+          <div className="text-xs text-muted-foreground flex items-center">
+            <Lock className="h-3 w-3 mr-1" />
+            {!room.isAvailable ? 'Currently in use' : 'Ready for use'}
+          </div>
+        )}
+      </CardFooter>
     </Card>
   );
 };

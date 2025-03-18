@@ -34,6 +34,7 @@ export interface Building {
   location?: string;
   floors: number;
   roomCount: number;
+  utilization?: string; // Added utilization property
 }
 
 export interface BuildingWithFloors {

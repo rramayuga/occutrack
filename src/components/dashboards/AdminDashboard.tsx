@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { User } from '@/lib/types';
+import { User, Room } from '@/lib/types';
 import { 
   Card, CardContent, CardDescription, CardHeader, CardTitle 
 } from "@/components/ui/card";
@@ -41,7 +41,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   
   // Handle room form submission
   const onRoomSubmit = async (data: RoomFormValues) => {
-    const result = await addRoom(data);
+    // Ensure all required fields are present
+    const roomData: Omit<Room, 'id'> = {
+      name: data.name,
+      type: data.type,
+      capacity: data.capacity,
+      floor: data.floor,
+      buildingId: data.buildingId,
+      isAvailable: data.isAvailable
+    };
+    
+    const result = await addRoom(roomData);
     if (result) {
       setIsRoomDialogOpen(false);
     }
@@ -188,7 +198,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                   id={building.id}
                   name={building.name}
                   roomCount={building.roomCount}
-                  utilization={building.utilization}
+                  utilization={building.utilization || '0%'}
                   onView={handleViewBuilding}
                   onEdit={handleEditBuilding}
                 />

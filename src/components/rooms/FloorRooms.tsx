@@ -42,7 +42,7 @@ const FloorRooms: React.FC<FloorRoomsProps> = ({
               room={room}
               canModifyRooms={canModifyRooms}
               onToggleAvailability={onToggleAvailability}
-              onClick={() => onSelectRoom && onSelectRoom(room)}
+              onSelectRoom={onSelectRoom ? () => onSelectRoom(room) : undefined}
             />
           ))}
         </div>
