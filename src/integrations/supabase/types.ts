@@ -139,6 +139,38 @@ export type Database = {
         }
         Relationships: []
       }
+      room_availability: {
+        Row: {
+          id: string
+          is_available: boolean
+          room_id: string
+          updated_at: string
+          updated_by: string
+        }
+        Insert: {
+          id?: string
+          is_available?: boolean
+          room_id: string
+          updated_at?: string
+          updated_by: string
+        }
+        Update: {
+          id?: string
+          is_available?: boolean
+          room_id?: string
+          updated_at?: string
+          updated_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_availability_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       room_reservations: {
         Row: {
           created_at: string

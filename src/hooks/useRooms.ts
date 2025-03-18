@@ -68,13 +68,33 @@ export function useRooms() {
       }
       
       if (roomsData) {
-        // Transform to Room format
+        // Get the latest availability status for each room
+        const { data: availabilityData, error: availabilityError } = await supabase
+          .from('room_availability')
+          .select('*')
+          .order('updated_at', { ascending: false });
+        
+        if (availabilityError) {
+          console.error("Error fetching room availability:", availabilityError);
+        }
+        
+        // Create a map of room IDs to their latest availability status
+        const availabilityMap = new Map();
+        if (availabilityData) {
+          availabilityData.forEach(record => {
+            if (!availabilityMap.has(record.room_id)) {
+              availabilityMap.set(record.room_id, record.is_available);
+            }
+          });
+        }
+        
+        // Transform to Room format with availability from the map or default to true
         const roomsWithAvailability: Room[] = roomsData.map(room => ({
           id: room.id,
           name: room.name,
           type: room.type,
           capacity: room.capacity,
-          isAvailable: true, // Default to available since there's no is_available field
+          isAvailable: availabilityMap.has(room.id) ? availabilityMap.get(room.id) : true,
           floor: room.floor,
           buildingId: room.building_id
         }));
@@ -125,10 +145,10 @@ export function useRooms() {
       const roomToToggle = rooms.find(room => room.id === roomId);
       if (!roomToToggle) return;
 
-      // Create a custom room_availability record instead of updating the rooms table
+      // Create a custom room_availability record
       const { error } = await supabase
         .from('room_availability')
-        .upsert({ 
+        .insert({
           room_id: roomId, 
           is_available: !roomToToggle.isAvailable,
           updated_by: user.id,
@@ -184,6 +204,24 @@ export function useRooms() {
     };
   };
 
+  const setupRoomAvailabilitySubscription = () => {
+    const availabilityChannel = supabase
+      .channel('room_availability_changes')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'room_availability' 
+      }, (payload) => {
+        console.log('Room availability change received:', payload);
+        fetchRooms(); // Refresh rooms to get the latest availability
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(availabilityChannel);
+    };
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       await fetchBuildings();
@@ -193,10 +231,12 @@ export function useRooms() {
     fetchData();
     
     // Set up real-time subscriptions
-    const unsubscribe = setupRoomSubscription();
+    const unsubscribeRooms = setupRoomSubscription();
+    const unsubscribeAvailability = setupRoomAvailabilitySubscription();
     
     return () => {
-      unsubscribe();
+      unsubscribeRooms();
+      unsubscribeAvailability();
     };
   }, []);
 
