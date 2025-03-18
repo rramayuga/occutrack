@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,20 +25,38 @@ export function useRoomsManagement() {
         name: roomData.name,
         type: roomData.type,
         capacity: roomData.capacity,
-        is_available: roomData.isAvailable,
         floor: roomData.floor,
         building_id: roomData.buildingId,
         created_by: user.id
       };
+      
+      // Adding console log to debug
+      console.log("Attempting to add room with data:", newRoom);
       
       const { data, error } = await supabase
         .from('rooms')
         .insert(newRoom)
         .select();
       
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase error:", error);
+        throw error;
+      }
       
       if (data && data.length > 0) {
+        // Also update room_availability table to set initial availability
+        const { error: availabilityError } = await supabase
+          .from('room_availability')
+          .insert({
+            room_id: data[0].id,
+            is_available: roomData.isAvailable,
+            updated_by: user.id
+          });
+          
+        if (availabilityError) {
+          console.error("Error setting room availability:", availabilityError);
+        }
+        
         toast({
           title: "Room added",
           description: `${roomData.name} has been added to the selected building.`
