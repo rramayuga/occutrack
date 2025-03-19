@@ -1,13 +1,16 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Lock, Calendar, X } from 'lucide-react';
+import { CheckCircle, Lock, Calendar } from 'lucide-react';
 import { Room, Reservation } from '@/lib/types';
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/lib/auth';
 import { useToast } from "@/components/ui/use-toast";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import RoomStatusBadge from './RoomStatusBadge';
+import RoomOccupantInfo from './RoomOccupantInfo';
+import RoomScheduleList from './RoomScheduleList';
+import CancelReservationDialog from './CancelReservationDialog';
 
 export interface RoomCardProps {
   room: Room;
@@ -31,20 +34,16 @@ const RoomCard: React.FC<RoomCardProps> = ({
   const { toast } = useToast();
 
   useEffect(() => {
-    // Fetch faculty name if room is occupied
     if (!room.isAvailable) {
       fetchRoomOccupant();
     }
-    
-    // Fetch room schedules
     fetchRoomSchedules();
   }, [room.id, room.isAvailable]);
 
   const fetchRoomOccupant = async () => {
     try {
-      // Get the current reservation for this room (if any)
       const now = new Date();
-      const today = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+      const today = now.toISOString().split('T')[0];
       const currentTime = `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`;
       
       const { data, error } = await supabase
@@ -77,8 +76,7 @@ const RoomCard: React.FC<RoomCardProps> = ({
 
   const fetchRoomSchedules = async () => {
     try {
-      // Get today's and future reservations for this room
-      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+      const today = new Date().toISOString().split('T')[0];
       
       const { data, error } = await supabase
         .from('room_reservations')
@@ -107,7 +105,7 @@ const RoomCard: React.FC<RoomCardProps> = ({
           id: item.id,
           roomId: room.id,
           roomNumber: room.name,
-          building: '', // We don't need this for display in the room card
+          building: '', // Not needed for display
           date: item.date,
           startTime: item.start_time,
           endTime: item.end_time,
@@ -118,7 +116,6 @@ const RoomCard: React.FC<RoomCardProps> = ({
         
         setRoomSchedules(reservations);
         
-        // Set reminder for faculty's own reservations
         if (user && user.role === 'faculty') {
           setRemindersForFacultyReservations(reservations.filter(r => r.faculty === user.name));
         }
@@ -129,7 +126,6 @@ const RoomCard: React.FC<RoomCardProps> = ({
   };
   
   const setRemindersForFacultyReservations = (facultyReservations: Reservation[]) => {
-    // Clear any existing reminders for this room
     facultyReservations.forEach(reservation => {
       const reservationDate = new Date(reservation.date);
       const [startHour, startMinute] = reservation.startTime.split(':').map(Number);
@@ -148,7 +144,7 @@ const RoomCard: React.FC<RoomCardProps> = ({
           toast({
             title: "Upcoming Reservation Reminder",
             description: `You have a reservation in 30 minutes for room ${room.name} at ${reservation.startTime}`,
-            duration: 10000, // Show for 10 seconds
+            duration: 10000,
           });
         }, timeUntilReminder);
       }
@@ -173,10 +169,7 @@ const RoomCard: React.FC<RoomCardProps> = ({
         description: "Your room reservation has been cancelled successfully.",
       });
       
-      // Refresh schedules after cancellation
       fetchRoomSchedules();
-      
-      // Close dialog
       setIsCancelDialogOpen(false);
       setSelectedReservation(null);
     } catch (error) {
@@ -196,7 +189,7 @@ const RoomCard: React.FC<RoomCardProps> = ({
   };
 
   const handleToggleAvailability = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent card click when toggle button is clicked
+    e.stopPropagation();
     onToggleAvailability(room.id);
   };
   
@@ -225,18 +218,9 @@ const RoomCard: React.FC<RoomCardProps> = ({
         <CardHeader className="pb-2">
           <div className="flex justify-between items-start">
             <CardTitle className="text-base">{room.name}</CardTitle>
-            <Badge 
-              variant={room.isAvailable ? "outline" : "destructive"}
-              className="text-xs"
-            >
-              {room.isAvailable ? 'Available' : 'Occupied'}
-            </Badge>
+            <RoomStatusBadge isAvailable={room.isAvailable} />
           </div>
-          {!room.isAvailable && (
-            <p className="text-xs mt-1 font-medium text-muted-foreground">
-              {occupiedBy ? `Occupied by: ${occupiedBy}` : 'Currently occupied'}
-            </p>
-          )}
+          <RoomOccupantInfo isAvailable={room.isAvailable} occupiedBy={occupiedBy} />
         </CardHeader>
         <CardContent className="pb-2">
           <div className="flex items-center justify-between text-sm text-muted-foreground">
@@ -273,54 +257,21 @@ const RoomCard: React.FC<RoomCardProps> = ({
           </Button>
         </CardFooter>
         
-        {showSchedules && (
-          <div className="px-4 pb-4 text-sm">
-            <h4 className="font-medium text-xs mb-2 text-muted-foreground">Upcoming Reservations:</h4>
-            {roomSchedules.length > 0 ? (
-              <div className="space-y-2 max-h-40 overflow-y-auto">
-                {roomSchedules.map(schedule => (
-                  <div key={schedule.id} className="p-2 bg-accent rounded text-xs flex justify-between items-center">
-                    <div>
-                      <p className="font-medium">{new Date(schedule.date).toLocaleDateString()} ({schedule.startTime}-{schedule.endTime})</p>
-                      <p className="text-muted-foreground">{schedule.faculty}</p>
-                      <p className="text-muted-foreground">{schedule.purpose}</p>
-                    </div>
-                    {isUserFaculty(schedule) && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        className="h-6 w-6 p-0"
-                        onClick={(e) => handleCancelClick(e, schedule)}
-                      >
-                        <X className="h-4 w-4 text-red-500" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">No upcoming reservations</p>
-            )}
-          </div>
-        )}
+        <RoomScheduleList 
+          roomSchedules={roomSchedules}
+          showSchedules={showSchedules}
+          isUserFaculty={isUserFaculty}
+          onCancelClick={handleCancelClick}
+        />
       </Card>
       
-      <AlertDialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Cancel Reservation</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to cancel your reservation for {room.name} on {selectedReservation?.date} from {selectedReservation?.startTime} to {selectedReservation?.endTime}?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>No, Keep It</AlertDialogCancel>
-            <AlertDialogAction onClick={handleCancelReservation} className="bg-red-500 hover:bg-red-600">
-              Yes, Cancel Reservation
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <CancelReservationDialog
+        open={isCancelDialogOpen}
+        setOpen={setIsCancelDialogOpen}
+        reservation={selectedReservation}
+        roomName={room.name}
+        onConfirmCancel={handleCancelReservation}
+      />
     </>
   );
 };
