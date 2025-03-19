@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -233,9 +232,9 @@ const RoomCard: React.FC<RoomCardProps> = ({
               {room.isAvailable ? 'Available' : 'Occupied'}
             </Badge>
           </div>
-          {!room.isAvailable && occupiedBy && (
+          {!room.isAvailable && (
             <p className="text-xs mt-1 font-medium text-muted-foreground">
-              Occupied by: {occupiedBy}
+              {occupiedBy ? `Occupied by: ${occupiedBy}` : 'Currently occupied'}
             </p>
           )}
         </CardHeader>
