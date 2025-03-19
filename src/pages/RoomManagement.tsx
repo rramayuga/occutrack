@@ -49,7 +49,7 @@ const RoomManagement = () => {
   });
   
   const selectedBuildingData = buildings.find(b => b.id === selectedBuilding);
-  // Fix the Array.from usage by converting to an Array of numbers properly
+  // Create a proper array of floor numbers
   const floors = selectedBuildingData 
     ? Array.from({ length: selectedBuildingData.floors }, (_, i) => i + 1) 
     : [];
@@ -192,8 +192,7 @@ const RoomManagement = () => {
                     onSelectRoom={handleRoomSelect}
                   />
                 ) : (
-                  // Fix rendering unknown as ReactNode by ensuring it's a valid React element
-                  // by properly rendering each floor
+                  // Map each floor to a FloorRooms component
                   floors.map((floor) => {
                     const floorRooms = buildingRooms.filter(room => room.floor === floor);
                     if (floorRooms.length === 0) return null;
