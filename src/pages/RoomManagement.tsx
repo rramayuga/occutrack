@@ -192,7 +192,11 @@ const RoomManagement = () => {
                           className="flex-1"
                           onClick={() => {
                             setSelectedBuilding(building.id);
-                            document.querySelector('[data-value="rooms"]')?.click();
+                            const tabsElement = document.querySelector('[data-value="rooms"]');
+                            if (tabsElement) {
+                              // Using the modern API instead of .click()
+                              tabsElement.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+                            }
                           }}
                         >
                           View Rooms

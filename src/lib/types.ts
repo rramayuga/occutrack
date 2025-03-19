@@ -1,3 +1,4 @@
+
 // User types
 export interface User {
   id: string;
@@ -22,9 +23,11 @@ export interface Room {
   name: string;
   type: string;
   isAvailable: boolean;
+  status?: 'available' | 'occupied' | 'maintenance'; // New field for more detailed status
   floor: number;
   buildingId: string;
   capacity?: number; // Make capacity optional to handle both new and old data
+  occupiedBy?: string; // To store who occupies the room
 }
 
 export interface Building {
@@ -75,4 +78,13 @@ export interface ReservationFormValues {
   startTime: string;
   endTime: string;
   purpose: string;
+}
+
+// Announcement types
+export interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  createdAt: string;
+  createdBy: string;
 }
