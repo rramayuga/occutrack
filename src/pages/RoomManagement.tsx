@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { useRoomsManagement } from '@/hooks/useRoomsManagement';
+import { useRooms } from '@/hooks/useRooms';
+import { useBuildings } from '@/hooks/useBuildings';
 import { BuildingWithFloors, Room } from '@/lib/types';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,34 +15,77 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { DataTable } from "@/components/ui/table";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableFooter,
+  TableHead,
+  TableRow,
+  TableCell,
+} from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import BuildingCard from "@/components/admin/BuildingCard";
-import BuildingForm from "@/components/admin/BuildingForm";
-import RoomForm from "@/components/admin/RoomForm";
+import { useToast } from "@/components/ui/use-toast";
+import RoomStatusBadge from "@/components/rooms/RoomStatusBadge";
+import { useRoomsManagement } from '@/hooks/useRoomsManagement';
 
 const RoomManagement = () => {
-  const {
-    buildings,
-    rooms,
-    loading,
-    selectedBuilding,
-    selectedFloor,
-    isAddingRoom,
-    isAddingBuilding,
-    roomFilter,
-    setRoomFilter,
-    setSelectedBuilding,
-    setSelectedFloor,
-    setIsAddingRoom,
-    setIsAddingBuilding,
-    handleAddRoom,
-    handleAddBuilding,
-    handleDeleteRoom,
-    handleDeleteBuilding,
-    filterRooms,
-  } = useRoomsManagement();
-
+  // States for room management
+  const [selectedBuilding, setSelectedBuilding] = useState<string>("");
+  const [selectedFloor, setSelectedFloor] = useState<number | null>(null);
+  const [isAddingRoom, setIsAddingRoom] = useState(false);
+  const [isAddingBuilding, setIsAddingBuilding] = useState(false);
+  const [roomFilter, setRoomFilter] = useState("");
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [filteredRooms, setFilteredRooms] = useState<Room[]>([]);
+  
+  // Hooks
+  const { addRoom, handleRoomCsvUpload, exportRoomsToCsv, isUploading } = useRoomsManagement();
+  const { buildings, loading: buildingsLoading, addBuilding: handleAddBuilding } = useBuildings();
+  const { toast } = useToast();
+  
+  // Fetch rooms based on the selected building and floor
+  useEffect(() => {
+    // In a real app, this would be a fetch from the API
+    // For now we'll simulate with static data
+    const mockRooms: Room[] = [
+      {
+        id: "1",
+        name: "Room 101",
+        type: "Classroom",
+        isAvailable: true,
+        floor: 1,
+        buildingId: "b1",
+        capacity: 30
+      },
+      {
+        id: "2",
+        name: "Room 102",
+        type: "Lab",
+        isAvailable: false,
+        floor: 1,
+        buildingId: "b1",
+        capacity: 20
+      },
+      {
+        id: "3",
+        name: "Room 201",
+        type: "Lecture Hall",
+        isAvailable: true,
+        floor: 2,
+        buildingId: "b1",
+        capacity: 100
+      }
+    ];
+    
+    setRooms(mockRooms);
+  }, []);
+  
+  // Filter rooms whenever dependencies change
+  useEffect(() => {
+    filterRooms();
+  }, [selectedBuilding, selectedFloor, roomFilter, rooms]);
+  
   // Get unique floors for the selected building
   const getFloorsForSelectedBuilding = () => {
     if (!selectedBuilding) return [];
@@ -50,8 +94,61 @@ const RoomManagement = () => {
     return building.floors;
   };
 
-  // Filter rooms by building and floor
-  const filteredRooms = filterRooms();
+  // Handle adding a new room
+  const handleAddRoom = async (roomData: Omit<Room, 'id'>) => {
+    const success = await addRoom(roomData);
+    if (success) {
+      setIsAddingRoom(false);
+      // In a real app, we would refresh the rooms list here
+      toast({
+        title: "Room added",
+        description: "The room has been successfully added."
+      });
+    }
+  };
+
+  // Handle deleting a room
+  const handleDeleteRoom = (roomId: string) => {
+    // In a real app, this would call an API
+    setRooms(prevRooms => prevRooms.filter(room => room.id !== roomId));
+    toast({
+      title: "Room deleted",
+      description: "The room has been successfully deleted."
+    });
+  };
+
+  // Handle deleting a building
+  const handleDeleteBuilding = (buildingId: string) => {
+    // In a real app, this would call an API
+    toast({
+      title: "Building deleted",
+      description: "The building has been successfully deleted."
+    });
+  };
+
+  // Filter rooms based on selected building, floor, and text filter
+  const filterRooms = () => {
+    let filtered = [...rooms];
+    
+    if (selectedBuilding) {
+      filtered = filtered.filter(room => room.buildingId === selectedBuilding);
+    }
+    
+    if (selectedFloor !== null) {
+      filtered = filtered.filter(room => room.floor === selectedFloor);
+    }
+    
+    if (roomFilter) {
+      const lowerCaseFilter = roomFilter.toLowerCase();
+      filtered = filtered.filter(room => 
+        room.name.toLowerCase().includes(lowerCaseFilter) || 
+        room.type.toLowerCase().includes(lowerCaseFilter)
+      );
+    }
+    
+    setFilteredRooms(filtered);
+    return filtered;
+  };
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -69,16 +166,49 @@ const RoomManagement = () => {
             <Button onClick={() => setIsAddingBuilding(true)}>Add Building</Button>
           </div>
 
-          {loading ? (
+          {buildingsLoading ? (
             <p>Loading buildings...</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {buildings.map(building => (
-                <BuildingCard
-                  key={building.id}
-                  building={building}
-                  onDelete={() => handleDeleteBuilding(building.id)}
-                />
+                <Card key={building.id}>
+                  <CardHeader>
+                    <CardTitle>{building.name}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Rooms:</span>
+                        <span>{building.roomCount}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Utilization:</span>
+                        <span>{building.utilization || '0%'}</span>
+                      </div>
+                      <div className="flex space-x-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="flex-1"
+                          onClick={() => {
+                            setSelectedBuilding(building.id);
+                            document.querySelector('[data-value="rooms"]')?.click();
+                          }}
+                        >
+                          View Rooms
+                        </Button>
+                        <Button 
+                          variant="destructive" 
+                          size="sm" 
+                          className="flex-1"
+                          onClick={() => handleDeleteBuilding(building.id)}
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           )}
@@ -106,7 +236,7 @@ const RoomManagement = () => {
 
               <Select
                 value={selectedFloor?.toString() || ""}
-                onValueChange={(value) => setSelectedFloor(parseInt(value))}
+                onValueChange={(value) => setSelectedFloor(value ? parseInt(value) : null)}
                 disabled={!selectedBuilding}
               >
                 <SelectTrigger className="w-[180px]">
@@ -138,62 +268,50 @@ const RoomManagement = () => {
             </Button>
           </div>
 
-          {loading ? (
-            <p>Loading rooms...</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="bg-muted">
-                    <th className="text-left p-2">Name</th>
-                    <th className="text-left p-2">Type</th>
-                    <th className="text-left p-2">Floor</th>
-                    <th className="text-left p-2">Capacity</th>
-                    <th className="text-left p-2">Status</th>
-                    <th className="text-left p-2">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredRooms.length > 0 ? (
-                    filteredRooms.map((room) => (
-                      <tr key={room.id} className="border-b">
-                        <td className="p-2">{room.name}</td>
-                        <td className="p-2">{room.type}</td>
-                        <td className="p-2">{room.floor}</td>
-                        <td className="p-2">{room.capacity || "N/A"}</td>
-                        <td className="p-2">
-                          <span
-                            className={`px-2 py-1 text-xs rounded-full ${
-                              room.isAvailable
-                                ? "bg-green-100 text-green-800"
-                                : "bg-red-100 text-red-800"
-                            }`}
-                          >
-                            {room.isAvailable ? "Available" : "Occupied"}
-                          </span>
-                        </td>
-                        <td className="p-2">
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => handleDeleteRoom(room.id)}
-                          >
-                            Delete
-                          </Button>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={6} className="p-2 text-center">
-                        No rooms found.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Floor</TableHead>
+                  <TableHead>Capacity</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredRooms.length > 0 ? (
+                  filteredRooms.map((room) => (
+                    <TableRow key={room.id}>
+                      <TableCell>{room.name}</TableCell>
+                      <TableCell>{room.type}</TableCell>
+                      <TableCell>{room.floor}</TableCell>
+                      <TableCell>{room.capacity || "N/A"}</TableCell>
+                      <TableCell>
+                        <RoomStatusBadge isAvailable={room.isAvailable} />
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleDeleteRoom(room.id)}
+                        >
+                          Delete
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center">
+                      No rooms found.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </TabsContent>
       </Tabs>
 
@@ -206,7 +324,38 @@ const RoomManagement = () => {
               Enter the details for the new building.
             </DialogDescription>
           </DialogHeader>
-          <BuildingForm onSubmit={handleAddBuilding} onCancel={() => setIsAddingBuilding(false)} />
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            const formData = new FormData(e.currentTarget);
+            const name = formData.get('name') as string;
+            const floorCount = parseInt(formData.get('floorCount') as string);
+            const location = formData.get('location') as string;
+            
+            if (handleAddBuilding(name, floorCount, location)) {
+              setIsAddingBuilding(false);
+            }
+          }} className="space-y-4">
+            <div className="grid gap-4">
+              <div className="grid gap-2">
+                <label htmlFor="name" className="text-sm font-medium">Building Name</label>
+                <Input id="name" name="name" required />
+              </div>
+              <div className="grid gap-2">
+                <label htmlFor="floorCount" className="text-sm font-medium">Number of Floors</label>
+                <Input id="floorCount" name="floorCount" type="number" min="1" defaultValue="1" required />
+              </div>
+              <div className="grid gap-2">
+                <label htmlFor="location" className="text-sm font-medium">Location (Optional)</label>
+                <Input id="location" name="location" />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsAddingBuilding(false)}>
+                Cancel
+              </Button>
+              <Button type="submit">Add Building</Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
@@ -219,12 +368,75 @@ const RoomManagement = () => {
               Enter the details for the new room.
             </DialogDescription>
           </DialogHeader>
-          <RoomForm
-            buildings={buildings}
-            selectedBuilding={selectedBuilding}
-            onSubmit={handleAddRoom}
-            onCancel={() => setIsAddingRoom(false)}
-          />
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            const formData = new FormData(e.currentTarget);
+            const name = formData.get('name') as string;
+            const type = formData.get('type') as string;
+            const floor = parseInt(formData.get('floor') as string);
+            const capacity = parseInt(formData.get('capacity') as string);
+            const isAvailable = formData.get('isAvailable') === 'on';
+            
+            handleAddRoom({
+              name,
+              type,
+              floor,
+              buildingId: selectedBuilding,
+              capacity,
+              isAvailable
+            });
+          }} className="space-y-4">
+            <div className="grid gap-4">
+              <div className="grid gap-2">
+                <label htmlFor="name" className="text-sm font-medium">Room Name</label>
+                <Input id="name" name="name" required />
+              </div>
+              <div className="grid gap-2">
+                <label htmlFor="type" className="text-sm font-medium">Room Type</label>
+                <Select name="type" defaultValue="Classroom">
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Classroom">Classroom</SelectItem>
+                    <SelectItem value="Lab">Lab</SelectItem>
+                    <SelectItem value="Lecture Hall">Lecture Hall</SelectItem>
+                    <SelectItem value="Meeting Room">Meeting Room</SelectItem>
+                    <SelectItem value="Computer Lab">Computer Lab</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <label htmlFor="floor" className="text-sm font-medium">Floor</label>
+                <Select name="floor" defaultValue={selectedFloor?.toString() || "1"}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select floor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {getFloorsForSelectedBuilding().map((floor) => (
+                      <SelectItem key={floor} value={floor.toString()}>
+                        Floor {floor}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <label htmlFor="capacity" className="text-sm font-medium">Capacity</label>
+                <Input id="capacity" name="capacity" type="number" min="1" defaultValue="30" />
+              </div>
+              <div className="flex items-center space-x-2">
+                <input id="isAvailable" name="isAvailable" type="checkbox" defaultChecked className="rounded" />
+                <label htmlFor="isAvailable" className="text-sm font-medium">Available for booking</label>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsAddingRoom(false)}>
+                Cancel
+              </Button>
+              <Button type="submit">Add Room</Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
