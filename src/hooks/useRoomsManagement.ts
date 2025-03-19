@@ -17,6 +17,7 @@ export const useRoomsManagement = () => {
         floor: roomData.floor,
         building_id: roomData.buildingId, // Map buildingId to building_id
         capacity: roomData.capacity || 30, // Ensure capacity is always provided
+        status: roomData.status || (roomData.isAvailable ? 'available' : 'occupied'),
       };
 
       const { data, error } = await supabase
@@ -56,53 +57,116 @@ export const useRoomsManagement = () => {
       const lines = text.split('\n');
       const headers = lines[0].split(',');
       
-      if (!headers.includes('name') || !headers.includes('type') || !headers.includes('floor') || !headers.includes('buildingId') || !headers.includes('isAvailable')) {
+      // Check for required columns
+      const requiredColumns = ['name', 'type', 'floor', 'buildingId'];
+      const missingColumns = requiredColumns.filter(col => !headers.includes(col));
+      
+      if (missingColumns.length > 0) {
         toast({
-          title: "Error",
-          description: "CSV file must include 'name', 'type', 'floor', 'buildingId', and 'isAvailable' columns.",
+          title: "Invalid CSV Format",
+          description: `CSV file must include the following columns: ${missingColumns.join(', ')}`,
           variant: "destructive"
         });
         setIsUploading(false);
         return;
       }
 
-      const rooms = [];
+      let successCount = 0;
+      let updateCount = 0;
+      let errorCount = 0;
+      
       for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue; // Skip empty lines
+        
         const data = lines[i].split(',');
-        if (data.length === headers.length) {
-          const roomData = {
-            name: data[headers.indexOf('name')],
-            type: data[headers.indexOf('type')],
-            floor: parseInt(data[headers.indexOf('floor')]),
-            building_id: data[headers.indexOf('buildingId')], // Map buildingId to building_id
-            capacity: 30, // Default capacity
-            is_available: data[headers.indexOf('isAvailable')] === 'true'
-          };
-          rooms.push(roomData);
+        if (data.length !== headers.length) {
+          console.error(`Line ${i} has incorrect number of columns`);
+          errorCount++;
+          continue;
         }
-      }
-
-      // Use a loop to insert rooms one by one
-      for (const roomData of rooms) {
-        const { data, error } = await supabase
-          .from('rooms')
-          .insert([roomData]);
-
-        if (error) {
-          console.error("Error uploading room:", error);
-          toast({
-            title: "Error",
-            description: `Error uploading room: ${error.message}`,
-            variant: 'destructive',
+        
+        try {
+          // Create a map of column names to values
+          const roomData: Record<string, any> = {};
+          headers.forEach((header, index) => {
+            roomData[header] = data[index].trim();
           });
-          setIsUploading(false);
-          return;
+          
+          // Extract and convert data
+          const buildingId = roomData.buildingId;
+          const name = roomData.name;
+          const type = roomData.type;
+          const floor = parseInt(roomData.floor);
+          const capacity = roomData.capacity ? parseInt(roomData.capacity) : 30;
+          const isAvailable = roomData.isAvailable === 'true';
+          const status = roomData.status || (isAvailable ? 'available' : 'occupied');
+          
+          if (isNaN(floor)) {
+            console.error(`Invalid floor number in line ${i}`);
+            errorCount++;
+            continue;
+          }
+          
+          // Check if this room already exists (by name and building)
+          const { data: existingRooms, error: queryError } = await supabase
+            .from('rooms')
+            .select('id')
+            .eq('name', name)
+            .eq('building_id', buildingId);
+            
+          if (queryError) throw queryError;
+          
+          if (existingRooms && existingRooms.length > 0) {
+            // Update existing room
+            const { error: updateError } = await supabase
+              .from('rooms')
+              .update({
+                type,
+                floor,
+                capacity,
+                status,
+              })
+              .eq('id', existingRooms[0].id);
+              
+            if (updateError) throw updateError;
+            
+            // Also update room availability
+            await supabase
+              .from('room_availability')
+              .insert({
+                room_id: existingRooms[0].id,
+                is_available: isAvailable,
+                updated_by: '00000000-0000-0000-0000-000000000000', // System update
+              });
+              
+            updateCount++;
+          } else {
+            // Insert new room
+            const { error: insertError } = await supabase
+              .from('rooms')
+              .insert([{
+                name,
+                type,
+                floor,
+                building_id: buildingId,
+                capacity,
+                status,
+              }]);
+              
+            if (insertError) throw insertError;
+            successCount++;
+          }
+        } catch (error) {
+          console.error(`Error processing line ${i}:`, error);
+          errorCount++;
         }
       }
-
+      
+      // Show success toast with summary
       toast({
-        title: "Success",
-        description: "Rooms uploaded successfully.",
+        title: "CSV Import Complete",
+        description: `Successfully added ${successCount} rooms, updated ${updateCount} rooms. ${errorCount} errors occurred.`,
+        variant: errorCount > 0 ? "default" : "default"
       });
     } catch (error) {
       console.error("Error processing CSV file:", error);
@@ -120,7 +184,16 @@ export const useRoomsManagement = () => {
     try {
       const { data: rooms, error } = await supabase
         .from('rooms')
-        .select('*');
+        .select(`
+          id,
+          name,
+          type,
+          floor,
+          building_id,
+          capacity,
+          status,
+          buildings(name)
+        `);
 
       if (error) {
         console.error("Error fetching rooms:", error);
@@ -140,13 +213,28 @@ export const useRoomsManagement = () => {
         return;
       }
 
-      const headers = Object.keys(rooms[0]).join(',');
-      const csv = [
-        headers,
-        ...rooms.map(room => Object.values(room).join(','))
-      ].join('\n');
-
-      const blob = new Blob([csv], { type: 'text/csv' });
+      // Format data for CSV
+      const csvRows = [
+        // Header row
+        ['name', 'type', 'floor', 'buildingId', 'buildingName', 'capacity', 'status'].join(',')
+      ];
+      
+      // Data rows
+      rooms.forEach(room => {
+        const buildingName = room.buildings?.name || '';
+        csvRows.push([
+          room.name,
+          room.type,
+          room.floor,
+          room.building_id,
+          buildingName,
+          room.capacity,
+          room.status || 'available'
+        ].join(','));
+      });
+      
+      const csvContent = csvRows.join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.setAttribute('href', url);

@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Lock, Calendar } from 'lucide-react';
-import { Room, Reservation } from '@/lib/types';
+import { CheckCircle, Lock, Calendar, Settings } from 'lucide-react';
+import { Room, Reservation, RoomStatus } from '@/lib/types';
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/lib/auth';
 import { useToast } from "@/components/ui/use-toast";
@@ -11,6 +11,13 @@ import RoomStatusBadge from './RoomStatusBadge';
 import RoomOccupantInfo from './RoomOccupantInfo';
 import RoomScheduleList from './RoomScheduleList';
 import CancelReservationDialog from './CancelReservationDialog';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
 
 export interface RoomCardProps {
   room: Room;
@@ -33,12 +40,62 @@ const RoomCard: React.FC<RoomCardProps> = ({
   const { user } = useAuth();
   const { toast } = useToast();
 
+  // Get effective status from the room object
+  const getEffectiveStatus = (): RoomStatus => {
+    if (room.status) return room.status;
+    return room.isAvailable ? 'available' : 'occupied';
+  };
+
+  // Set room status in the database
+  const handleStatusChange = async (status: RoomStatus) => {
+    if (!user) return;
+    
+    try {
+      // First update the room availability record
+      const isAvailable = status === 'available';
+      
+      const { error: availabilityError } = await supabase
+        .from('room_availability')
+        .insert({
+          room_id: room.id,
+          is_available: isAvailable,
+          updated_by: user.id,
+          updated_at: new Date().toISOString()
+        });
+      
+      if (availabilityError) throw availabilityError;
+      
+      // Then update the room status in the rooms table
+      const { error: roomError } = await supabase
+        .from('rooms')
+        .update({ status: status })
+        .eq('id', room.id);
+      
+      if (roomError) throw roomError;
+      
+      toast({
+        title: "Room status updated",
+        description: `Room status changed to ${status}`,
+      });
+      
+      // Update local state - will be overridden on next data fetch anyway
+      onToggleAvailability(room.id);
+    } catch (error) {
+      console.error("Error updating room status:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update room status",
+        variant: "destructive"
+      });
+    }
+  };
+
   useEffect(() => {
-    if (!room.isAvailable) {
+    if (!room.isAvailable || room.status === 'occupied') {
       fetchRoomOccupant();
     }
     fetchRoomSchedules();
-  }, [room.id, room.isAvailable]);
+  }, [room.id, room.isAvailable, room.status]);
 
   const fetchRoomOccupant = async () => {
     try {
@@ -67,7 +124,7 @@ const RoomCard: React.FC<RoomCardProps> = ({
       if (data && data.length > 0) {
         setOccupiedBy(data[0].profiles?.name || "Unknown Faculty");
       } else {
-        setOccupiedBy(null);
+        setOccupiedBy(room.occupiedBy || null);
       }
     } catch (error) {
       console.error("Error in fetchRoomOccupant:", error);
@@ -187,11 +244,6 @@ const RoomCard: React.FC<RoomCardProps> = ({
       onSelectRoom();
     }
   };
-
-  const handleToggleAvailability = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onToggleAvailability(room.id);
-  };
   
   const handleToggleSchedules = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -212,15 +264,22 @@ const RoomCard: React.FC<RoomCardProps> = ({
   return (
     <>
       <Card 
-        className={`hover:shadow-md transition-shadow ${onSelectRoom ? 'cursor-pointer' : ''} ${room.isAvailable ? '' : 'border-red-200'}`}
+        className={`hover:shadow-md transition-shadow ${onSelectRoom ? 'cursor-pointer' : ''} ${
+          room.status === 'maintenance' ? 'border-amber-200' : 
+          !room.isAvailable ? 'border-red-200' : ''
+        }`}
         onClick={onSelectRoom ? handleCardClick : undefined}
       >
         <CardHeader className="pb-2">
           <div className="flex justify-between items-start">
             <CardTitle className="text-base">{room.name}</CardTitle>
-            <RoomStatusBadge isAvailable={room.isAvailable} />
+            <RoomStatusBadge status={room.status} isAvailable={room.isAvailable} />
           </div>
-          <RoomOccupantInfo isAvailable={room.isAvailable} occupiedBy={occupiedBy} />
+          <RoomOccupantInfo 
+            isAvailable={room.isAvailable} 
+            occupiedBy={occupiedBy}
+            status={room.status} 
+          />
         </CardHeader>
         <CardContent className="pb-2">
           <div className="flex items-center justify-between text-sm text-muted-foreground">
@@ -230,19 +289,27 @@ const RoomCard: React.FC<RoomCardProps> = ({
         </CardContent>
         <CardFooter className="pt-1 flex flex-col">
           {canModifyRooms ? (
-            <Button 
-              variant={room.isAvailable ? "outline" : "default"}
-              size="sm"
-              className="w-full mb-2"
-              onClick={handleToggleAvailability}
-            >
-              <CheckCircle className="h-4 w-4 mr-1" />
-              {room.isAvailable ? 'Mark as Occupied' : 'Mark as Available'}
-            </Button>
+            <div className="w-full mb-2">
+              <Select
+                value={getEffectiveStatus()}
+                onValueChange={(value) => handleStatusChange(value as RoomStatus)}
+              >
+                <SelectTrigger className="w-full text-xs">
+                  <Settings className="h-4 w-4 mr-1" />
+                  <SelectValue placeholder="Change Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="available">Mark as Available</SelectItem>
+                  <SelectItem value="occupied">Mark as Occupied</SelectItem>
+                  <SelectItem value="maintenance">Mark as Under Maintenance</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           ) : (
             <div className="text-xs text-muted-foreground flex items-center mb-2 w-full justify-center">
               <Lock className="h-3 w-3 mr-1" />
-              {!room.isAvailable ? 'Currently in use' : 'Ready for use'}
+              {room.status === 'maintenance' ? 'Under maintenance' : 
+               !room.isAvailable ? 'Currently in use' : 'Ready for use'}
             </div>
           )}
           

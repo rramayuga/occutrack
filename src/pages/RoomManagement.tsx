@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useRooms } from '@/hooks/useRooms';
+import { useRoomsManagement } from '@/hooks/useRoomsManagement';
 import { useBuildings } from '@/hooks/useBuildings';
 import { BuildingWithFloors, Room } from '@/lib/types';
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,13 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import RoomStatusBadge from "@/components/rooms/RoomStatusBadge";
-import { useRoomsManagement } from '@/hooks/useRoomsManagement';
+import { useRooms } from '@/hooks/useRooms';
+import BuildingCard from '@/components/admin/BuildingCard';
+import BuildingForm, { BuildingFormValues } from '@/components/admin/BuildingForm';
+import RoomForm, { RoomFormValues } from '@/components/admin/RoomForm';
+import { Download, Upload } from 'lucide-react';
+import { supabase } from "@/integrations/supabase/client";
+import Navbar from '@/components/layout/Navbar';
 
 const RoomManagement = () => {
   // States for room management
@@ -38,48 +44,19 @@ const RoomManagement = () => {
   const [roomFilter, setRoomFilter] = useState("");
   const [rooms, setRooms] = useState<Room[]>([]);
   const [filteredRooms, setFilteredRooms] = useState<Room[]>([]);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
   
   // Hooks
   const { addRoom, handleRoomCsvUpload, exportRoomsToCsv, isUploading } = useRoomsManagement();
-  const { buildings, loading: buildingsLoading, addBuilding: handleAddBuilding } = useBuildings();
+  const { buildings, loading: buildingsLoading, addBuilding } = useBuildings();
+  const { rooms: fetchedRooms, loading: roomsLoading } = useRooms();
   const { toast } = useToast();
   
-  // Fetch rooms based on the selected building and floor
+  // Fetch rooms whenever selected building changes
   useEffect(() => {
-    // In a real app, this would be a fetch from the API
-    // For now we'll simulate with static data
-    const mockRooms: Room[] = [
-      {
-        id: "1",
-        name: "Room 101",
-        type: "Classroom",
-        isAvailable: true,
-        floor: 1,
-        buildingId: "b1",
-        capacity: 30
-      },
-      {
-        id: "2",
-        name: "Room 102",
-        type: "Lab",
-        isAvailable: false,
-        floor: 1,
-        buildingId: "b1",
-        capacity: 20
-      },
-      {
-        id: "3",
-        name: "Room 201",
-        type: "Lecture Hall",
-        isAvailable: true,
-        floor: 2,
-        buildingId: "b1",
-        capacity: 100
-      }
-    ];
-    
-    setRooms(mockRooms);
-  }, []);
+    setRooms(fetchedRooms);
+  }, [fetchedRooms]);
   
   // Filter rooms whenever dependencies change
   useEffect(() => {
@@ -95,11 +72,19 @@ const RoomManagement = () => {
   };
 
   // Handle adding a new room
-  const handleAddRoom = async (roomData: Omit<Room, 'id'>) => {
+  const handleAddRoom = async (formData: RoomFormValues) => {
+    const roomData: Omit<Room, 'id'> = {
+      name: formData.name,
+      type: formData.type,
+      floor: formData.floor,
+      buildingId: formData.buildingId,
+      isAvailable: formData.isAvailable,
+      capacity: 30
+    };
+    
     const success = await addRoom(roomData);
     if (success) {
       setIsAddingRoom(false);
-      // In a real app, we would refresh the rooms list here
       toast({
         title: "Room added",
         description: "The room has been successfully added."
@@ -108,22 +93,89 @@ const RoomManagement = () => {
   };
 
   // Handle deleting a room
-  const handleDeleteRoom = (roomId: string) => {
-    // In a real app, this would call an API
-    setRooms(prevRooms => prevRooms.filter(room => room.id !== roomId));
-    toast({
-      title: "Room deleted",
-      description: "The room has been successfully deleted."
-    });
+  const handleDeleteRoom = async (roomId: string) => {
+    try {
+      const { error } = await supabase
+        .from('rooms')
+        .delete()
+        .eq('id', roomId);
+        
+      if (error) throw error;
+      
+      setRooms(prevRooms => prevRooms.filter(room => room.id !== roomId));
+      toast({
+        title: "Room deleted",
+        description: "The room has been successfully deleted."
+      });
+    } catch (error) {
+      console.error('Error deleting room:', error);
+      toast({
+        title: "Error",
+        description: "Could not delete room. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   // Handle deleting a building
-  const handleDeleteBuilding = (buildingId: string) => {
-    // In a real app, this would call an API
-    toast({
-      title: "Building deleted",
-      description: "The building has been successfully deleted."
-    });
+  const handleDeleteBuilding = async (buildingId: string) => {
+    try {
+      // First check if there are rooms in this building
+      const { data: buildingRooms, error: roomsError } = await supabase
+        .from('rooms')
+        .select('id')
+        .eq('building_id', buildingId);
+        
+      if (roomsError) throw roomsError;
+      
+      if (buildingRooms && buildingRooms.length > 0) {
+        toast({
+          title: "Cannot delete building",
+          description: "Please delete all rooms in this building first.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      const { error } = await supabase
+        .from('buildings')
+        .delete()
+        .eq('id', buildingId);
+        
+      if (error) throw error;
+      
+      toast({
+        title: "Building deleted",
+        description: "The building has been successfully deleted."
+      });
+    } catch (error) {
+      console.error('Error deleting building:', error);
+      toast({
+        title: "Error",
+        description: "Could not delete building. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Handle CSV import
+  const handleCsvImport = async () => {
+    if (!csvFile) {
+      toast({
+        title: "No file selected",
+        description: "Please select a CSV file to import.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      await handleRoomCsvUpload(csvFile);
+      setIsImportDialogOpen(false);
+      setCsvFile(null);
+    } catch (error) {
+      console.error('Error importing CSV:', error);
+    }
   };
 
   // Filter rooms based on selected building, floor, and text filter
@@ -147,276 +199,102 @@ const RoomManagement = () => {
     }
     
     setFilteredRooms(filtered);
-    return filtered;
+  };
+
+  // Handle building form submission
+  const handleAddBuildingSubmit = async (data: BuildingFormValues) => {
+    if (await addBuilding(data.name, data.floorCount, data.location)) {
+      setIsAddingBuilding(false);
+    }
   };
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <h1 className="text-2xl font-bold">Room Management</h1>
+    <div className="min-h-screen bg-background">
+      <Navbar />
+      <div className="container mx-auto py-6 space-y-6 pt-20">
+        <h1 className="text-2xl font-bold">Room Management</h1>
 
-      <Tabs defaultValue="buildings">
-        <TabsList>
-          <TabsTrigger value="buildings">Buildings</TabsTrigger>
-          <TabsTrigger value="rooms">Rooms</TabsTrigger>
-        </TabsList>
+        <Tabs defaultValue="buildings">
+          <TabsList>
+            <TabsTrigger value="buildings">Buildings</TabsTrigger>
+            <TabsTrigger value="rooms">Rooms</TabsTrigger>
+          </TabsList>
 
-        {/* Buildings Tab */}
-        <TabsContent value="buildings" className="space-y-4">
-          <div className="flex justify-end">
-            <Button onClick={() => setIsAddingBuilding(true)}>Add Building</Button>
-          </div>
-
-          {buildingsLoading ? (
-            <p>Loading buildings...</p>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {buildings.map(building => (
-                <Card key={building.id}>
-                  <CardHeader>
-                    <CardTitle>{building.name}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Rooms:</span>
-                        <span>{building.roomCount}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Utilization:</span>
-                        <span>{building.utilization || '0%'}</span>
-                      </div>
-                      <div className="flex space-x-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="flex-1"
-                          onClick={() => {
-                            setSelectedBuilding(building.id);
-                            const tabsElement = document.querySelector('[data-value="rooms"]');
-                            if (tabsElement) {
-                              // Using the modern API instead of .click()
-                              tabsElement.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-                            }
-                          }}
-                        >
-                          View Rooms
-                        </Button>
-                        <Button 
-                          variant="destructive" 
-                          size="sm" 
-                          className="flex-1"
-                          onClick={() => handleDeleteBuilding(building.id)}
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        {/* Rooms Tab */}
-        <TabsContent value="rooms" className="space-y-4">
-          <div className="flex flex-col md:flex-row gap-4 justify-between">
-            <div className="flex flex-col md:flex-row gap-2">
-              <Select
-                value={selectedBuilding}
-                onValueChange={setSelectedBuilding}
-              >
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Select Building" />
-                </SelectTrigger>
-                <SelectContent>
-                  {buildings.map((building) => (
-                    <SelectItem key={building.id} value={building.id}>
-                      {building.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={selectedFloor?.toString() || ""}
-                onValueChange={(value) => setSelectedFloor(value ? parseInt(value) : null)}
-                disabled={!selectedBuilding}
-              >
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Select Floor" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All Floors</SelectItem>
-                  {getFloorsForSelectedBuilding().map((floor) => (
-                    <SelectItem key={floor} value={floor.toString()}>
-                      Floor {floor}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Input
-                placeholder="Filter rooms..."
-                value={roomFilter}
-                onChange={(e) => setRoomFilter(e.target.value)}
-                className="w-full md:w-auto"
-              />
+          {/* Buildings Tab */}
+          <TabsContent value="buildings" className="space-y-4">
+            <div className="flex justify-between items-center">
+              <Button onClick={() => setIsAddingBuilding(true)}>Add Building</Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={exportRoomsToCsv}>
+                  <Download className="h-4 w-4 mr-2" /> Export CSV
+                </Button>
+                <Button variant="outline" onClick={() => setIsImportDialogOpen(true)}>
+                  <Upload className="h-4 w-4 mr-2" /> Import CSV
+                </Button>
+              </div>
             </div>
 
-            <Button
-              onClick={() => setIsAddingRoom(true)}
-              disabled={!selectedBuilding}
-            >
-              Add Room
-            </Button>
-          </div>
-
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Floor</TableHead>
-                  <TableHead>Capacity</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredRooms.length > 0 ? (
-                  filteredRooms.map((room) => (
-                    <TableRow key={room.id}>
-                      <TableCell>{room.name}</TableCell>
-                      <TableCell>{room.type}</TableCell>
-                      <TableCell>{room.floor}</TableCell>
-                      <TableCell>{room.capacity || "N/A"}</TableCell>
-                      <TableCell>
-                        <RoomStatusBadge isAvailable={room.isAvailable} />
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => handleDeleteRoom(room.id)}
-                        >
-                          Delete
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
+            {buildingsLoading ? (
+              <p>Loading buildings...</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {buildings.length === 0 ? (
+                  <div className="col-span-3 text-center p-8 border rounded-lg">
+                    <p className="text-muted-foreground">No buildings available. Add a building to get started.</p>
+                  </div>
                 ) : (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center">
-                      No rooms found.
-                    </TableCell>
-                  </TableRow>
+                  buildings.map((building) => (
+                    <BuildingCard 
+                      key={building.id}
+                      id={building.id}
+                      name={building.name}
+                      roomCount={building.roomCount}
+                      utilization={building.utilization || '0%'}
+                      onView={() => {
+                        setSelectedBuilding(building.id);
+                        const tabsElement = document.querySelector('[data-value="rooms"]');
+                        if (tabsElement) {
+                          tabsElement.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+                        }
+                      }}
+                      onEdit={() => handleDeleteBuilding(building.id)}
+                    />
+                  ))
                 )}
-              </TableBody>
-            </Table>
-          </div>
-        </TabsContent>
-      </Tabs>
+              </div>
+            )}
+          </TabsContent>
 
-      {/* Add Building Dialog */}
-      <Dialog open={isAddingBuilding} onOpenChange={setIsAddingBuilding}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Building</DialogTitle>
-            <DialogDescription>
-              Enter the details for the new building.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={(e) => {
-            e.preventDefault();
-            const formData = new FormData(e.currentTarget);
-            const name = formData.get('name') as string;
-            const floorCount = parseInt(formData.get('floorCount') as string);
-            const location = formData.get('location') as string;
-            
-            if (handleAddBuilding(name, floorCount, location)) {
-              setIsAddingBuilding(false);
-            }
-          }} className="space-y-4">
-            <div className="grid gap-4">
-              <div className="grid gap-2">
-                <label htmlFor="name" className="text-sm font-medium">Building Name</label>
-                <Input id="name" name="name" required />
-              </div>
-              <div className="grid gap-2">
-                <label htmlFor="floorCount" className="text-sm font-medium">Number of Floors</label>
-                <Input id="floorCount" name="floorCount" type="number" min="1" defaultValue="1" required />
-              </div>
-              <div className="grid gap-2">
-                <label htmlFor="location" className="text-sm font-medium">Location (Optional)</label>
-                <Input id="location" name="location" />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsAddingBuilding(false)}>
-                Cancel
-              </Button>
-              <Button type="submit">Add Building</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Room Dialog */}
-      <Dialog open={isAddingRoom} onOpenChange={setIsAddingRoom}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Room</DialogTitle>
-            <DialogDescription>
-              Enter the details for the new room.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={(e) => {
-            e.preventDefault();
-            const formData = new FormData(e.currentTarget);
-            const name = formData.get('name') as string;
-            const type = formData.get('type') as string;
-            const floor = parseInt(formData.get('floor') as string);
-            const capacity = parseInt(formData.get('capacity') as string);
-            const isAvailable = formData.get('isAvailable') === 'on';
-            
-            handleAddRoom({
-              name,
-              type,
-              floor,
-              buildingId: selectedBuilding,
-              capacity,
-              isAvailable
-            });
-          }} className="space-y-4">
-            <div className="grid gap-4">
-              <div className="grid gap-2">
-                <label htmlFor="name" className="text-sm font-medium">Room Name</label>
-                <Input id="name" name="name" required />
-              </div>
-              <div className="grid gap-2">
-                <label htmlFor="type" className="text-sm font-medium">Room Type</label>
-                <Select name="type" defaultValue="Classroom">
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select type" />
+          {/* Rooms Tab */}
+          <TabsContent value="rooms" className="space-y-4">
+            <div className="flex flex-col md:flex-row gap-4 justify-between">
+              <div className="flex flex-col md:flex-row gap-2">
+                <Select
+                  value={selectedBuilding}
+                  onValueChange={setSelectedBuilding}
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Select Building" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Classroom">Classroom</SelectItem>
-                    <SelectItem value="Lab">Lab</SelectItem>
-                    <SelectItem value="Lecture Hall">Lecture Hall</SelectItem>
-                    <SelectItem value="Meeting Room">Meeting Room</SelectItem>
-                    <SelectItem value="Computer Lab">Computer Lab</SelectItem>
+                    {buildings.map((building) => (
+                      <SelectItem key={building.id} value={building.id}>
+                        {building.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="grid gap-2">
-                <label htmlFor="floor" className="text-sm font-medium">Floor</label>
-                <Select name="floor" defaultValue={selectedFloor?.toString() || "1"}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select floor" />
+
+                <Select
+                  value={selectedFloor?.toString() || ""}
+                  onValueChange={(value) => setSelectedFloor(value ? parseInt(value) : null)}
+                  disabled={!selectedBuilding}
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Select Floor" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="">All Floors</SelectItem>
                     {getFloorsForSelectedBuilding().map((floor) => (
                       <SelectItem key={floor} value={floor.toString()}>
                         Floor {floor}
@@ -424,25 +302,155 @@ const RoomManagement = () => {
                     ))}
                   </SelectContent>
                 </Select>
+
+                <Input
+                  placeholder="Filter rooms..."
+                  value={roomFilter}
+                  onChange={(e) => setRoomFilter(e.target.value)}
+                  className="w-full md:w-auto"
+                />
               </div>
-              <div className="grid gap-2">
-                <label htmlFor="capacity" className="text-sm font-medium">Capacity</label>
-                <Input id="capacity" name="capacity" type="number" min="1" defaultValue="30" />
-              </div>
-              <div className="flex items-center space-x-2">
-                <input id="isAvailable" name="isAvailable" type="checkbox" defaultChecked className="rounded" />
-                <label htmlFor="isAvailable" className="text-sm font-medium">Available for booking</label>
-              </div>
+
+              <Button
+                onClick={() => setIsAddingRoom(true)}
+                disabled={!selectedBuilding}
+              >
+                Add Room
+              </Button>
+            </div>
+
+            <div className="overflow-x-auto rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Floor</TableHead>
+                    <TableHead>Capacity</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {roomsLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-4">
+                        Loading rooms...
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredRooms.length > 0 ? (
+                    filteredRooms.map((room) => (
+                      <TableRow key={room.id}>
+                        <TableCell>{room.name}</TableCell>
+                        <TableCell>{room.type}</TableCell>
+                        <TableCell>{room.floor}</TableCell>
+                        <TableCell>{room.capacity || "N/A"}</TableCell>
+                        <TableCell>
+                          <RoomStatusBadge 
+                            status={room.status} 
+                            isAvailable={room.isAvailable} 
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDeleteRoom(room.id)}
+                          >
+                            Delete
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-4">
+                        {selectedBuilding ? "No rooms found in this building." : "Select a building to view rooms."}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        {/* Add Building Dialog */}
+        <Dialog open={isAddingBuilding} onOpenChange={setIsAddingBuilding}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Building</DialogTitle>
+              <DialogDescription>
+                Enter the details for the new building.
+              </DialogDescription>
+            </DialogHeader>
+            <BuildingForm 
+              onSubmit={handleAddBuildingSubmit} 
+              onCancel={() => setIsAddingBuilding(false)} 
+            />
+          </DialogContent>
+        </Dialog>
+
+        {/* Add Room Dialog */}
+        <Dialog open={isAddingRoom} onOpenChange={setIsAddingRoom}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Room</DialogTitle>
+              <DialogDescription>
+                Enter the details for the new room.
+              </DialogDescription>
+            </DialogHeader>
+            <RoomForm 
+              onSubmit={handleAddRoom} 
+              onCancel={() => setIsAddingRoom(false)} 
+              defaultBuildingId={selectedBuilding}
+            />
+          </DialogContent>
+        </Dialog>
+
+        {/* CSV Import Dialog */}
+        <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Import Rooms from CSV</DialogTitle>
+              <DialogDescription>
+                Upload a CSV file to import or update rooms. The file should include columns for name, type, floor, buildingId, and isAvailable.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <Input 
+                type="file" 
+                accept=".csv" 
+                onChange={(e) => {
+                  if (e.target.files && e.target.files.length > 0) {
+                    setCsvFile(e.target.files[0]);
+                  }
+                }} 
+              />
+              <p className="text-xs text-muted-foreground">
+                Existing rooms with matching names in the same building will be updated.
+              </p>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsAddingRoom(false)}>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setIsImportDialogOpen(false);
+                  setCsvFile(null);
+                }}
+              >
                 Cancel
               </Button>
-              <Button type="submit">Add Room</Button>
+              <Button 
+                onClick={handleCsvImport} 
+                disabled={isUploading || !csvFile}
+              >
+                {isUploading ? "Importing..." : "Import"}
+              </Button>
             </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 };
