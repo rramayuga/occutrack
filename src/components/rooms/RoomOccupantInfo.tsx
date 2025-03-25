@@ -1,10 +1,11 @@
 
 import React from 'react';
+import { RoomStatus } from '@/lib/types';
 
 interface RoomOccupantInfoProps {
   isAvailable: boolean;
   occupiedBy: string | null;
-  status?: string;
+  status?: RoomStatus;
 }
 
 const RoomOccupantInfo: React.FC<RoomOccupantInfoProps> = ({ 

@@ -16,6 +16,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import FacultyConfirmation from "./pages/FacultyConfirmation";
 import Announcements from "./pages/Announcements";
+import AnnouncementsManager from "./pages/admin/AnnouncementsManager";
 
 const queryClient = new QueryClient();
 
@@ -36,7 +37,7 @@ const App = () => (
           <Route path="/register" element={<Register />} />
           <Route path="/faculty-confirmation" element={<FacultyConfirmation />} />
           <Route path="/announcements" element={<Announcements />} />
-          <Route path="/admin/announcements" element={<Announcements />} />
+          <Route path="/admin/announcements" element={<AnnouncementsManager />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </AuthProvider>

@@ -42,7 +42,7 @@ const RoomCard: React.FC<RoomCardProps> = ({
 
   // Get effective status from the room object
   const getEffectiveStatus = (): RoomStatus => {
-    if (room.status) return room.status;
+    if (room.status) return room.status as RoomStatus;
     return room.isAvailable ? 'available' : 'occupied';
   };
 
@@ -273,12 +273,12 @@ const RoomCard: React.FC<RoomCardProps> = ({
         <CardHeader className="pb-2">
           <div className="flex justify-between items-start">
             <CardTitle className="text-base">{room.name}</CardTitle>
-            <RoomStatusBadge status={room.status} isAvailable={room.isAvailable} />
+            <RoomStatusBadge status={getEffectiveStatus()} isAvailable={room.isAvailable} />
           </div>
           <RoomOccupantInfo 
             isAvailable={room.isAvailable} 
             occupiedBy={occupiedBy}
-            status={room.status} 
+            status={getEffectiveStatus()} 
           />
         </CardHeader>
         <CardContent className="pb-2">

@@ -44,12 +44,14 @@ interface Building {
 
 interface RoomFormProps {
   defaultValues?: Partial<RoomFormValues>;
+  defaultBuildingId?: string;
   onSubmit: (data: RoomFormValues) => void;
   onCancel: () => void;
 }
 
 const RoomForm: React.FC<RoomFormProps> = ({
   defaultValues,
+  defaultBuildingId,
   onSubmit,
   onCancel
 }) => {
@@ -60,7 +62,7 @@ const RoomForm: React.FC<RoomFormProps> = ({
     resolver: zodResolver(roomFormSchema),
     defaultValues: {
       name: defaultValues?.name || '',
-      buildingId: defaultValues?.buildingId || '',
+      buildingId: defaultValues?.buildingId || defaultBuildingId || '',
       floor: defaultValues?.floor || 1,
       type: defaultValues?.type || 'Classroom',
       isAvailable: defaultValues?.isAvailable ?? true
@@ -93,8 +95,12 @@ const RoomForm: React.FC<RoomFormProps> = ({
           if (defaultValues?.buildingId && !data.find(b => b.id === defaultValues.buildingId) && data.length > 0) {
             form.setValue('buildingId', data[0].id);
           }
+          // If no default value but defaultBuildingId is provided, use that
+          else if (defaultBuildingId && !data.find(b => b.id === defaultBuildingId) && data.length > 0) {
+            form.setValue('buildingId', data[0].id);
+          }
           // If no default value and we have buildings, select the first one
-          else if (!defaultValues?.buildingId && data.length > 0) {
+          else if (!defaultValues?.buildingId && !defaultBuildingId && data.length > 0) {
             form.setValue('buildingId', data[0].id);
           }
         }

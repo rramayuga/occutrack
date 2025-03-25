@@ -2,9 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { useRoomsManagement } from '@/hooks/useRoomsManagement';
 import { useBuildings } from '@/hooks/useBuildings';
-import { BuildingWithFloors, Room } from '@/lib/types';
+import { useRooms } from '@/hooks/useRooms';
+import { Room } from '@/lib/types';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -19,7 +20,6 @@ import {
   Table,
   TableHeader,
   TableBody,
-  TableFooter,
   TableHead,
   TableRow,
   TableCell,
@@ -27,11 +27,10 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import RoomStatusBadge from "@/components/rooms/RoomStatusBadge";
-import { useRooms } from '@/hooks/useRooms';
 import BuildingCard from '@/components/admin/BuildingCard';
 import BuildingForm, { BuildingFormValues } from '@/components/admin/BuildingForm';
 import RoomForm, { RoomFormValues } from '@/components/admin/RoomForm';
-import { Download, Upload } from 'lucide-react';
+import { Download, Upload, Search } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import Navbar from '@/components/layout/Navbar';
 
@@ -46,6 +45,7 @@ const RoomManagement = () => {
   const [filteredRooms, setFilteredRooms] = useState<Room[]>([]);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [activeTab, setActiveTab] = useState("buildings");
   
   // Hooks
   const { addRoom, handleRoomCsvUpload, exportRoomsToCsv, isUploading } = useRoomsManagement();
@@ -68,7 +68,7 @@ const RoomManagement = () => {
     if (!selectedBuilding) return [];
     const building = buildings.find(b => b.id === selectedBuilding);
     if (!building) return [];
-    return building.floors;
+    return building.floors ? Array.from({ length: building.floors }, (_, i) => i + 1) : [];
   };
 
   // Handle adding a new room
@@ -79,7 +79,8 @@ const RoomManagement = () => {
       floor: formData.floor,
       buildingId: formData.buildingId,
       isAvailable: formData.isAvailable,
-      capacity: 30
+      capacity: 30,
+      status: formData.isAvailable ? 'available' : 'occupied'
     };
     
     const success = await addRoom(roomData);
@@ -208,13 +209,19 @@ const RoomManagement = () => {
     }
   };
 
+  // Switch to rooms tab and select a building
+  const handleViewRooms = (buildingId: string) => {
+    setSelectedBuilding(buildingId);
+    setActiveTab("rooms");
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="container mx-auto py-6 space-y-6 pt-20">
         <h1 className="text-2xl font-bold">Room Management</h1>
 
-        <Tabs defaultValue="buildings">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="buildings">Buildings</TabsTrigger>
             <TabsTrigger value="rooms">Rooms</TabsTrigger>
@@ -244,21 +251,35 @@ const RoomManagement = () => {
                   </div>
                 ) : (
                   buildings.map((building) => (
-                    <BuildingCard 
-                      key={building.id}
-                      id={building.id}
-                      name={building.name}
-                      roomCount={building.roomCount}
-                      utilization={building.utilization || '0%'}
-                      onView={() => {
-                        setSelectedBuilding(building.id);
-                        const tabsElement = document.querySelector('[data-value="rooms"]');
-                        if (tabsElement) {
-                          tabsElement.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-                        }
-                      }}
-                      onEdit={() => handleDeleteBuilding(building.id)}
-                    />
+                    <Card key={building.id} className="p-4">
+                      <h3 className="text-lg font-semibold">{building.name}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Location: {building.location || 'N/A'}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Floors: {building.floors}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Rooms: {building.roomCount || 0}
+                      </p>
+                      
+                      <div className="mt-4 flex justify-end space-x-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleViewRooms(building.id)}
+                        >
+                          View Rooms
+                        </Button>
+                        <Button 
+                          variant="destructive" 
+                          size="sm"
+                          onClick={() => handleDeleteBuilding(building.id)}
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </Card>
                   ))
                 )}
               </div>
@@ -303,12 +324,15 @@ const RoomManagement = () => {
                   </SelectContent>
                 </Select>
 
-                <Input
-                  placeholder="Filter rooms..."
-                  value={roomFilter}
-                  onChange={(e) => setRoomFilter(e.target.value)}
-                  className="w-full md:w-auto"
-                />
+                <div className="relative w-full md:w-auto">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Filter rooms..."
+                    value={roomFilter}
+                    onChange={(e) => setRoomFilter(e.target.value)}
+                    className="pl-8 w-full"
+                  />
+                </div>
               </div>
 
               <Button

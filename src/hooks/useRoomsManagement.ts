@@ -22,7 +22,8 @@ export const useRoomsManagement = () => {
 
       const { data, error } = await supabase
         .from('rooms')
-        .insert([dbRoomData]);
+        .insert([dbRoomData])
+        .select();
 
       if (error) {
         console.error("Error adding room:", error);
@@ -32,6 +33,21 @@ export const useRoomsManagement = () => {
           variant: "destructive"
         });
         return false;
+      }
+
+      // If the room was successfully added, create a room availability record
+      if (data && data.length > 0) {
+        const { error: availabilityError } = await supabase
+          .from('room_availability')
+          .insert({
+            room_id: data[0].id,
+            is_available: roomData.isAvailable,
+            updated_by: '00000000-0000-0000-0000-000000000000', // System update
+          });
+          
+        if (availabilityError) {
+          console.error("Error setting room availability:", availabilityError);
+        }
       }
 
       toast({
@@ -142,7 +158,7 @@ export const useRoomsManagement = () => {
             updateCount++;
           } else {
             // Insert new room
-            const { error: insertError } = await supabase
+            const { data: newRoom, error: insertError } = await supabase
               .from('rooms')
               .insert([{
                 name,
@@ -151,9 +167,22 @@ export const useRoomsManagement = () => {
                 building_id: buildingId,
                 capacity,
                 status,
-              }]);
+              }])
+              .select();
               
             if (insertError) throw insertError;
+            
+            if (newRoom && newRoom.length > 0) {
+              // Create room availability record
+              await supabase
+                .from('room_availability')
+                .insert({
+                  room_id: newRoom[0].id,
+                  is_available: isAvailable,
+                  updated_by: '00000000-0000-0000-0000-000000000000', // System update
+                });
+            }
+            
             successCount++;
           }
         } catch (error) {
@@ -182,7 +211,7 @@ export const useRoomsManagement = () => {
 
   const exportRoomsToCsv = async () => {
     try {
-      const { data: rooms, error } = await supabase
+      const { data, error } = await supabase
         .from('rooms')
         .select(`
           id,
@@ -205,7 +234,7 @@ export const useRoomsManagement = () => {
         return;
       }
 
-      if (!rooms || rooms.length === 0) {
+      if (!data || data.length === 0) {
         toast({
           title: "No Rooms",
           description: "No rooms available to export.",
@@ -220,7 +249,7 @@ export const useRoomsManagement = () => {
       ];
       
       // Data rows
-      rooms.forEach(room => {
+      data.forEach(room => {
         const buildingName = room.buildings?.name || '';
         csvRows.push([
           room.name,

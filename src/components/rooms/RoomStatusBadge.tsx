@@ -1,53 +1,38 @@
 
 import React from 'react';
 import { Badge } from "@/components/ui/badge";
-
-// Define the possible room statuses
-export type RoomStatus = 'available' | 'occupied' | 'maintenance';
+import { RoomStatus } from '@/lib/types';
 
 interface RoomStatusBadgeProps {
   status?: RoomStatus;
-  isAvailable?: boolean; // Keep for backward compatibility
+  isAvailable: boolean;
 }
 
 const RoomStatusBadge: React.FC<RoomStatusBadgeProps> = ({ status, isAvailable }) => {
-  // If the new status prop is not provided, fall back to the old isAvailable logic
+  // Determine the effective status
   const effectiveStatus = status || (isAvailable ? 'available' : 'occupied');
   
-  const getVariant = () => {
-    switch (effectiveStatus) {
-      case 'available':
-        return "outline";
-      case 'occupied':
-        return "destructive";
-      case 'maintenance':
-        return "secondary";
-      default:
-        return "outline";
-    }
-  };
-  
-  const getLabel = () => {
-    switch (effectiveStatus) {
-      case 'available':
-        return 'Available';
-      case 'occupied':
-        return 'Occupied';
-      case 'maintenance':
-        return 'Under Maintenance';
-      default:
-        return 'Unknown';
-    }
-  };
-  
-  return (
-    <Badge 
-      variant={getVariant()}
-      className="text-xs"
-    >
-      {getLabel()}
-    </Badge>
-  );
+  switch (effectiveStatus) {
+    case 'maintenance':
+      return (
+        <Badge variant="outline" className="bg-amber-100 text-amber-800 hover:bg-amber-200">
+          Under Maintenance
+        </Badge>
+      );
+    case 'occupied':
+      return (
+        <Badge variant="outline" className="bg-red-100 text-red-800 hover:bg-red-200">
+          Occupied
+        </Badge>
+      );
+    case 'available':
+    default:
+      return (
+        <Badge variant="outline" className="bg-green-100 text-green-800 hover:bg-green-200">
+          Available
+        </Badge>
+      );
+  }
 };
 
 export default RoomStatusBadge;

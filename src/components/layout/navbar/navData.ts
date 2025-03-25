@@ -47,12 +47,6 @@ export const adminLinks = [
     roles: ['admin', 'superadmin'] as UserRole[] 
   },
   { 
-    name: 'Buildings & Types', 
-    path: '/admin/buildings', 
-    icon: React.createElement(Building, { size: 18 }), 
-    roles: ['admin', 'superadmin'] as UserRole[] 
-  },
-  { 
     name: 'Post Announcements', 
     path: '/admin/announcements', 
     icon: React.createElement(FileText, { size: 18 }), 
