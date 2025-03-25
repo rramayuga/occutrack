@@ -26,13 +26,31 @@ export function useBuildings() {
       }
       
       if (buildingsData && buildingsData.length > 0) {
-        // Transform to BuildingWithFloors format
+        // Get room counts from supabase
+        const { data: roomsData, error: roomsError } = await supabase
+          .from('rooms')
+          .select('building_id');
+          
+        if (roomsError) {
+          console.error("Error fetching room counts:", roomsError);
+        }
+        
+        // Calculate room counts per building
+        const roomCounts: {[key: string]: number} = {};
+        if (roomsData) {
+          roomsData.forEach(room => {
+            roomCounts[room.building_id] = (roomCounts[room.building_id] || 0) + 1;
+          });
+        }
+        
+        // Transform to BuildingWithFloors format with room counts
         const buildingsWithFloors: BuildingWithFloors[] = buildingsData.map(building => ({
           id: building.id,
           name: building.name,
           floors: Array.from({ length: building.floors }, (_, i) => i + 1),
-          roomCount: 0, // This will be updated after fetching rooms
-          utilization: building.utilization || '0%' // Add utilization property with default
+          roomCount: roomCounts[building.id] || 0,
+          utilization: building.utilization || '0%', // Add utilization property with default
+          location: building.location
         }));
         
         console.log("Fetched buildings:", buildingsWithFloors);
@@ -142,6 +160,6 @@ export function useBuildings() {
     selectedBuilding,
     setSelectedBuilding,
     fetchBuildings,
-    addBuilding // Return the new function
+    addBuilding
   };
 }

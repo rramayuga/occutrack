@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useRoomsManagement } from '@/hooks/useRoomsManagement';
 import { useBuildings } from '@/hooks/useBuildings';
@@ -39,20 +40,38 @@ const RoomManagement = () => {
   const [buildingsWithFloors, setBuildingsWithFloors] = useState<BuildingWithFloors[]>([]);
   
   const { addRoom, handleRoomCsvUpload, exportRoomsToCsv, isUploading } = useRoomsManagement();
-  const { buildings, loading: buildingsLoading, addBuilding } = useBuildings();
+  const { buildings: originalBuildings, loading: buildingsLoading, addBuilding } = useBuildings();
   const { rooms: fetchedRooms, loading: roomsLoading } = useRooms();
   const { toast } = useToast();
   
   useEffect(() => {
-    const convertedBuildings: BuildingWithFloors[] = buildings.map(building => ({
-      ...building,
-      floors: Array.from({ length: building.floors || 0 }, (_, i) => i + 1)
-    }));
+    const convertedBuildings: BuildingWithFloors[] = originalBuildings.map(building => {
+      // Create a numeric array of floors from the floors count
+      const floorArray = Array.from({ length: building.floors || 0 }, (_, i) => i + 1);
+      
+      return {
+        ...building,
+        floors: floorArray
+      };
+    });
     setBuildingsWithFloors(convertedBuildings);
-  }, [buildings]);
+  }, [originalBuildings]);
   
   useEffect(() => {
     setRooms(fetchedRooms);
+    
+    // Update room counts for buildings
+    const roomCounts: {[key: string]: number} = {};
+    fetchedRooms.forEach(room => {
+      roomCounts[room.buildingId] = (roomCounts[room.buildingId] || 0) + 1;
+    });
+    
+    const updatedBuildings = buildingsWithFloors.map(building => ({
+      ...building,
+      roomCount: roomCounts[building.id] || 0
+    }));
+    
+    setBuildingsWithFloors(updatedBuildings);
   }, [fetchedRooms]);
   
   useEffect(() => {

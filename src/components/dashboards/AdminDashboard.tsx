@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { User, Room } from '@/lib/types';
 import { 
   Card, CardContent, CardDescription, CardHeader, CardTitle 
@@ -26,9 +27,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const [isBuildingDialogOpen, setIsBuildingDialogOpen] = useState(false);
   const [isRoomDialogOpen, setIsRoomDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [facultyCount, setFacultyCount] = useState(0);
   const { buildings, loading, addBuilding } = useBuildings();
   const { addRoom } = useEnhancedRoomsManagement();
   const { toast } = useToast();
+  
+  // Fetch approved faculty count
+  useEffect(() => {
+    const fetchFacultyCount = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('faculty_requests')
+          .select('id')
+          .eq('status', 'approved');
+          
+        if (error) throw error;
+        setFacultyCount(data?.length || 0);
+      } catch (error) {
+        console.error('Error fetching faculty count:', error);
+      }
+    };
+    
+    fetchFacultyCount();
+  }, []);
   
   const onBuildingSubmit = async (data: BuildingFormValues) => {
     const result = await addBuilding(data.name, data.floorCount);
@@ -105,7 +126,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
           <CardContent>
             <div className="flex justify-between items-center">
               <span className="text-3xl font-bold">
-                {buildings.reduce((total, building) => total + building.roomCount, 0)}
+                {buildings.reduce((total, building) => total + (building.roomCount || 0), 0)}
               </span>
               <Settings className="h-5 w-5 text-muted-foreground" />
             </div>
@@ -117,7 +138,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
           </CardHeader>
           <CardContent>
             <div className="flex justify-between items-center">
-              <span className="text-3xl font-bold">56</span>
+              <span className="text-3xl font-bold">{facultyCount}</span>
               <Users className="h-5 w-5 text-muted-foreground" />
             </div>
           </CardContent>
@@ -187,7 +208,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                   key={building.id}
                   id={building.id}
                   name={building.name}
-                  roomCount={building.roomCount}
+                  roomCount={building.roomCount || 0}
                   utilization={building.utilization || '0%'}
                   onView={handleViewBuilding}
                   onEdit={handleEditBuilding}
@@ -220,29 +241,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
               <div>Actions</div>
             </div>
             
-            {[
-              { name: 'Dr. Sarah Johnson', department: 'Computer Science', email: 'sjohnson@edu.com', status: 'Active' },
-              { name: 'Prof. Michael Chen', department: 'Physics', email: 'mchen@edu.com', status: 'Active' },
-              { name: 'Dr. Emily Williams', department: 'Biology', email: 'ewilliams@edu.com', status: 'On Leave' },
-              { name: 'Prof. James Smith', department: 'Mathematics', email: 'jsmith@edu.com', status: 'Active' }
-            ].map((faculty, i) => (
-              <div key={i} className="grid grid-cols-5 p-4 border-b last:border-0 items-center">
-                <div>{faculty.name}</div>
-                <div>{faculty.department}</div>
-                <div className="text-sm">{faculty.email}</div>
-                <div>
-                  <span className={`px-2 py-1 rounded-full text-xs ${
-                    faculty.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {faculty.status}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm">View</Button>
-                  <Button variant="outline" size="sm">Edit</Button>
-                </div>
+            <div id="approved-faculty-list" className="min-h-[200px]">
+              {/* Approved faculty will be loaded here */}
+              <div className="p-4 text-center text-muted-foreground">
+                Loading approved faculty members...
               </div>
-            ))}
+            </div>
           </div>
         </TabsContent>
         
@@ -282,6 +286,61 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
           />
         </DialogContent>
       </Dialog>
+
+      {/* Script to fetch and display approved faculty members */}
+      <script dangerouslySetInnerHTML={{ __html: `
+        (async function() {
+          try {
+            const { data, error } = await window.supabase
+              .from('faculty_requests')
+              .select('*')
+              .eq('status', 'approved');
+              
+            if (error) throw error;
+            
+            const facultyList = document.getElementById('approved-faculty-list');
+            if (facultyList) {
+              if (data && data.length > 0) {
+                facultyList.innerHTML = '';
+                data.forEach(faculty => {
+                  facultyList.innerHTML += \`
+                    <div class="grid grid-cols-5 p-4 border-b last:border-0 items-center">
+                      <div>\${faculty.name}</div>
+                      <div>\${faculty.department}</div>
+                      <div class="text-sm">\${faculty.email}</div>
+                      <div>
+                        <span class="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+                          Active
+                        </span>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <button class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2">View</button>
+                        <button class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2">Edit</button>
+                      </div>
+                    </div>
+                  \`;
+                });
+              } else {
+                facultyList.innerHTML = \`
+                  <div class="p-8 text-center text-muted-foreground">
+                    No approved faculty members found.
+                  </div>
+                \`;
+              }
+            }
+          } catch (error) {
+            console.error('Error fetching approved faculty:', error);
+            const facultyList = document.getElementById('approved-faculty-list');
+            if (facultyList) {
+              facultyList.innerHTML = \`
+                <div class="p-8 text-center text-red-500">
+                  Error loading faculty members.
+                </div>
+              \`;
+            }
+          }
+        })();
+      `}} />
     </div>
   );
 };
