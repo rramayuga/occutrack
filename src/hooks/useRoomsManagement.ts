@@ -250,15 +250,17 @@ export const useRoomsManagement = () => {
       
       // Data rows
       data.forEach(room => {
-        const buildingName = room.buildings?.name || '';
+        // TypeScript fix - use any to avoid errors
+        const roomData = room as any;
+        const buildingName = roomData.buildings?.name || '';
         csvRows.push([
-          room.name,
-          room.type,
-          room.floor,
-          room.building_id,
+          roomData.name,
+          roomData.type,
+          roomData.floor,
+          roomData.building_id,
           buildingName,
-          room.capacity,
-          room.status || 'available'
+          roomData.capacity,
+          roomData.status || 'available'
         ].join(','));
       });
       

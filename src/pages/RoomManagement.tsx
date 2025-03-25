@@ -5,9 +5,7 @@ import { useBuildings } from '@/hooks/useBuildings';
 import { useRooms } from '@/hooks/useRooms';
 import { Room } from '@/lib/types';
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -16,23 +14,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableHead,
-  TableRow,
-  TableCell,
-} from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
-import RoomStatusBadge from "@/components/rooms/RoomStatusBadge";
-import BuildingCard from '@/components/admin/BuildingCard';
 import BuildingForm, { BuildingFormValues } from '@/components/admin/BuildingForm';
 import RoomForm, { RoomFormValues } from '@/components/admin/RoomForm';
-import { Download, Upload, Search } from 'lucide-react';
+import { Download, Upload } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import Navbar from '@/components/layout/Navbar';
+import BuildingsList from '@/components/admin/BuildingsList';
+import RoomTable from '@/components/admin/RoomTable';
+import RoomFilters from '@/components/admin/RoomFilters';
 
 const RoomManagement = () => {
   // States for room management
@@ -67,8 +58,8 @@ const RoomManagement = () => {
   const getFloorsForSelectedBuilding = () => {
     if (!selectedBuilding) return [];
     const building = buildings.find(b => b.id === selectedBuilding);
-    if (!building) return [];
-    return building.floors ? Array.from({ length: building.floors }, (_, i) => i + 1) : [];
+    if (!building || !building.floors) return [];
+    return Array.from({ length: building.floors }, (_, i) => i + 1);
   };
 
   // Handle adding a new room
@@ -241,99 +232,27 @@ const RoomManagement = () => {
               </div>
             </div>
 
-            {buildingsLoading ? (
-              <p>Loading buildings...</p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {buildings.length === 0 ? (
-                  <div className="col-span-3 text-center p-8 border rounded-lg">
-                    <p className="text-muted-foreground">No buildings available. Add a building to get started.</p>
-                  </div>
-                ) : (
-                  buildings.map((building) => (
-                    <Card key={building.id} className="p-4">
-                      <h3 className="text-lg font-semibold">{building.name}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Location: {building.location || 'N/A'}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Floors: {building.floors}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Rooms: {building.roomCount || 0}
-                      </p>
-                      
-                      <div className="mt-4 flex justify-end space-x-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handleViewRooms(building.id)}
-                        >
-                          View Rooms
-                        </Button>
-                        <Button 
-                          variant="destructive" 
-                          size="sm"
-                          onClick={() => handleDeleteBuilding(building.id)}
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    </Card>
-                  ))
-                )}
-              </div>
-            )}
+            <BuildingsList 
+              buildings={buildings}
+              onViewRooms={handleViewRooms}
+              onDeleteBuilding={handleDeleteBuilding}
+              isLoading={buildingsLoading}
+            />
           </TabsContent>
 
           {/* Rooms Tab */}
           <TabsContent value="rooms" className="space-y-4">
             <div className="flex flex-col md:flex-row gap-4 justify-between">
-              <div className="flex flex-col md:flex-row gap-2">
-                <Select
-                  value={selectedBuilding}
-                  onValueChange={setSelectedBuilding}
-                >
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Select Building" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {buildings.map((building) => (
-                      <SelectItem key={building.id} value={building.id}>
-                        {building.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select
-                  value={selectedFloor?.toString() || ""}
-                  onValueChange={(value) => setSelectedFloor(value ? parseInt(value) : null)}
-                  disabled={!selectedBuilding}
-                >
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Select Floor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">All Floors</SelectItem>
-                    {getFloorsForSelectedBuilding().map((floor) => (
-                      <SelectItem key={floor} value={floor.toString()}>
-                        Floor {floor}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <div className="relative w-full md:w-auto">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Filter rooms..."
-                    value={roomFilter}
-                    onChange={(e) => setRoomFilter(e.target.value)}
-                    className="pl-8 w-full"
-                  />
-                </div>
-              </div>
+              <RoomFilters 
+                buildings={buildings}
+                selectedBuilding={selectedBuilding}
+                setSelectedBuilding={setSelectedBuilding}
+                selectedFloor={selectedFloor}
+                setSelectedFloor={setSelectedFloor}
+                roomFilter={roomFilter}
+                setRoomFilter={setRoomFilter}
+                getFloorsForSelectedBuilding={getFloorsForSelectedBuilding}
+              />
 
               <Button
                 onClick={() => setIsAddingRoom(true)}
@@ -343,59 +262,12 @@ const RoomManagement = () => {
               </Button>
             </div>
 
-            <div className="overflow-x-auto rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Floor</TableHead>
-                    <TableHead>Capacity</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {roomsLoading ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-4">
-                        Loading rooms...
-                      </TableCell>
-                    </TableRow>
-                  ) : filteredRooms.length > 0 ? (
-                    filteredRooms.map((room) => (
-                      <TableRow key={room.id}>
-                        <TableCell>{room.name}</TableCell>
-                        <TableCell>{room.type}</TableCell>
-                        <TableCell>{room.floor}</TableCell>
-                        <TableCell>{room.capacity || "N/A"}</TableCell>
-                        <TableCell>
-                          <RoomStatusBadge 
-                            status={room.status} 
-                            isAvailable={room.isAvailable} 
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => handleDeleteRoom(room.id)}
-                          >
-                            Delete
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-4">
-                        {selectedBuilding ? "No rooms found in this building." : "Select a building to view rooms."}
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+            <RoomTable 
+              rooms={filteredRooms}
+              onDeleteRoom={handleDeleteRoom}
+              isLoading={roomsLoading}
+              selectedBuilding={selectedBuilding}
+            />
           </TabsContent>
         </Tabs>
 

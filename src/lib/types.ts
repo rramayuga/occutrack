@@ -1,3 +1,4 @@
+
 export interface User {
   id: string;
   name: string;
@@ -19,8 +20,16 @@ export interface Building {
   utilization?: string;
 }
 
-export interface BuildingWithFloors extends Building {
+// Changed to not extend Building since floors has a different type
+export interface BuildingWithFloors {
+  id: string;
+  name: string;
+  location?: string;
   floors: number[];
+  createdAt?: string;
+  updatedAt?: string;
+  roomCount?: number;
+  utilization?: string;
 }
 
 export interface Reservation {
@@ -34,6 +43,13 @@ export interface Reservation {
   purpose: string;
   status: string;
   faculty: string;
+}
+
+export interface ReservationFormValues {
+  date: Date;
+  startTime: string;
+  endTime: string;
+  purpose: string;
 }
 
 export type RoomStatus = 'available' | 'occupied' | 'maintenance';
@@ -57,6 +73,7 @@ export interface FacultyMember {
   department: string;
   status: 'pending' | 'approved' | 'rejected';
   createdAt: string;
+  user_id?: string;
 }
 
 export interface Announcement {
