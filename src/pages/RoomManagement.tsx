@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useRoomsManagement } from '@/hooks/useRoomsManagement';
 import { useBuildings } from '@/hooks/useBuildings';
 import { useRooms } from '@/hooks/useRooms';
-import { Room } from '@/lib/types';
+import { Room, BuildingWithFloors } from '@/lib/types';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -38,11 +38,23 @@ const RoomManagement = () => {
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [activeTab, setActiveTab] = useState("buildings");
   
+  // Convert regular buildings to BuildingWithFloors for this component
+  const [buildingsWithFloors, setBuildingsWithFloors] = useState<BuildingWithFloors[]>([]);
+  
   // Hooks
   const { addRoom, handleRoomCsvUpload, exportRoomsToCsv, isUploading } = useRoomsManagement();
   const { buildings, loading: buildingsLoading, addBuilding } = useBuildings();
   const { rooms: fetchedRooms, loading: roomsLoading } = useRooms();
   const { toast } = useToast();
+  
+  // Convert buildings to BuildingWithFloors
+  useEffect(() => {
+    const convertedBuildings: BuildingWithFloors[] = buildings.map(building => ({
+      ...building,
+      floors: Array.from({ length: building.floors || 0 }, (_, i) => i + 1)
+    }));
+    setBuildingsWithFloors(convertedBuildings);
+  }, [buildings]);
   
   // Fetch rooms whenever selected building changes
   useEffect(() => {
@@ -57,9 +69,9 @@ const RoomManagement = () => {
   // Get unique floors for the selected building
   const getFloorsForSelectedBuilding = () => {
     if (!selectedBuilding) return [];
-    const building = buildings.find(b => b.id === selectedBuilding);
+    const building = buildingsWithFloors.find(b => b.id === selectedBuilding);
     if (!building || !building.floors) return [];
-    return Array.from({ length: building.floors }, (_, i) => i + 1);
+    return building.floors;
   };
 
   // Handle adding a new room
@@ -233,7 +245,7 @@ const RoomManagement = () => {
             </div>
 
             <BuildingsList 
-              buildings={buildings}
+              buildings={buildingsWithFloors}
               onViewRooms={handleViewRooms}
               onDeleteBuilding={handleDeleteBuilding}
               isLoading={buildingsLoading}
@@ -244,7 +256,7 @@ const RoomManagement = () => {
           <TabsContent value="rooms" className="space-y-4">
             <div className="flex flex-col md:flex-row gap-4 justify-between">
               <RoomFilters 
-                buildings={buildings}
+                buildings={buildingsWithFloors}
                 selectedBuilding={selectedBuilding}
                 setSelectedBuilding={setSelectedBuilding}
                 selectedFloor={selectedFloor}

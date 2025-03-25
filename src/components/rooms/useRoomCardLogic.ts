@@ -42,7 +42,13 @@ export const useRoomCardLogic = (room: Room, onToggleAvailability: (roomId: stri
       // Then update the room status in the rooms table
       const { error: roomError } = await supabase
         .from('rooms')
-        .update({ status: status })
+        .update({ 
+          status: status,
+          type: room.type,
+          floor: room.floor,
+          building_id: room.buildingId,
+          capacity: room.capacity
+        })
         .eq('id', room.id);
       
       if (roomError) throw roomError;

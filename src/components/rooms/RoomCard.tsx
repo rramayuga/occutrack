@@ -8,6 +8,7 @@ import RoomScheduleList from './RoomScheduleList';
 import RoomActions from './RoomActions';
 import CancelReservationDialog from './CancelReservationDialog';
 import { useRoomCardLogic } from './useRoomCardLogic';
+import { useAuth } from '@/lib/auth';
 
 export interface RoomCardProps {
   room: Room;
@@ -22,6 +23,7 @@ const RoomCard: React.FC<RoomCardProps> = ({
   onToggleAvailability,
   onSelectRoom
 }) => {
+  const { user } = useAuth();
   const {
     occupiedBy,
     roomSchedules,
@@ -81,6 +83,7 @@ const RoomCard: React.FC<RoomCardProps> = ({
             canModifyRooms={canModifyRooms}
             showSchedules={showSchedules}
             status={status}
+            userRole={user?.role}
             onToggleSchedules={handleToggleSchedules}
             onStatusChange={handleStatusChange}
           />

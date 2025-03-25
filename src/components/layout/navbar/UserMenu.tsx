@@ -56,7 +56,7 @@ const UserMenu: React.FC<UserMenuProps> = ({ user, onSignOut }) => {
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="relative h-8 flex items-center rounded-full">
             <Avatar className="h-8 w-8">
-              <AvatarImage src={user.avatar} alt={user.name} />
+              <AvatarImage src={user.avatarUrl || undefined} alt={user.name} />
               <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
             </Avatar>
             <span className="ms-2 text-sm font-medium hidden md:inline">

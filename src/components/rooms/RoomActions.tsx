@@ -2,7 +2,7 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Calendar, Settings } from 'lucide-react';
-import { RoomStatus } from '@/lib/types';
+import { RoomStatus, UserRole } from '@/lib/types';
 import { 
   Select, 
   SelectContent, 
@@ -15,6 +15,7 @@ interface RoomActionsProps {
   canModifyRooms: boolean;
   showSchedules: boolean;
   status: RoomStatus;
+  userRole?: UserRole;
   onToggleSchedules: (e: React.MouseEvent) => void;
   onStatusChange: (status: RoomStatus) => void;
 }
@@ -23,9 +24,12 @@ const RoomActions: React.FC<RoomActionsProps> = ({
   canModifyRooms,
   showSchedules,
   status,
+  userRole,
   onToggleSchedules,
   onStatusChange
 }) => {
+  const isAdminOrSuperAdmin = userRole === 'admin' || userRole === 'superadmin';
+  
   return (
     <>
       {canModifyRooms && (
@@ -41,7 +45,9 @@ const RoomActions: React.FC<RoomActionsProps> = ({
             <SelectContent>
               <SelectItem value="available">Mark as Available</SelectItem>
               <SelectItem value="occupied">Mark as Occupied</SelectItem>
-              <SelectItem value="maintenance">Mark as Under Maintenance</SelectItem>
+              {isAdminOrSuperAdmin && (
+                <SelectItem value="maintenance">Mark as Under Maintenance</SelectItem>
+              )}
             </SelectContent>
           </Select>
         </div>

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -49,7 +50,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           name: profile.name,
           email: profile.email,
           role: profile.role as UserRole,
-          avatar: profile.avatar
+          avatarUrl: profile.avatar
         });
       }
     } catch (error) {
