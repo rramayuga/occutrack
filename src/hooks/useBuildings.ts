@@ -124,6 +124,114 @@ export function useBuildings() {
     }
   };
 
+  // Add new function to update a building
+  const updateBuilding = async (id: string, name: string, floorCount: number, location?: string) => {
+    try {
+      if (!user) {
+        toast({
+          title: "Authentication required",
+          description: "You must be logged in to edit a building.",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      const updatedBuilding = {
+        name,
+        floors: floorCount,
+        location: location || null
+      };
+
+      const { error } = await supabase
+        .from('buildings')
+        .update(updatedBuilding)
+        .eq('id', id);
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "Building updated",
+        description: `The building "${name}" has been successfully updated.`
+      });
+      
+      // Refresh buildings list
+      await fetchBuildings();
+      
+      return true;
+    } catch (error) {
+      console.error("Error updating building:", error);
+      toast({
+        title: "Error updating building",
+        description: "Could not update the building in the database.",
+        variant: "destructive"
+      });
+      return false;
+    }
+  };
+
+  // Add new function to delete a building
+  const deleteBuilding = async (id: string) => {
+    try {
+      if (!user) {
+        toast({
+          title: "Authentication required",
+          description: "You must be logged in to delete a building.",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      // Check if there are rooms in this building
+      const { data: rooms, error: roomsError } = await supabase
+        .from('rooms')
+        .select('id')
+        .eq('building_id', id);
+
+      if (roomsError) {
+        throw roomsError;
+      }
+
+      if (rooms && rooms.length > 0) {
+        toast({
+          title: "Cannot delete building",
+          description: "Please delete all rooms in this building first.",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      // Delete the building
+      const { error } = await supabase
+        .from('buildings')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "Building deleted",
+        description: "The building has been successfully deleted."
+      });
+      
+      // Refresh buildings list
+      await fetchBuildings();
+      
+      return true;
+    } catch (error) {
+      console.error("Error deleting building:", error);
+      toast({
+        title: "Error deleting building",
+        description: "Could not delete the building from the database.",
+        variant: "destructive"
+      });
+      return false;
+    }
+  };
+
   // Setup real-time subscription for building updates
   const setupBuildingSubscription = () => {
     const buildingChannel = supabase
@@ -160,6 +268,8 @@ export function useBuildings() {
     selectedBuilding,
     setSelectedBuilding,
     fetchBuildings,
-    addBuilding
+    addBuilding,
+    updateBuilding,
+    deleteBuilding
   };
 }

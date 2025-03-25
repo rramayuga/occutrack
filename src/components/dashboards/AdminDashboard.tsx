@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { User, Room } from '@/lib/types';
+import { User, Room, FacultyMember } from '@/lib/types';
 import { 
   Card, CardContent, CardDescription, CardHeader, CardTitle 
 } from "@/components/ui/card";
@@ -28,27 +28,46 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const [isRoomDialogOpen, setIsRoomDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [facultyCount, setFacultyCount] = useState(0);
+  const [facultyMembers, setFacultyMembers] = useState<FacultyMember[]>([]);
+  const [isLoadingFaculty, setIsLoadingFaculty] = useState(true);
   const { buildings, loading, addBuilding } = useBuildings();
   const { addRoom } = useEnhancedRoomsManagement();
   const { toast } = useToast();
   
-  // Fetch approved faculty count
+  // Fetch approved faculty count and members
   useEffect(() => {
-    const fetchFacultyCount = async () => {
+    const fetchFacultyData = async () => {
       try {
+        setIsLoadingFaculty(true);
         const { data, error } = await supabase
           .from('faculty_requests')
-          .select('id')
+          .select('*')
           .eq('status', 'approved');
           
         if (error) throw error;
+        
         setFacultyCount(data?.length || 0);
+        
+        if (data) {
+          const transformedData: FacultyMember[] = data.map(item => ({
+            id: item.id,
+            name: item.name,
+            email: item.email,
+            department: item.department,
+            status: item.status as 'pending' | 'approved' | 'rejected',
+            createdAt: item.created_at,
+            user_id: item.user_id
+          }));
+          setFacultyMembers(transformedData);
+        }
       } catch (error) {
-        console.error('Error fetching faculty count:', error);
+        console.error('Error fetching faculty data:', error);
+      } finally {
+        setIsLoadingFaculty(false);
       }
     };
     
-    fetchFacultyCount();
+    fetchFacultyData();
   }, []);
   
   const onBuildingSubmit = async (data: BuildingFormValues) => {
@@ -241,11 +260,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
               <div>Actions</div>
             </div>
             
-            <div id="approved-faculty-list" className="min-h-[200px]">
-              {/* Approved faculty will be loaded here */}
-              <div className="p-4 text-center text-muted-foreground">
-                Loading approved faculty members...
-              </div>
+            <div className="min-h-[200px]">
+              {isLoadingFaculty ? (
+                <div className="p-4 text-center text-muted-foreground">
+                  Loading approved faculty members...
+                </div>
+              ) : facultyMembers.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">
+                  No approved faculty members found.
+                </div>
+              ) : (
+                facultyMembers.map(faculty => (
+                  <div key={faculty.id} className="grid grid-cols-5 p-4 border-b last:border-0 items-center">
+                    <div>{faculty.name}</div>
+                    <div>{faculty.department}</div>
+                    <div className="text-sm">{faculty.email}</div>
+                    <div>
+                      <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+                        Active
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm">View</Button>
+                      <Button variant="outline" size="sm">Edit</Button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </TabsContent>
@@ -286,61 +327,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
           />
         </DialogContent>
       </Dialog>
-
-      {/* Script to fetch and display approved faculty members */}
-      <script dangerouslySetInnerHTML={{ __html: `
-        (async function() {
-          try {
-            const { data, error } = await window.supabase
-              .from('faculty_requests')
-              .select('*')
-              .eq('status', 'approved');
-              
-            if (error) throw error;
-            
-            const facultyList = document.getElementById('approved-faculty-list');
-            if (facultyList) {
-              if (data && data.length > 0) {
-                facultyList.innerHTML = '';
-                data.forEach(faculty => {
-                  facultyList.innerHTML += \`
-                    <div class="grid grid-cols-5 p-4 border-b last:border-0 items-center">
-                      <div>\${faculty.name}</div>
-                      <div>\${faculty.department}</div>
-                      <div class="text-sm">\${faculty.email}</div>
-                      <div>
-                        <span class="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
-                          Active
-                        </span>
-                      </div>
-                      <div class="flex items-center gap-2">
-                        <button class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2">View</button>
-                        <button class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2">Edit</button>
-                      </div>
-                    </div>
-                  \`;
-                });
-              } else {
-                facultyList.innerHTML = \`
-                  <div class="p-8 text-center text-muted-foreground">
-                    No approved faculty members found.
-                  </div>
-                \`;
-              }
-            }
-          } catch (error) {
-            console.error('Error fetching approved faculty:', error);
-            const facultyList = document.getElementById('approved-faculty-list');
-            if (facultyList) {
-              facultyList.innerHTML = \`
-                <div class="p-8 text-center text-red-500">
-                  Error loading faculty members.
-                </div>
-              \`;
-            }
-          }
-        })();
-      `}} />
     </div>
   );
 };

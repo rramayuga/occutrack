@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useRoomsManagement } from '@/hooks/useRoomsManagement';
 import { useBuildings } from '@/hooks/useBuildings';
 import { useRooms } from '@/hooks/useRooms';
-import { Room, BuildingWithFloors } from '@/lib/types';
+import { Room } from '@/lib/types';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -37,41 +37,19 @@ const RoomManagement = () => {
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [activeTab, setActiveTab] = useState("buildings");
   
-  const [buildingsWithFloors, setBuildingsWithFloors] = useState<BuildingWithFloors[]>([]);
-  
   const { addRoom, handleRoomCsvUpload, exportRoomsToCsv, isUploading } = useRoomsManagement();
-  const { buildings: originalBuildings, loading: buildingsLoading, addBuilding } = useBuildings();
+  const { 
+    buildings, 
+    loading: buildingsLoading, 
+    addBuilding,
+    updateBuilding,
+    deleteBuilding
+  } = useBuildings();
   const { rooms: fetchedRooms, loading: roomsLoading } = useRooms();
   const { toast } = useToast();
   
   useEffect(() => {
-    const convertedBuildings: BuildingWithFloors[] = originalBuildings.map(building => {
-      // Create a numeric array of floors from the floors count
-      const floorArray = Array.from({ length: building.floors || 0 }, (_, i) => i + 1);
-      
-      return {
-        ...building,
-        floors: floorArray
-      };
-    });
-    setBuildingsWithFloors(convertedBuildings);
-  }, [originalBuildings]);
-  
-  useEffect(() => {
     setRooms(fetchedRooms);
-    
-    // Update room counts for buildings
-    const roomCounts: {[key: string]: number} = {};
-    fetchedRooms.forEach(room => {
-      roomCounts[room.buildingId] = (roomCounts[room.buildingId] || 0) + 1;
-    });
-    
-    const updatedBuildings = buildingsWithFloors.map(building => ({
-      ...building,
-      roomCount: roomCounts[building.id] || 0
-    }));
-    
-    setBuildingsWithFloors(updatedBuildings);
   }, [fetchedRooms]);
   
   useEffect(() => {
@@ -80,7 +58,7 @@ const RoomManagement = () => {
   
   const getFloorsForSelectedBuilding = () => {
     if (!selectedBuilding) return [];
-    const building = buildingsWithFloors.find(b => b.id === selectedBuilding);
+    const building = buildings.find(b => b.id === selectedBuilding);
     if (!building || !building.floors) return [];
     return building.floors;
   };
@@ -125,45 +103,6 @@ const RoomManagement = () => {
       toast({
         title: "Error",
         description: "Could not delete room. Please try again.",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleDeleteBuilding = async (buildingId: string) => {
-    try {
-      const { data: buildingRooms, error: roomsError } = await supabase
-        .from('rooms')
-        .select('id')
-        .eq('building_id', buildingId);
-        
-      if (roomsError) throw roomsError;
-      
-      if (buildingRooms && buildingRooms.length > 0) {
-        toast({
-          title: "Cannot delete building",
-          description: "Please delete all rooms in this building first.",
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      const { error } = await supabase
-        .from('buildings')
-        .delete()
-        .eq('id', buildingId);
-        
-      if (error) throw error;
-      
-      toast({
-        title: "Building deleted",
-        description: "The building has been successfully deleted."
-      });
-    } catch (error) {
-      console.error('Error deleting building:', error);
-      toast({
-        title: "Error",
-        description: "Could not delete building. Please try again.",
         variant: "destructive"
       });
     }
@@ -216,6 +155,10 @@ const RoomManagement = () => {
     }
   };
 
+  const handleUpdateBuildingSubmit = async (id: string, data: BuildingFormValues) => {
+    await updateBuilding(id, data.name, data.floorCount, data.location);
+  };
+
   const handleViewRooms = (buildingId: string) => {
     setSelectedBuilding(buildingId);
     setActiveTab("rooms");
@@ -247,9 +190,10 @@ const RoomManagement = () => {
             </div>
 
             <BuildingsList 
-              buildings={buildingsWithFloors}
+              buildings={buildings}
               onViewRooms={handleViewRooms}
-              onDeleteBuilding={handleDeleteBuilding}
+              onDeleteBuilding={deleteBuilding}
+              onUpdateBuilding={handleUpdateBuildingSubmit}
               isLoading={buildingsLoading}
             />
           </TabsContent>
@@ -257,7 +201,7 @@ const RoomManagement = () => {
           <TabsContent value="rooms" className="space-y-4">
             <div className="flex flex-col md:flex-row gap-4 justify-between">
               <RoomFilters 
-                buildings={buildingsWithFloors}
+                buildings={buildings}
                 selectedBuilding={selectedBuilding}
                 setSelectedBuilding={setSelectedBuilding}
                 selectedFloor={selectedFloor}
