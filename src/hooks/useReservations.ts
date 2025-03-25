@@ -146,7 +146,7 @@ export function useReservations() {
       if (data && data.length > 0) {
         toast({
           title: "Room booked successfully",
-          description: `You've booked ${values.roomNumber} in ${values.building} on ${values.date} from ${values.startTime} to ${values.endTime}`,
+          description: `You've booked ${values.roomNumber || 'a room'} in ${values.building || 'the building'} on ${values.date} from ${values.startTime} to ${values.endTime}`,
         });
         
         // Refresh reservations

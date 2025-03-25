@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useRoomsManagement } from '@/hooks/useRoomsManagement';
 import { useBuildings } from '@/hooks/useBuildings';
@@ -26,7 +25,6 @@ import RoomTable from '@/components/admin/RoomTable';
 import RoomFilters from '@/components/admin/RoomFilters';
 
 const RoomManagement = () => {
-  // States for room management
   const [selectedBuilding, setSelectedBuilding] = useState<string>("");
   const [selectedFloor, setSelectedFloor] = useState<number | null>(null);
   const [isAddingRoom, setIsAddingRoom] = useState(false);
@@ -38,16 +36,13 @@ const RoomManagement = () => {
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [activeTab, setActiveTab] = useState("buildings");
   
-  // Convert regular buildings to BuildingWithFloors for this component
   const [buildingsWithFloors, setBuildingsWithFloors] = useState<BuildingWithFloors[]>([]);
   
-  // Hooks
   const { addRoom, handleRoomCsvUpload, exportRoomsToCsv, isUploading } = useRoomsManagement();
   const { buildings, loading: buildingsLoading, addBuilding } = useBuildings();
   const { rooms: fetchedRooms, loading: roomsLoading } = useRooms();
   const { toast } = useToast();
   
-  // Convert buildings to BuildingWithFloors
   useEffect(() => {
     const convertedBuildings: BuildingWithFloors[] = buildings.map(building => ({
       ...building,
@@ -56,17 +51,14 @@ const RoomManagement = () => {
     setBuildingsWithFloors(convertedBuildings);
   }, [buildings]);
   
-  // Fetch rooms whenever selected building changes
   useEffect(() => {
     setRooms(fetchedRooms);
   }, [fetchedRooms]);
   
-  // Filter rooms whenever dependencies change
   useEffect(() => {
     filterRooms();
   }, [selectedBuilding, selectedFloor, roomFilter, rooms]);
   
-  // Get unique floors for the selected building
   const getFloorsForSelectedBuilding = () => {
     if (!selectedBuilding) return [];
     const building = buildingsWithFloors.find(b => b.id === selectedBuilding);
@@ -74,7 +66,6 @@ const RoomManagement = () => {
     return building.floors;
   };
 
-  // Handle adding a new room
   const handleAddRoom = async (formData: RoomFormValues) => {
     const roomData: Omit<Room, 'id'> = {
       name: formData.name,
@@ -96,7 +87,6 @@ const RoomManagement = () => {
     }
   };
 
-  // Handle deleting a room
   const handleDeleteRoom = async (roomId: string) => {
     try {
       const { error } = await supabase
@@ -121,10 +111,8 @@ const RoomManagement = () => {
     }
   };
 
-  // Handle deleting a building
   const handleDeleteBuilding = async (buildingId: string) => {
     try {
-      // First check if there are rooms in this building
       const { data: buildingRooms, error: roomsError } = await supabase
         .from('rooms')
         .select('id')
@@ -162,7 +150,6 @@ const RoomManagement = () => {
     }
   };
 
-  // Handle CSV import
   const handleCsvImport = async () => {
     if (!csvFile) {
       toast({
@@ -182,7 +169,6 @@ const RoomManagement = () => {
     }
   };
 
-  // Filter rooms based on selected building, floor, and text filter
   const filterRooms = () => {
     let filtered = [...rooms];
     
@@ -205,14 +191,12 @@ const RoomManagement = () => {
     setFilteredRooms(filtered);
   };
 
-  // Handle building form submission
   const handleAddBuildingSubmit = async (data: BuildingFormValues) => {
     if (await addBuilding(data.name, data.floorCount, data.location)) {
       setIsAddingBuilding(false);
     }
   };
 
-  // Switch to rooms tab and select a building
   const handleViewRooms = (buildingId: string) => {
     setSelectedBuilding(buildingId);
     setActiveTab("rooms");
@@ -230,7 +214,6 @@ const RoomManagement = () => {
             <TabsTrigger value="rooms">Rooms</TabsTrigger>
           </TabsList>
 
-          {/* Buildings Tab */}
           <TabsContent value="buildings" className="space-y-4">
             <div className="flex justify-between items-center">
               <Button onClick={() => setIsAddingBuilding(true)}>Add Building</Button>
@@ -252,7 +235,6 @@ const RoomManagement = () => {
             />
           </TabsContent>
 
-          {/* Rooms Tab */}
           <TabsContent value="rooms" className="space-y-4">
             <div className="flex flex-col md:flex-row gap-4 justify-between">
               <RoomFilters 
@@ -283,7 +265,6 @@ const RoomManagement = () => {
           </TabsContent>
         </Tabs>
 
-        {/* Add Building Dialog */}
         <Dialog open={isAddingBuilding} onOpenChange={setIsAddingBuilding}>
           <DialogContent>
             <DialogHeader>
@@ -299,7 +280,6 @@ const RoomManagement = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Add Room Dialog */}
         <Dialog open={isAddingRoom} onOpenChange={setIsAddingRoom}>
           <DialogContent>
             <DialogHeader>
@@ -316,7 +296,6 @@ const RoomManagement = () => {
           </DialogContent>
         </Dialog>
 
-        {/* CSV Import Dialog */}
         <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
           <DialogContent>
             <DialogHeader>

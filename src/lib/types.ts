@@ -46,10 +46,12 @@ export interface Reservation {
 }
 
 export interface ReservationFormValues {
-  date: Date;
+  date: string;  // Changed from Date to string
   startTime: string;
   endTime: string;
   purpose: string;
+  roomNumber?: string;  // Added these optional properties 
+  building?: string;    // to match usage in the code
 }
 
 export type RoomStatus = 'available' | 'occupied' | 'maintenance';
