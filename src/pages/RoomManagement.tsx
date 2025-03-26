@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useRoomsManagement } from '@/hooks/useRoomsManagement';
 import { useBuildings } from '@/hooks/useBuildings';
 import { useRooms } from '@/hooks/useRooms';
-import { Room } from '@/lib/types';
+import { Room, Floor } from '@/lib/types';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -59,7 +59,8 @@ const RoomManagement = () => {
     if (!selectedBuilding) return [];
     const building = buildings.find(b => b.id === selectedBuilding);
     if (!building || !building.floors) return [];
-    return building.floors;
+    
+    return building.floors.map(floor => floor.number);
   };
 
   const handleAddRoom = async (formData: RoomFormValues) => {

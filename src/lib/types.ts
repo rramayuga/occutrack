@@ -20,12 +20,18 @@ export interface Building {
   utilization?: string;
 }
 
-// Updated to match how floors is actually structured
+export interface Floor {
+  id: string;
+  number: number;
+  name: string;
+}
+
+// Updated to use the Floor interface for clarity
 export interface BuildingWithFloors {
   id: string;
   name: string;
   location?: string;
-  floors: { id: string; number: number; name: string; }[];
+  floors: Floor[];
   createdAt?: string;
   updatedAt?: string;
   roomCount?: number;

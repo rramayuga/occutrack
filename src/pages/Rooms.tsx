@@ -88,11 +88,12 @@ const Rooms = () => {
                   <div className="mb-6">
                     <div className="grid grid-cols-1 gap-6">
                       {floors.map((floor) => {
-                        const floorRooms = roomsByFloor[floor] || [];
+                        // Use the floor.number to access the rooms for this floor
+                        const floorRooms = roomsByFloor[floor.number] || [];
                         return (
                           <FloorRooms 
-                            key={floor}
-                            floor={floor}
+                            key={floor.id}
+                            floor={floor.number}
                             rooms={floorRooms}
                             canModifyRooms={canModifyRooms}
                             onToggleAvailability={handleToggleRoomAvailability}
