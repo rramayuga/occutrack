@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Room } from '@/lib/types';
 import { supabase } from "@/integrations/supabase/client";
@@ -68,78 +67,34 @@ export const useRoomsManagement = () => {
     try {
       console.log("Attempting to delete room and related records for roomId:", roomId);
       
-      // First, try a more direct approach to delete ALL availability records in one go
-      // using a raw SQL DELETE statement instead of the Supabase API
-      const { error: availabilityDeleteError } = await supabase.from('room_availability')
-        .delete()
-        .filter('room_id', 'eq', roomId)
-        .select();
-        
-      if (availabilityDeleteError) {
-        console.error("Error bulk deleting room availability records:", availabilityDeleteError);
-        
-        // If bulk delete fails, fall back to individual deletion
-        console.log("Falling back to individual record deletion...");
-        const { data: availabilityData, error: availabilityCheckError } = await supabase
-          .from('room_availability')
-          .select('id')
-          .eq('room_id', roomId);
-          
-        if (availabilityCheckError) {
-          console.error("Error checking room availability records:", availabilityCheckError);
-          toast({
-            title: "Error deleting room",
-            description: "Failed to check room availability records: " + availabilityCheckError.message,
-            variant: "destructive"
-          });
-          return false;
-        }
-        
-        // Delete each availability record individually
-        if (availabilityData && availabilityData.length > 0) {
-          console.log(`Found ${availabilityData.length} room_availability records to delete`);
-          
-          for (const record of availabilityData) {
-            await supabase
-              .from('room_availability')
-              .delete()
-              .eq('id', record.id);
-          }
-        }
-      }
-      
-      // Double-check that all availability records are deleted
-      const { count: remainingAvailability, error: countError } = await supabase
+      // First, delete all room_availability records
+      // Using a more direct approach with a single delete operation
+      const { error: availabilityError } = await supabase
         .from('room_availability')
-        .select('*', { count: 'exact', head: true })
+        .delete()
         .eq('room_id', roomId);
-        
-      if (countError) {
-        console.error("Error counting remaining availability records:", countError);
-      } else {
-        console.log(`Remaining availability records: ${remainingAvailability}`);
-        if (remainingAvailability > 0) {
-          console.error("Failed to delete all availability records");
-          toast({
-            title: "Error deleting room",
-            description: "Failed to delete all room availability records. Please try again.",
-            variant: "destructive"
-          });
-          return false;
-        }
+      
+      if (availabilityError) {
+        console.error("Error deleting room availability records:", availabilityError);
+        toast({
+          title: "Error deleting room",
+          description: "Failed to delete room availability records: " + availabilityError.message,
+          variant: "destructive"
+        });
+        return false;
       }
       
       // Next, delete all reservation records
-      const { error: reservationsDeleteError } = await supabase
+      const { error: reservationsError } = await supabase
         .from('room_reservations')
         .delete()
         .eq('room_id', roomId);
       
-      if (reservationsDeleteError) {
-        console.error("Error deleting room reservations:", reservationsDeleteError);
+      if (reservationsError) {
+        console.error("Error deleting room reservations:", reservationsError);
         toast({
           title: "Error deleting room",
-          description: "Failed to delete room reservation records: " + reservationsDeleteError.message,
+          description: "Failed to delete room reservation records: " + reservationsError.message,
           variant: "destructive"
         });
         return false;
@@ -397,3 +352,4 @@ export const useRoomsManagement = () => {
     isUploading
   };
 };
+
