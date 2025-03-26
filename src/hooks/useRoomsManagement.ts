@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Room } from '@/lib/types';
 import { supabase } from "@/integrations/supabase/client";
@@ -65,32 +66,55 @@ export const useRoomsManagement = () => {
 
   const deleteRoom = async (roomId: string) => {
     try {
+      console.log("Attempting to delete room and related records for roomId:", roomId);
+      
+      // First, delete related room_availability records
       const { error: availabilityError } = await supabase
         .from('room_availability')
         .delete()
         .eq('room_id', roomId);
-        
+      
       if (availabilityError) {
         console.error("Error deleting room availability records:", availabilityError);
-        throw availabilityError;
+        toast({
+          title: "Error deleting room",
+          description: "Failed to delete room availability records.",
+          variant: "destructive"
+        });
+        return false;
       }
       
+      // Then, delete related room_reservations records
       const { error: reservationsError } = await supabase
         .from('room_reservations')
         .delete()
         .eq('room_id', roomId);
-        
+      
       if (reservationsError) {
         console.error("Error deleting room reservations:", reservationsError);
-        throw reservationsError;
+        toast({
+          title: "Error deleting room",
+          description: "Failed to delete room reservation records.",
+          variant: "destructive"
+        });
+        return false;
       }
       
+      // Finally, delete the room itself
       const { error } = await supabase
         .from('rooms')
         .delete()
         .eq('id', roomId);
-        
-      if (error) throw error;
+      
+      if (error) {
+        console.error("Error deleting room:", error);
+        toast({
+          title: "Error deleting room",
+          description: error.message,
+          variant: "destructive"
+        });
+        return false;
+      }
       
       toast({
         title: "Success",
@@ -98,7 +122,7 @@ export const useRoomsManagement = () => {
       });
       return true;
     } catch (error) {
-      console.error("Error deleting room:", error);
+      console.error("Unexpected error deleting room:", error);
       toast({
         title: "Error deleting room",
         description: error instanceof Error ? error.message : "An unexpected error occurred.",

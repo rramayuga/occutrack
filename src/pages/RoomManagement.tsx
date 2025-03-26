@@ -18,7 +18,6 @@ import { useToast } from "@/components/ui/use-toast";
 import BuildingForm, { BuildingFormValues } from '@/components/admin/BuildingForm';
 import RoomForm, { RoomFormValues } from '@/components/admin/RoomForm';
 import { Download, Upload } from 'lucide-react';
-import { supabase } from "@/integrations/supabase/client";
 import Navbar from '@/components/layout/Navbar';
 import BuildingsList from '@/components/admin/BuildingsList';
 import RoomTable from '@/components/admin/RoomTable';
@@ -36,7 +35,7 @@ const RoomManagement = () => {
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [activeTab, setActiveTab] = useState("buildings");
   
-  const { addRoom, handleRoomCsvUpload, exportRoomsToCsv, isUploading } = useRoomsManagement();
+  const { addRoom, deleteRoom, handleRoomCsvUpload, exportRoomsToCsv, isUploading } = useRoomsManagement();
   const { 
     buildings, 
     loading: buildingsLoading, 
@@ -86,56 +85,14 @@ const RoomManagement = () => {
 
   const handleDeleteRoom = async (roomId: string) => {
     try {
-      const { data: roomData, error: roomError } = await supabase
-        .from('rooms')
-        .select('id')
-        .eq('id', roomId)
-        .single();
+      const success = await deleteRoom(roomId);
+      
+      if (success) {
+        setRooms(prevRooms => prevRooms.filter(room => room.id !== roomId));
+        setFilteredRooms(prevRooms => prevRooms.filter(room => room.id !== roomId));
         
-      if (roomError) {
-        console.error('Error finding room:', roomError);
-        throw roomError;
+        await refetchRooms();
       }
-      
-      const { error: availabilityError } = await supabase
-        .from('room_availability')
-        .delete()
-        .eq('room_id', roomId);
-      
-      if (availabilityError) {
-        console.error('Error deleting room availability records:', availabilityError);
-        throw availabilityError;
-      }
-      
-      const { error: reservationsError } = await supabase
-        .from('room_reservations')
-        .delete()
-        .eq('room_id', roomId);
-      
-      if (reservationsError) {
-        console.error('Error deleting room reservations:', reservationsError);
-        throw reservationsError;
-      }
-      
-      const { error: deleteError } = await supabase
-        .from('rooms')
-        .delete()
-        .eq('id', roomId);
-      
-      if (deleteError) {
-        console.error('Error deleting room:', deleteError);
-        throw deleteError;
-      }
-      
-      setRooms(prevRooms => prevRooms.filter(room => room.id !== roomId));
-      setFilteredRooms(prevRooms => prevRooms.filter(room => room.id !== roomId));
-      
-      await refetchRooms();
-      
-      toast({
-        title: "Room deleted",
-        description: "The room has been successfully deleted."
-      });
     } catch (error) {
       console.error('Error deleting room:', error);
       toast({
