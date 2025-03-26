@@ -65,6 +65,10 @@ export function useRooms() {
         const roomsWithAvailability: Room[] = roomsData.map(room => {
           const isAvailable = availabilityMap.has(room.id) ? availabilityMap.get(room.id) : true;
           
+          // Determine status - the database room record doesn't have a status field,
+          // so we need to derive it from the availability
+          const derivedStatus = isAvailable ? 'available' : 'occupied';
+          
           return {
             id: room.id,
             name: room.name,
@@ -73,8 +77,8 @@ export function useRooms() {
             isAvailable: isAvailable,
             floor: room.floor,
             buildingId: room.building_id,
-            // Set status based on availability if not explicitly defined in the room record
-            status: room.status as any || (isAvailable ? 'available' : 'occupied')
+            // Set status based on availability 
+            status: derivedStatus
           };
         });
         
