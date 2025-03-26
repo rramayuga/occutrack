@@ -274,6 +274,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      delete_room_cascade: {
+        Args: {
+          room_id_param: string
+        }
+        Returns: boolean
+      }
       delete_room_with_related_records: {
         Args: {
           room_id_param: string
