@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Room } from '@/lib/types';
 import { supabase } from "@/integrations/supabase/client";
@@ -70,11 +69,10 @@ export const useRoomsManagement = () => {
       
       // First, delete ALL related room_availability records
       console.log("Deleting room_availability records...");
-      const { error: availabilityError, count: availabilityCount } = await supabase
+      const { error: availabilityError } = await supabase
         .from('room_availability')
         .delete()
-        .eq('room_id', roomId)
-        .select('count');
+        .eq('room_id', roomId);
       
       if (availabilityError) {
         console.error("Error deleting room availability records:", availabilityError);
@@ -86,15 +84,14 @@ export const useRoomsManagement = () => {
         return false;
       }
       
-      console.log(`Deleted ${availabilityCount} room_availability records`);
+      console.log("Room availability records deleted successfully");
       
       // Then, delete ALL related room_reservations records
       console.log("Deleting room_reservations records...");
-      const { error: reservationsError, count: reservationsCount } = await supabase
+      const { error: reservationsError } = await supabase
         .from('room_reservations')
         .delete()
-        .eq('room_id', roomId)
-        .select('count');
+        .eq('room_id', roomId);
       
       if (reservationsError) {
         console.error("Error deleting room reservations:", reservationsError);
@@ -106,7 +103,7 @@ export const useRoomsManagement = () => {
         return false;
       }
       
-      console.log(`Deleted ${reservationsCount} room_reservations records`);
+      console.log("Room reservation records deleted successfully");
       
       // Finally, delete the room itself
       console.log("Deleting the room...");
