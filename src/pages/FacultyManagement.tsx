@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
@@ -33,12 +32,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Check, X, Search, Filter, UserX } from 'lucide-react';
+import { Check, X, Search, Filter, UserX, Shield, UserPlus } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import Navbar from '@/components/layout/Navbar';
 import { Badge } from '@/components/ui/badge';
-import { FacultyMember } from '@/lib/types';
+import { FacultyMember, UserRole } from '@/lib/types';
 import { useLocation } from 'react-router-dom';
+import UserRightsManagement from '@/components/admin/UserRightsManagement';
 
 const FacultyManagement = () => {
   const [facultyMembers, setFacultyMembers] = useState<FacultyMember[]>([]);
@@ -49,6 +49,7 @@ const FacultyManagement = () => {
   const [selectedFaculty, setSelectedFaculty] = useState<FacultyMember | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [notes, setNotes] = useState('');
+  const [isRightsManagementOpen, setIsRightsManagementOpen] = useState(false);
   const { toast } = useToast();
   const location = useLocation();
 
@@ -76,7 +77,6 @@ const FacultyManagement = () => {
         setFacultyMembers(transformedData);
         setFilteredMembers(transformedData);
         
-        // If a faculty ID was passed in location state, find and select that faculty member
         const stateParams = location.state as { selectedFacultyId?: string; isEditing?: boolean } | null;
         if (stateParams?.selectedFacultyId) {
           const faculty = transformedData.find(f => f.id === stateParams.selectedFacultyId);
@@ -225,7 +225,17 @@ const FacultyManagement = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="container mx-auto py-6 space-y-6 pt-20">
-        <h1 className="text-2xl font-bold">Faculty Management</h1>
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold">Faculty Management</h1>
+          <Button 
+            variant="outline" 
+            onClick={() => setIsRightsManagementOpen(true)}
+            className="flex items-center gap-2"
+          >
+            <Shield className="h-4 w-4" />
+            Manage User Rights
+          </Button>
+        </div>
 
         <Card>
           <CardHeader>
@@ -386,6 +396,11 @@ const FacultyManagement = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        
+        <UserRightsManagement 
+          isOpen={isRightsManagementOpen} 
+          onClose={() => setIsRightsManagementOpen(false)} 
+        />
       </div>
     </div>
   );
