@@ -20,12 +20,12 @@ export interface Building {
   utilization?: string;
 }
 
-// Changed to not extend Building since floors has a different type
+// Updated to match how floors is actually structured
 export interface BuildingWithFloors {
   id: string;
   name: string;
   location?: string;
-  floors: number[];
+  floors: { id: string; number: number; name: string; }[];
   createdAt?: string;
   updatedAt?: string;
   roomCount?: number;

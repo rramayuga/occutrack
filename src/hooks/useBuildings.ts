@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { BuildingWithFloors } from '@/lib/types';
 import { useToast } from "@/components/ui/use-toast";
@@ -6,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 export const useBuildings = () => {
   const [buildings, setBuildings] = useState<BuildingWithFloors[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedBuilding, setSelectedBuilding] = useState<string>("");
   const { toast } = useToast();
 
   const fetchBuildings = useCallback(async () => {
@@ -93,6 +95,10 @@ export const useBuildings = () => {
 
   const addBuilding = async (name: string, floorCount: number, location?: string) => {
     try {
+      // Fix type error by getting user ID first before inserting
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData?.user?.id;
+      
       const { data, error } = await supabase
         .from('buildings')
         .insert([
@@ -100,7 +106,7 @@ export const useBuildings = () => {
             name, 
             floors: floorCount,
             location: location || null,
-            created_by: supabase.auth.getUser().then(res => res.data.user?.id)
+            created_by: userId || null
           }
         ])
         .select();
@@ -135,6 +141,37 @@ export const useBuildings = () => {
         .eq('id', id);
       
       if (error) throw error;
+      
+      return true;
+    } catch (error) {
+      console.error('Error updating building:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update building',
+        variant: 'destructive',
+      });
+      return false;
+    }
+  };
+
+  // Added a function to update both name and floor count
+  const updateBuilding = async (id: string, name: string, floorCount: number, location?: string) => {
+    try {
+      const { error } = await supabase
+        .from('buildings')
+        .update({ 
+          name,
+          floors: floorCount,
+          location: location || null
+        })
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      toast({
+        title: 'Building Updated',
+        description: `${name} has been updated successfully`,
+      });
       
       return true;
     } catch (error) {
@@ -187,5 +224,16 @@ export const useBuildings = () => {
     }
   };
 
-  return { buildings, loading, addBuilding, editBuilding, deleteBuilding };
+  // Return the additional properties needed by other components
+  return { 
+    buildings, 
+    loading, 
+    selectedBuilding,
+    setSelectedBuilding,
+    fetchBuildings,
+    addBuilding, 
+    editBuilding,
+    updateBuilding,
+    deleteBuilding 
+  };
 };

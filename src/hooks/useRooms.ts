@@ -14,7 +14,7 @@ export function useRooms() {
   const { user } = useAuth();
   const { toast } = useToast();
   
-  // Use our refactored hooks
+  // Use our expanded useBuildings hook with all its properties
   const { 
     buildings, 
     selectedBuilding, 

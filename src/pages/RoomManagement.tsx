@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useRoomsManagement } from '@/hooks/useRoomsManagement';
 import { useBuildings } from '@/hooks/useBuildings';
@@ -42,7 +41,7 @@ const RoomManagement = () => {
     buildings, 
     loading: buildingsLoading, 
     addBuilding,
-    updateBuilding,
+    editBuilding,
     deleteBuilding
   } = useBuildings();
   const { rooms: fetchedRooms, loading: roomsLoading } = useRooms();
@@ -156,7 +155,7 @@ const RoomManagement = () => {
   };
 
   const handleUpdateBuildingSubmit = async (id: string, data: BuildingFormValues) => {
-    await updateBuilding(id, data.name, data.floorCount, data.location);
+    await editBuilding(id, data.name, data.location);
   };
 
   const handleViewRooms = (buildingId: string) => {

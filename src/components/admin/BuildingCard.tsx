@@ -10,6 +10,7 @@ interface BuildingCardProps {
   utilization: string;
   onView: (id: string) => void;
   onEdit: (id: string) => void;
+  onDelete: (id: string) => void; // Added the missing onDelete prop
 }
 
 const BuildingCard: React.FC<BuildingCardProps> = ({
@@ -18,7 +19,8 @@ const BuildingCard: React.FC<BuildingCardProps> = ({
   roomCount,
   utilization,
   onView,
-  onEdit
+  onEdit,
+  onDelete
 }) => {
   return (
     <Card>
@@ -35,6 +37,7 @@ const BuildingCard: React.FC<BuildingCardProps> = ({
           <div className="flex space-x-2">
             <Button variant="outline" size="sm" className="flex-1" onClick={() => onView(id)}>View</Button>
             <Button variant="outline" size="sm" className="flex-1" onClick={() => onEdit(id)}>Edit</Button>
+            <Button variant="outline" size="sm" className="flex-1 bg-red-50 text-red-600 hover:bg-red-100" onClick={() => onDelete(id)}>Delete</Button>
           </div>
         </div>
       </CardContent>
