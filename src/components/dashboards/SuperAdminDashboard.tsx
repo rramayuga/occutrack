@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, FacultyMember } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Shield, Server, Network, UsersRound, Globe, Settings, Bell, Lock, Database, Graduation, UserCheck } from 'lucide-react';
+import { Shield, Server, Network, UsersRound, Globe, Settings, Bell, Lock, Database, GraduationCap, UserCheck } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -272,7 +272,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user }
               <CardTitle>Faculty Members</CardTitle>
               <CardDescription>Academic teaching staff</CardDescription>
             </div>
-            <Graduation className="h-5 w-5 text-primary" />
+            <GraduationCap className="h-5 w-5 text-primary" />
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -285,7 +285,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user }
                   <div key={i} className="flex items-center justify-between border-b pb-2 last:border-0">
                     <div className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Graduation className="h-4 w-4 text-primary" />
+                        <GraduationCap className="h-4 w-4 text-primary" />
                       </div>
                       <div>
                         <p className="text-sm font-medium">{faculty.name}</p>

@@ -61,17 +61,22 @@ export function useRooms() {
         }
         
         // Transform to Room format with availability from the map or default to true
-        // And handle the status field correctly
-        const roomsWithAvailability: Room[] = roomsData.map(room => ({
-          id: room.id,
-          name: room.name,
-          type: room.type,
-          capacity: room.capacity,
-          isAvailable: availabilityMap.has(room.id) ? availabilityMap.get(room.id) : true,
-          floor: room.floor,
-          buildingId: room.building_id,
-          status: room.status || (availabilityMap.has(room.id) ? (availabilityMap.get(room.id) ? 'available' : 'occupied') : 'available')
-        }));
+        // And handle the status field correctly - using a default if it doesn't exist
+        const roomsWithAvailability: Room[] = roomsData.map(room => {
+          const isAvailable = availabilityMap.has(room.id) ? availabilityMap.get(room.id) : true;
+          
+          return {
+            id: room.id,
+            name: room.name,
+            type: room.type,
+            capacity: room.capacity,
+            isAvailable: isAvailable,
+            floor: room.floor,
+            buildingId: room.building_id,
+            // Set status based on availability if not explicitly defined in the room record
+            status: room.status as any || (isAvailable ? 'available' : 'occupied')
+          };
+        });
         
         console.log("Fetched rooms:", roomsWithAvailability);
         setRooms(roomsWithAvailability);

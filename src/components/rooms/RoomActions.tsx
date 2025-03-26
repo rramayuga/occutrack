@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { Calendar, Settings, ShieldAlert, Tools } from 'lucide-react';
+import { Calendar, Settings, ShieldAlert, Wrench } from 'lucide-react';
 import { RoomStatus, UserRole } from '@/lib/types';
 import { 
   Select, 
@@ -48,7 +48,7 @@ const RoomActions: React.FC<RoomActionsProps> = ({
               {isAdminOrSuperAdmin && (
                 <SelectItem value="maintenance">
                   <div className="flex items-center">
-                    <Tools className="h-4 w-4 mr-1 text-amber-500" />
+                    <Wrench className="h-4 w-4 mr-1 text-amber-500" />
                     <span>Mark as Under Maintenance</span>
                   </div>
                 </SelectItem>
