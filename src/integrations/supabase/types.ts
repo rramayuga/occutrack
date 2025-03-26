@@ -274,6 +274,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      delete_room_with_related_records: {
+        Args: {
+          room_id_param: string
+        }
+        Returns: undefined
+      }
       get_user_role: {
         Args: {
           user_id: string
