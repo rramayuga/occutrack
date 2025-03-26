@@ -69,6 +69,7 @@ const FacultyManagement = () => {
           department: item.department,
           status: item.status as 'pending' | 'approved' | 'rejected',
           createdAt: item.created_at,
+          user_id: item.user_id,
         }));
         setFacultyMembers(transformedData);
         setFilteredMembers(transformedData);

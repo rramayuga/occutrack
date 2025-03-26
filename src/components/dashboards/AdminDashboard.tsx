@@ -1,13 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
-import { User, Room, FacultyMember } from '@/lib/types';
+import { User, Room, FacultyMember, BuildingWithFloors } from '@/lib/types';
 import { 
   Card, CardContent, CardDescription, CardHeader, CardTitle 
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
-  BarChart, Users, Building, Settings, Plus, Search
+  BarChart, Users, Building, Settings, Plus, Search, Edit, Trash
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -15,6 +15,8 @@ import { useToast } from "@/components/ui/use-toast";
 import BuildingCard from '@/components/admin/BuildingCard';
 import BuildingForm, { BuildingFormValues } from '@/components/admin/BuildingForm';
 import RoomForm, { RoomFormValues } from '@/components/admin/RoomForm';
+import EditBuildingDialog from '@/components/admin/EditBuildingDialog';
+import DeleteBuildingDialog from '@/components/admin/DeleteBuildingDialog';
 import { useBuildings } from '@/hooks/useBuildings';
 import { useEnhancedRoomsManagement } from '@/hooks/useEnhancedRoomsManagement';
 import { supabase } from "@/integrations/supabase/client";
@@ -30,7 +32,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const [facultyCount, setFacultyCount] = useState(0);
   const [facultyMembers, setFacultyMembers] = useState<FacultyMember[]>([]);
   const [isLoadingFaculty, setIsLoadingFaculty] = useState(true);
-  const { buildings, loading, addBuilding } = useBuildings();
+  const [selectedBuilding, setSelectedBuilding] = useState<BuildingWithFloors | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  
+  const { buildings, loading, addBuilding, editBuilding, deleteBuilding } = useBuildings();
   const { addRoom } = useEnhancedRoomsManagement();
   const { toast } = useToast();
   
@@ -71,9 +77,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   }, []);
   
   const onBuildingSubmit = async (data: BuildingFormValues) => {
-    const result = await addBuilding(data.name, data.floorCount);
+    const result = await addBuilding(data.name, data.floorCount, data.location);
     if (result) {
       setIsBuildingDialogOpen(false);
+    }
+  };
+  
+  const onEditBuildingSubmit = async (data: BuildingFormValues) => {
+    if (selectedBuilding) {
+      const result = await editBuilding(selectedBuilding.id, data.name, data.location);
+      if (result) {
+        setIsEditDialogOpen(false);
+        setSelectedBuilding(null);
+        toast({
+          title: "Building updated",
+          description: `${data.name} has been updated successfully.`
+        });
+      }
+    }
+  };
+  
+  const onDeleteBuilding = async () => {
+    if (selectedBuilding) {
+      const result = await deleteBuilding(selectedBuilding.id);
+      if (result) {
+        setIsDeleteDialogOpen(false);
+        setSelectedBuilding(null);
+        toast({
+          title: "Building deleted",
+          description: `${selectedBuilding.name} has been deleted.`
+        });
+      }
     }
   };
   
@@ -97,11 +131,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
     window.location.href = '/rooms';
   };
   
-  const handleEditBuilding = (id: string) => {
-    toast({
-      title: "Feature coming soon",
-      description: "Building editing will be available in a future update."
-    });
+  const handleEditBuilding = (building: BuildingWithFloors) => {
+    setSelectedBuilding(building);
+    setIsEditDialogOpen(true);
+  };
+  
+  const handleDeleteBuilding = (building: BuildingWithFloors) => {
+    setSelectedBuilding(building);
+    setIsDeleteDialogOpen(true);
   };
   
   const filteredBuildings = buildings.filter(building => {
@@ -229,8 +266,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                   name={building.name}
                   roomCount={building.roomCount || 0}
                   utilization={building.utilization || '0%'}
-                  onView={handleViewBuilding}
-                  onEdit={handleEditBuilding}
+                  onView={() => handleViewBuilding(building.id)}
+                  onEdit={() => handleEditBuilding(building)}
+                  onDelete={() => handleDeleteBuilding(building)}
                 />
               ))
             )}
@@ -245,8 +283,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                 className="max-w-xs" 
                 placeholder="Search faculty..." 
               />
-              <Button variant="outline" size="sm">
-                <Plus className="h-4 w-4 mr-2" /> Add
+              <Button variant="outline" size="sm" onClick={() => window.location.href = '/faculty-management'}>
+                <Users className="h-4 w-4 mr-2" /> Manage
               </Button>
             </div>
           </div>
@@ -327,6 +365,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
           />
         </DialogContent>
       </Dialog>
+      
+      <EditBuildingDialog
+        building={selectedBuilding}
+        isOpen={isEditDialogOpen}
+        onClose={() => {
+          setIsEditDialogOpen(false);
+          setSelectedBuilding(null);
+        }}
+        onSubmit={onEditBuildingSubmit}
+      />
+      
+      <DeleteBuildingDialog
+        building={selectedBuilding}
+        isOpen={isDeleteDialogOpen}
+        onClose={() => {
+          setIsDeleteDialogOpen(false);
+          setSelectedBuilding(null);
+        }}
+        onConfirm={onDeleteBuilding}
+      />
     </div>
   );
 };
