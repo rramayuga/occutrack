@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Room } from '@/lib/types';
 import { supabase } from "@/integrations/supabase/client";
@@ -67,9 +68,11 @@ export const useRoomsManagement = () => {
     try {
       console.log("Attempting to delete room and related records for roomId:", roomId);
       
-      const { error } = await supabase.rpc('delete_room_with_related_records', {
-        room_id_param: roomId
-      });
+      // Use type assertion to tell TypeScript this is a valid function
+      const { error } = await supabase.rpc(
+        'delete_room_with_related_records' as any, 
+        { room_id_param: roomId }
+      );
       
       if (error) {
         console.error("Error deleting room and related records:", error);
