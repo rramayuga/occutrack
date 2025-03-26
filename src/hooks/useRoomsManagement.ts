@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Room } from '@/lib/types';
 import { supabase } from "@/integrations/supabase/client";
@@ -68,112 +67,15 @@ export const useRoomsManagement = () => {
     try {
       console.log("Attempting to delete room and related records for roomId:", roomId);
       
-      // First, delete all room_availability records
-      const { data: availabilityData, error: availabilityFetchError } = await supabase
-        .from('room_availability')
-        .select('*')
-        .eq('room_id', roomId);
-        
-      if (availabilityFetchError) {
-        console.error("Error fetching room availability records:", availabilityFetchError);
+      const { error } = await supabase.rpc('delete_room_with_related_records', {
+        room_id_param: roomId
+      });
+      
+      if (error) {
+        console.error("Error deleting room and related records:", error);
         toast({
           title: "Error deleting room",
-          description: "Failed to fetch room availability records: " + availabilityFetchError.message,
-          variant: "destructive"
-        });
-        return false;
-      }
-      
-      console.log(`Found ${availabilityData?.length || 0} availability records to delete`);
-      
-      // Delete each availability record individually to ensure they're all removed
-      if (availabilityData && availabilityData.length > 0) {
-        for (const record of availabilityData) {
-          const { error: deleteError } = await supabase
-            .from('room_availability')
-            .delete()
-            .eq('id', record.id);
-            
-          if (deleteError) {
-            console.error(`Error deleting availability record ${record.id}:`, deleteError);
-            toast({
-              title: "Error deleting room",
-              description: `Failed to delete availability record: ${deleteError.message}`,
-              variant: "destructive"
-            });
-            return false;
-          }
-        }
-      }
-      
-      // Double-check that all availability records are deleted
-      const { count, error: countError } = await supabase
-        .from('room_availability')
-        .select('*', { count: 'exact', head: true })
-        .eq('room_id', roomId);
-        
-      if (countError) {
-        console.error("Error counting remaining availability records:", countError);
-      } else if (count && count > 0) {
-        console.error(`Failed to delete all availability records, ${count} remaining`);
-        toast({
-          title: "Error deleting room",
-          description: "Failed to delete all room availability records. Please try again.",
-          variant: "destructive"
-        });
-        return false;
-      }
-      
-      // Next, delete all reservation records
-      const { data: reservationsData, error: reservationsFetchError } = await supabase
-        .from('room_reservations')
-        .select('*')
-        .eq('room_id', roomId);
-        
-      if (reservationsFetchError) {
-        console.error("Error fetching room reservation records:", reservationsFetchError);
-        toast({
-          title: "Error deleting room",
-          description: "Failed to fetch room reservation records: " + reservationsFetchError.message,
-          variant: "destructive"
-        });
-        return false;
-      }
-      
-      console.log(`Found ${reservationsData?.length || 0} reservation records to delete`);
-      
-      // Delete each reservation record individually
-      if (reservationsData && reservationsData.length > 0) {
-        for (const record of reservationsData) {
-          const { error: deleteError } = await supabase
-            .from('room_reservations')
-            .delete()
-            .eq('id', record.id);
-            
-          if (deleteError) {
-            console.error(`Error deleting reservation record ${record.id}:`, deleteError);
-            toast({
-              title: "Error deleting room",
-              description: `Failed to delete reservation record: ${deleteError.message}`,
-              variant: "destructive"
-            });
-            return false;
-          }
-        }
-      }
-      
-      // Finally, delete the room itself
-      console.log("Deleting the room...");
-      const { error: roomError } = await supabase
-        .from('rooms')
-        .delete()
-        .eq('id', roomId);
-      
-      if (roomError) {
-        console.error("Error deleting room:", roomError);
-        toast({
-          title: "Error deleting room",
-          description: roomError.message,
+          description: error.message,
           variant: "destructive"
         });
         return false;
