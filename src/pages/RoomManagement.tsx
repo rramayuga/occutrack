@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useRoomsManagement } from '@/hooks/useRoomsManagement';
 import { useBuildings } from '@/hooks/useBuildings';
@@ -87,35 +86,46 @@ const RoomManagement = () => {
 
   const handleDeleteRoom = async (roomId: string) => {
     try {
-      // First delete the room_availability records
+      const { data: roomData, error: roomError } = await supabase
+        .from('rooms')
+        .select('id')
+        .eq('id', roomId)
+        .single();
+        
+      if (roomError) {
+        console.error('Error finding room:', roomError);
+        throw roomError;
+      }
+      
       const { error: availabilityError } = await supabase
         .from('room_availability')
         .delete()
         .eq('room_id', roomId);
-        
+      
       if (availabilityError) {
         console.error('Error deleting room availability records:', availabilityError);
         throw availabilityError;
       }
       
-      // Also delete any room reservations
       const { error: reservationsError } = await supabase
         .from('room_reservations')
         .delete()
         .eq('room_id', roomId);
-        
+      
       if (reservationsError) {
         console.error('Error deleting room reservations:', reservationsError);
         throw reservationsError;
       }
       
-      // Now delete the room
-      const { error } = await supabase
+      const { error: deleteError } = await supabase
         .from('rooms')
         .delete()
         .eq('id', roomId);
-        
-      if (error) throw error;
+      
+      if (deleteError) {
+        console.error('Error deleting room:', deleteError);
+        throw deleteError;
+      }
       
       setRooms(prevRooms => prevRooms.filter(room => room.id !== roomId));
       setFilteredRooms(prevRooms => prevRooms.filter(room => room.id !== roomId));
