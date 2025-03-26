@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { User, Room, FacultyMember, BuildingWithFloors } from '@/lib/types';
 import { 
@@ -20,6 +19,7 @@ import DeleteBuildingDialog from '@/components/admin/DeleteBuildingDialog';
 import { useBuildings } from '@/hooks/useBuildings';
 import { useEnhancedRoomsManagement } from '@/hooks/useEnhancedRoomsManagement';
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from 'react-router-dom';
 
 interface AdminDashboardProps {
   user: User;
@@ -39,14 +39,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const { buildings, loading, addBuilding, editBuilding, deleteBuilding } = useBuildings();
   const { addRoom } = useEnhancedRoomsManagement();
   const { toast } = useToast();
+  const navigate = useNavigate();
   
-  // Fetch approved faculty count and members
   useEffect(() => {
     const fetchFacultyData = async () => {
       try {
         setIsLoadingFaculty(true);
         
-        // Query both faculty_requests and profiles tables to get complete data
         const { data: facultyRequestsData, error: facultyRequestsError } = await supabase
           .from('faculty_requests')
           .select('*')
@@ -61,11 +60,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
           
         if (profilesError) throw profilesError;
         
-        // Combine data from both sources, prioritizing faculty_requests
         const facultyIds = new Set();
         const combinedFaculty: FacultyMember[] = [];
         
-        // Add faculty from requests first
         if (facultyRequestsData) {
           facultyRequestsData.forEach(item => {
             facultyIds.add(item.user_id);
@@ -81,7 +78,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
           });
         }
         
-        // Add faculty from profiles that weren't in faculty_requests
         if (profilesData) {
           profilesData.forEach(profile => {
             if (!facultyIds.has(profile.id)) {
@@ -89,8 +85,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                 id: profile.id,
                 name: profile.name,
                 email: profile.email,
-                department: 'N/A', // Profiles don't store department
-                status: 'approved', // If they have role faculty, they're approved
+                department: 'N/A',
+                status: 'approved',
                 createdAt: profile.created_at,
                 user_id: profile.id
               });
@@ -173,6 +169,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const handleDeleteBuilding = (building: BuildingWithFloors) => {
     setSelectedBuilding(building);
     setIsDeleteDialogOpen(true);
+  };
+  
+  const handleViewFaculty = (facultyId: string) => {
+    navigate('/faculty-management', { state: { selectedFacultyId: facultyId } });
+  };
+  
+  const handleEditFaculty = (facultyId: string) => {
+    navigate('/faculty-management', { state: { selectedFacultyId: facultyId, isEditing: true } });
   };
   
   const filteredBuildings = buildings.filter(building => {
@@ -317,7 +321,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                 className="max-w-xs" 
                 placeholder="Search faculty..." 
               />
-              <Button variant="outline" size="sm" onClick={() => window.location.href = '/faculty-management'}>
+              <Button variant="outline" size="sm" onClick={() => navigate('/faculty-management')}>
                 <Users className="h-4 w-4 mr-2" /> Manage
               </Button>
             </div>
@@ -353,8 +357,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm">View</Button>
-                      <Button variant="outline" size="sm">Edit</Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => handleViewFaculty(faculty.id)}
+                      >
+                        View
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => handleEditFaculty(faculty.id)}
+                      >
+                        Edit
+                      </Button>
                     </div>
                   </div>
                 ))

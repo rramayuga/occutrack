@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,7 @@ import { supabase } from "@/integrations/supabase/client";
 import Navbar from '@/components/layout/Navbar';
 import { Badge } from '@/components/ui/badge';
 import { FacultyMember } from '@/lib/types';
+import { useLocation } from 'react-router-dom';
 
 const FacultyManagement = () => {
   const [facultyMembers, setFacultyMembers] = useState<FacultyMember[]>([]);
@@ -48,6 +50,7 @@ const FacultyManagement = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [notes, setNotes] = useState('');
   const { toast } = useToast();
+  const location = useLocation();
 
   const fetchFacultyMembers = async () => {
     try {
@@ -69,8 +72,21 @@ const FacultyManagement = () => {
           createdAt: item.created_at,
           user_id: item.user_id,
         }));
+        
         setFacultyMembers(transformedData);
         setFilteredMembers(transformedData);
+        
+        // If a faculty ID was passed in location state, find and select that faculty member
+        const stateParams = location.state as { selectedFacultyId?: string; isEditing?: boolean } | null;
+        if (stateParams?.selectedFacultyId) {
+          const faculty = transformedData.find(f => f.id === stateParams.selectedFacultyId);
+          if (faculty) {
+            setSelectedFaculty(faculty);
+            if (stateParams.isEditing) {
+              setIsDialogOpen(true);
+            }
+          }
+        }
       }
     } catch (error) {
       console.error('Error fetching faculty members:', error);
@@ -340,14 +356,17 @@ const FacultyManagement = () => {
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Reject Faculty Request</DialogTitle>
+              <DialogTitle>
+                {selectedFaculty?.status === 'rejected' ? 'Reject Faculty Request' : 
+                 selectedFaculty?.status === 'approved' ? 'Change Faculty Status' : 'Reject Faculty Request'}
+              </DialogTitle>
               <DialogDescription>
-                Please provide a reason for rejecting this faculty request. This information will be helpful for the user.
+                Please provide a reason for {selectedFaculty?.status === 'approved' ? 'changing' : 'rejecting'} this faculty request. This information will be helpful for the user.
               </DialogDescription>
             </DialogHeader>
             <div className="py-4">
               <label htmlFor="notes" className="block text-sm font-medium mb-2">
-                Rejection Reason (Optional)
+                {selectedFaculty?.status === 'approved' ? 'Reason for Status Change' : 'Rejection Reason'} (Optional)
               </label>
               <Input
                 id="notes"
@@ -362,7 +381,7 @@ const FacultyManagement = () => {
                 Cancel
               </Button>
               <Button variant="destructive" onClick={handleConfirmReject}>
-                Confirm Rejection
+                Confirm {selectedFaculty?.status === 'approved' ? 'Change' : 'Rejection'}
               </Button>
             </DialogFooter>
           </DialogContent>
