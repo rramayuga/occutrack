@@ -29,7 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, Trash, MessageSquare } from "lucide-react";
+import { Plus, Pencil, Trash, MessageSquare, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Announcement } from '@/lib/types';
 import Navbar from '@/components/layout/Navbar';
@@ -44,6 +44,7 @@ const AnnouncementsManager = () => {
   const [currentAnnouncementId, setCurrentAnnouncementId] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
+  const isSuperAdmin = user?.role === 'superadmin';
 
   // Fetch announcements
   const fetchAnnouncements = async () => {
@@ -151,6 +152,16 @@ const AnnouncementsManager = () => {
   };
 
   const handleEdit = (announcement: Announcement) => {
+    // Only allow superadmin to edit
+    if (!isSuperAdmin) {
+      toast({
+        title: 'Permission Denied',
+        description: 'Only superadmins can edit announcements',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
     setTitle(announcement.title);
     setContent(announcement.content);
     setCurrentAnnouncementId(announcement.id);
@@ -158,6 +169,16 @@ const AnnouncementsManager = () => {
   };
 
   const handleDelete = async (id: string) => {
+    // Only allow superadmin to delete
+    if (!isSuperAdmin) {
+      toast({
+        title: 'Permission Denied',
+        description: 'Only superadmins can delete announcements',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
     try {
       const { error } = await supabase
         .from('announcements')
@@ -191,7 +212,15 @@ const AnnouncementsManager = () => {
       <Navbar />
       <div className="container mx-auto py-6 space-y-6 pt-20">
         <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Announcements Management</h1>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            Announcements Management
+            {isSuperAdmin && (
+              <span className="text-xs flex items-center text-green-600 bg-green-50 px-2 py-1 rounded-full">
+                <ShieldCheck className="h-3 w-3 mr-1" />
+                SuperAdmin
+              </span>
+            )}
+          </h1>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button onClick={() => {
@@ -253,6 +282,7 @@ const AnnouncementsManager = () => {
             <CardTitle>All Announcements</CardTitle>
             <CardDescription>
               Manage all announcements across the platform.
+              {isSuperAdmin && (<span className="text-green-600"> As a SuperAdmin, you can edit and delete any announcement.</span>)}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -260,7 +290,7 @@ const AnnouncementsManager = () => {
               <div className="text-center py-6">Loading announcements...</div>
             ) : announcements.length === 0 ? (
               <div className="text-center py-6">
-                <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
+                <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                 <p className="text-muted-foreground">No announcements yet. Create your first one!</p>
               </div>
             ) : (
@@ -286,6 +316,8 @@ const AnnouncementsManager = () => {
                               variant="outline"
                               size="sm"
                               onClick={() => handleEdit(announcement)}
+                              disabled={!isSuperAdmin}
+                              className={!isSuperAdmin ? "opacity-50 cursor-not-allowed" : ""}
                             >
                               <Pencil className="h-4 w-4" />
                             </Button>
@@ -293,6 +325,8 @@ const AnnouncementsManager = () => {
                               variant="destructive"
                               size="sm"
                               onClick={() => handleDelete(announcement.id)}
+                              disabled={!isSuperAdmin}
+                              className={!isSuperAdmin ? "opacity-50 cursor-not-allowed" : ""}
                             >
                               <Trash className="h-4 w-4" />
                             </Button>

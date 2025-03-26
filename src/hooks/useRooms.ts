@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { BuildingWithFloors, Room } from '@/lib/types';
 import { useToast } from "@/components/ui/use-toast";
@@ -29,6 +28,7 @@ export function useRooms() {
 
   const fetchRooms = async () => {
     try {
+      setLoading(true);
       // Fetch rooms from Supabase
       const { data: roomsData, error: roomsError } = await supabase
         .from('rooms')
@@ -67,21 +67,12 @@ export function useRooms() {
           capacity: room.capacity,
           isAvailable: availabilityMap.has(room.id) ? availabilityMap.get(room.id) : true,
           floor: room.floor,
-          buildingId: room.building_id
+          buildingId: room.building_id,
+          status: room.status as Room['status']
         }));
         
         console.log("Fetched rooms:", roomsWithAvailability);
         setRooms(roomsWithAvailability);
-        
-        // Update building room counts
-        const buildingCounts = roomsData.reduce((acc: {[key: string]: number}, room) => {
-          const buildingId = room.building_id;
-          acc[buildingId] = (acc[buildingId] || 0) + 1;
-          return acc;
-        }, {});
-        
-        // We need to access our buildings state and update it
-        // This is a side-effect
       } else {
         console.log("No rooms found in Supabase");
         setRooms([]);
@@ -97,6 +88,11 @@ export function useRooms() {
       setLoading(false);
     }
   };
+  
+  // Expose refetchRooms to allow manual refresh when needed
+  const refetchRooms = useCallback(async () => {
+    await fetchRooms();
+  }, []);
   
   // Use this to handle room availability toggling
   const handleToggleRoomAvailability = (roomId: string) => {
@@ -176,6 +172,7 @@ export function useRooms() {
     loading,
     selectedBuilding,
     setSelectedBuilding,
-    handleToggleRoomAvailability
+    handleToggleRoomAvailability,
+    refetchRooms
   };
 }

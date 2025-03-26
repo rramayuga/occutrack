@@ -44,7 +44,7 @@ const RoomManagement = () => {
     editBuilding,
     deleteBuilding
   } = useBuildings();
-  const { rooms: fetchedRooms, loading: roomsLoading } = useRooms();
+  const { rooms: fetchedRooms, loading: roomsLoading, refetchRooms } = useRooms();
   const { toast } = useToast();
   
   useEffect(() => {
@@ -94,6 +94,7 @@ const RoomManagement = () => {
       if (error) throw error;
       
       setRooms(prevRooms => prevRooms.filter(room => room.id !== roomId));
+      await refetchRooms();
       toast({
         title: "Room deleted",
         description: "The room has been successfully deleted."

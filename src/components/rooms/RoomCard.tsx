@@ -80,7 +80,7 @@ const RoomCard: React.FC<RoomCardProps> = ({
           )}
           
           <RoomActions 
-            canModifyRooms={canModifyRooms}
+            canModifyRooms={canModifyRooms || (user?.role === 'admin' || user?.role === 'superadmin')}
             showSchedules={showSchedules}
             status={status}
             userRole={user?.role}

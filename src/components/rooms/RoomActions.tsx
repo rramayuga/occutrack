@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { Calendar, Settings } from 'lucide-react';
+import { Calendar, Settings, ShieldAlert } from 'lucide-react';
 import { RoomStatus, UserRole } from '@/lib/types';
 import { 
   Select, 
@@ -46,7 +46,12 @@ const RoomActions: React.FC<RoomActionsProps> = ({
               <SelectItem value="available">Mark as Available</SelectItem>
               <SelectItem value="occupied">Mark as Occupied</SelectItem>
               {isAdminOrSuperAdmin && (
-                <SelectItem value="maintenance">Mark as Under Maintenance</SelectItem>
+                <SelectItem value="maintenance">
+                  <div className="flex items-center">
+                    <ShieldAlert className="h-4 w-4 mr-1 text-amber-500" />
+                    <span>Mark as Under Maintenance</span>
+                  </div>
+                </SelectItem>
               )}
             </SelectContent>
           </Select>
