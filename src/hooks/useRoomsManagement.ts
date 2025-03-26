@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Room } from '@/lib/types';
 import { supabase } from "@/integrations/supabase/client";
@@ -67,7 +68,7 @@ export const useRoomsManagement = () => {
     try {
       console.log("Attempting to delete room using delete_room_cascade function for roomId:", roomId);
       
-      // Call our new Supabase function that handles deletion with proper transaction
+      // Call our improved Supabase function with proper transaction and error handling
       const { data, error } = await supabase.rpc(
         'delete_room_cascade',
         { room_id_param: roomId }
