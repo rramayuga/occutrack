@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { BuildingWithFloors, Room } from '@/lib/types';
 import { useToast } from "@/components/ui/use-toast";
@@ -61,13 +60,11 @@ export function useRooms() {
         }
         
         // Transform to Room format with availability from the map or default to true
-        // And handle the status field correctly - using a default if it doesn't exist
         const roomsWithAvailability: Room[] = roomsData.map(room => {
           const isAvailable = availabilityMap.has(room.id) ? availabilityMap.get(room.id) : true;
           
-          // Determine status - the database room record doesn't have a status field,
-          // so we need to derive it from the availability
-          const derivedStatus = isAvailable ? 'available' : 'occupied';
+          // Use status from the database if available, otherwise derive from availability
+          const status = room.status || (isAvailable ? 'available' : 'occupied');
           
           return {
             id: room.id,
@@ -77,8 +74,7 @@ export function useRooms() {
             isAvailable: isAvailable,
             floor: room.floor,
             buildingId: room.building_id,
-            // Set status based on availability 
-            status: derivedStatus
+            status: status as any // Cast to satisfy TypeScript
           };
         });
         

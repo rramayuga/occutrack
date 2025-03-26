@@ -234,6 +234,7 @@ export type Database = {
           floor: number
           id: string
           name: string
+          status: string | null
           type: string
         }
         Insert: {
@@ -244,6 +245,7 @@ export type Database = {
           floor: number
           id?: string
           name: string
+          status?: string | null
           type: string
         }
         Update: {
@@ -254,6 +256,7 @@ export type Database = {
           floor?: number
           id?: string
           name?: string
+          status?: string | null
           type?: string
         }
         Relationships: [

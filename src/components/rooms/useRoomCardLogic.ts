@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Room, Reservation, RoomStatus } from '@/lib/types';
 import { useAuth } from '@/lib/auth';
@@ -25,6 +24,8 @@ export const useRoomCardLogic = (room: Room, onToggleAvailability: (roomId: stri
     if (!user) return;
     
     try {
+      console.log("Updating room status to:", status);
+      
       // First update the room availability record
       const isAvailable = status === 'available';
       
@@ -42,13 +43,7 @@ export const useRoomCardLogic = (room: Room, onToggleAvailability: (roomId: stri
       // Then update the room status in the rooms table
       const { error: roomError } = await supabase
         .from('rooms')
-        .update({ 
-          status: status,
-          type: room.type,
-          floor: room.floor,
-          building_id: room.buildingId,
-          capacity: room.capacity
-        })
+        .update({ status: status })
         .eq('id', room.id);
       
       if (roomError) throw roomError;
