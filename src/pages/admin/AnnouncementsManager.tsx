@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
@@ -51,7 +50,7 @@ const AnnouncementsManager = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   
-  const isSuperAdmin = user?.role === 'superadmin';
+  const canManageAnnouncements = user?.role === 'admin' || user?.role === 'superadmin';
   
   useEffect(() => {
     const fetchAnnouncements = async () => {
@@ -90,7 +89,6 @@ const AnnouncementsManager = () => {
     
     fetchAnnouncements();
     
-    // Set up real-time subscription
     const announcementsChannel = supabase
       .channel('public:announcements')
       .on('postgres_changes', { 
@@ -121,7 +119,6 @@ const AnnouncementsManager = () => {
     
     try {
       if (isEditMode && editingAnnouncementId) {
-        // Update existing announcement
         const { error } = await supabase
           .from('announcements')
           .update({
@@ -137,7 +134,6 @@ const AnnouncementsManager = () => {
           description: 'The announcement has been successfully updated'
         });
       } else {
-        // Add new announcement
         const { error } = await supabase
           .from('announcements')
           .insert({
@@ -154,7 +150,6 @@ const AnnouncementsManager = () => {
         });
       }
       
-      // Reset form and close dialog
       setTitle('');
       setContent('');
       setIsDialogOpen(false);
@@ -219,16 +214,18 @@ const AnnouncementsManager = () => {
       <div className="container mx-auto py-6 space-y-6 pt-20">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold">Announcements Management</h1>
-          <Button onClick={() => {
-            setTitle('');
-            setContent('');
-            setIsEditMode(false);
-            setEditingAnnouncementId(null);
-            setIsDialogOpen(true);
-          }}>
-            <PlusCircle className="h-4 w-4 mr-2" />
-            New Announcement
-          </Button>
+          {canManageAnnouncements && (
+            <Button onClick={() => {
+              setTitle('');
+              setContent('');
+              setIsEditMode(false);
+              setEditingAnnouncementId(null);
+              setIsDialogOpen(true);
+            }}>
+              <PlusCircle className="h-4 w-4 mr-2" />
+              New Announcement
+            </Button>
+          )}
         </div>
         
         <div className="space-y-4">
@@ -238,11 +235,13 @@ const AnnouncementsManager = () => {
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-10">
                 <p className="text-muted-foreground">No announcements have been posted yet.</p>
-                <Button className="mt-4" onClick={() => {
-                  setIsDialogOpen(true);
-                }}>
-                  Create First Announcement
-                </Button>
+                {canManageAnnouncements && (
+                  <Button className="mt-4" onClick={() => {
+                    setIsDialogOpen(true);
+                  }}>
+                    Create First Announcement
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ) : (
@@ -251,7 +250,7 @@ const AnnouncementsManager = () => {
                 <CardHeader className="pb-2">
                   <div className="flex justify-between items-start">
                     <CardTitle>{announcement.title}</CardTitle>
-                    {isSuperAdmin && (
+                    {canManageAnnouncements && (
                       <div className="flex space-x-2">
                         <Button
                           variant="ghost" 

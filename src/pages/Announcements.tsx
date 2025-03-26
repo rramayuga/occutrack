@@ -31,6 +31,22 @@ const Announcements = () => {
 
   useEffect(() => {
     fetchAnnouncements();
+    
+    // Set up realtime subscription to announcements table
+    const announcementsChannel = supabase
+      .channel('public:announcements')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'announcements' 
+      }, () => {
+        fetchAnnouncements();
+      })
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(announcementsChannel);
+    };
   }, []);
 
   const fetchAnnouncements = async () => {
@@ -108,7 +124,7 @@ const Announcements = () => {
       setTitle('');
       setContent('');
       setIsAddingAnnouncement(false);
-      fetchAnnouncements();
+      // Real-time subscription will trigger a refresh
     } catch (error) {
       console.error('Error adding announcement:', error);
       toast({
@@ -126,9 +142,14 @@ const Announcements = () => {
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold">Announcements</h1>
           {isAdmin && (
-            <Button onClick={() => setIsAddingAnnouncement(true)}>
-              <PlusCircle className="h-4 w-4 mr-2" /> Post Announcement
-            </Button>
+            <div className="flex space-x-3">
+              <Button onClick={() => setIsAddingAnnouncement(true)}>
+                <PlusCircle className="h-4 w-4 mr-2" /> Post Announcement
+              </Button>
+              <Button variant="outline" onClick={() => window.location.href = '/admin/announcements'}>
+                Manage All
+              </Button>
+            </div>
           )}
         </div>
 
@@ -169,7 +190,7 @@ const Announcements = () => {
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <label htmlFor="title" className="text-sm font-medium">Title</label>
+                <label htmlFor="title" className="block text-sm font-medium">Title</label>
                 <Input
                   id="title"
                   value={title}
@@ -178,7 +199,7 @@ const Announcements = () => {
                 />
               </div>
               <div className="space-y-2">
-                <label htmlFor="content" className="text-sm font-medium">Content</label>
+                <label htmlFor="content" className="block text-sm font-medium">Content</label>
                 <Textarea
                   id="content"
                   value={content}

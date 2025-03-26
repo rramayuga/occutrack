@@ -45,27 +45,61 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
     const fetchFacultyData = async () => {
       try {
         setIsLoadingFaculty(true);
-        const { data, error } = await supabase
+        
+        // Query both faculty_requests and profiles tables to get complete data
+        const { data: facultyRequestsData, error: facultyRequestsError } = await supabase
           .from('faculty_requests')
           .select('*')
           .eq('status', 'approved');
           
-        if (error) throw error;
+        if (facultyRequestsError) throw facultyRequestsError;
         
-        setFacultyCount(data?.length || 0);
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('role', 'faculty');
+          
+        if (profilesError) throw profilesError;
         
-        if (data) {
-          const transformedData: FacultyMember[] = data.map(item => ({
-            id: item.id,
-            name: item.name,
-            email: item.email,
-            department: item.department,
-            status: item.status as 'pending' | 'approved' | 'rejected',
-            createdAt: item.created_at,
-            user_id: item.user_id
-          }));
-          setFacultyMembers(transformedData);
+        // Combine data from both sources, prioritizing faculty_requests
+        const facultyIds = new Set();
+        const combinedFaculty: FacultyMember[] = [];
+        
+        // Add faculty from requests first
+        if (facultyRequestsData) {
+          facultyRequestsData.forEach(item => {
+            facultyIds.add(item.user_id);
+            combinedFaculty.push({
+              id: item.id,
+              name: item.name,
+              email: item.email,
+              department: item.department,
+              status: item.status as 'pending' | 'approved' | 'rejected',
+              createdAt: item.created_at,
+              user_id: item.user_id
+            });
+          });
         }
+        
+        // Add faculty from profiles that weren't in faculty_requests
+        if (profilesData) {
+          profilesData.forEach(profile => {
+            if (!facultyIds.has(profile.id)) {
+              combinedFaculty.push({
+                id: profile.id,
+                name: profile.name,
+                email: profile.email,
+                department: 'N/A', // Profiles don't store department
+                status: 'approved', // If they have role faculty, they're approved
+                createdAt: profile.created_at,
+                user_id: profile.id
+              });
+            }
+          });
+        }
+        
+        setFacultyCount(combinedFaculty.length);
+        setFacultyMembers(combinedFaculty);
       } catch (error) {
         console.error('Error fetching faculty data:', error);
       } finally {
