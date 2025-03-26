@@ -68,7 +68,7 @@ export function useRooms() {
           isAvailable: availabilityMap.has(room.id) ? availabilityMap.get(room.id) : true,
           floor: room.floor,
           buildingId: room.building_id,
-          status: room.status as Room['status']
+          status: room.status || (availabilityMap.has(room.id) ? (availabilityMap.get(room.id) ? 'available' : 'occupied') : 'available')
         }));
         
         console.log("Fetched rooms:", roomsWithAvailability);
