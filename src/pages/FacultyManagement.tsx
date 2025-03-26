@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
@@ -50,7 +49,6 @@ const FacultyManagement = () => {
   const [notes, setNotes] = useState('');
   const { toast } = useToast();
 
-  // Fetch faculty members
   const fetchFacultyMembers = async () => {
     try {
       setIsLoading(true);
@@ -89,7 +87,6 @@ const FacultyManagement = () => {
   useEffect(() => {
     fetchFacultyMembers();
 
-    // Setup subscription for real-time updates
     const facultyChannel = supabase
       .channel('faculty_requests_changes')
       .on('postgres_changes', { 
@@ -106,11 +103,9 @@ const FacultyManagement = () => {
     };
   }, []);
 
-  // Apply filters when search query or status filter changes
   useEffect(() => {
     let filtered = [...facultyMembers];
     
-    // Apply search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -121,7 +116,6 @@ const FacultyManagement = () => {
       );
     }
     
-    // Apply status filter
     if (statusFilter !== 'all') {
       filtered = filtered.filter(member => member.status === statusFilter);
     }
@@ -147,7 +141,6 @@ const FacultyManagement = () => {
 
       if (error) throw error;
 
-      // If approved, update the user's role in the profiles table
       if (newStatus === 'approved') {
         const { error: profileError } = await supabase
           .from('profiles')
@@ -159,7 +152,6 @@ const FacultyManagement = () => {
         }
       }
 
-      // If rejected and user had faculty role, reset to student
       if (newStatus === 'rejected') {
         const { error: profileError } = await supabase
           .from('profiles')
@@ -180,7 +172,6 @@ const FacultyManagement = () => {
       setIsDialogOpen(false);
       setSelectedFaculty(null);
       
-      // Refresh the list
       fetchFacultyMembers();
     } catch (error) {
       console.error('Error updating faculty status:', error);
@@ -319,6 +310,20 @@ const FacultyManagement = () => {
                               >
                                 <Check className="h-4 w-4 mr-1" />
                                 Approve
+                              </Button>
+                            )}
+                            {faculty.status === 'approved' && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="bg-red-50 text-red-600 hover:bg-red-100"
+                                onClick={() => {
+                                  setSelectedFaculty(faculty);
+                                  setIsDialogOpen(true);
+                                }}
+                              >
+                                <X className="h-4 w-4 mr-1" />
+                                Reject
                               </Button>
                             )}
                           </div>

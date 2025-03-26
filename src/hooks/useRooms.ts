@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { BuildingWithFloors, Room } from '@/lib/types';
 import { useToast } from "@/components/ui/use-toast";
@@ -60,6 +61,7 @@ export function useRooms() {
         }
         
         // Transform to Room format with availability from the map or default to true
+        // And handle the status field correctly
         const roomsWithAvailability: Room[] = roomsData.map(room => ({
           id: room.id,
           name: room.name,

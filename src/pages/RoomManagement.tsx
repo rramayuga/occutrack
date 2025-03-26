@@ -94,7 +94,10 @@ const RoomManagement = () => {
       if (error) throw error;
       
       setRooms(prevRooms => prevRooms.filter(room => room.id !== roomId));
+      setFilteredRooms(prevRooms => prevRooms.filter(room => room.id !== roomId));
+      
       await refetchRooms();
+      
       toast({
         title: "Room deleted",
         description: "The room has been successfully deleted."
