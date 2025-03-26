@@ -66,16 +66,44 @@ export const useRoomsManagement = () => {
 
   const deleteRoom = async (roomId: string) => {
     try {
-      console.log("Attempting to delete room using delete_room_cascade function for roomId:", roomId);
+      console.log("Attempting to delete room with ID:", roomId);
       
-      // Call our improved Supabase function with proper transaction and error handling
+      // First check if the room exists
+      const { data: roomData, error: roomError } = await supabase
+        .from('rooms')
+        .select('id, name')
+        .eq('id', roomId)
+        .single();
+        
+      if (roomError) {
+        console.error("Error fetching room:", roomError);
+        toast({
+          title: "Error finding room",
+          description: "Could not locate the room to delete.",
+          variant: "destructive"
+        });
+        return false;
+      }
+      
+      if (!roomData) {
+        toast({
+          title: "Room not found",
+          description: "The room you're trying to delete doesn't exist.",
+          variant: "destructive"
+        });
+        return false;
+      }
+      
+      console.log("Found room to delete:", roomData.name);
+      
+      // Use our improved delete_room_cascade function
       const { data, error } = await supabase.rpc(
         'delete_room_cascade',
         { room_id_param: roomId }
       );
       
       if (error) {
-        console.error("Error deleting room:", error);
+        console.error("Error from delete_room_cascade:", error);
         toast({
           title: "Error deleting room",
           description: error.message,
@@ -84,19 +112,19 @@ export const useRoomsManagement = () => {
         return false;
       }
       
-      // Check the return value of our function (boolean)
+      // Check the return value (boolean)
       if (data === true) {
         console.log("Room and related records deleted successfully");
         toast({
           title: "Success",
-          description: "Room deleted successfully.",
+          description: `Room "${roomData.name}" deleted successfully.`,
         });
         return true;
       } else {
         console.error("Room deletion failed but no error was returned");
         toast({
           title: "Error deleting room",
-          description: "An unexpected error occurred during deletion.",
+          description: "The deletion process failed. Please try again.",
           variant: "destructive"
         });
         return false;
