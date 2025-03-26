@@ -68,23 +68,50 @@ export const useRoomsManagement = () => {
     try {
       console.log("Attempting to delete room and related records for roomId:", roomId);
       
-      // Use type assertion to tell TypeScript this is a valid function
-      const { error } = await supabase.rpc(
-        'delete_room_with_related_records' as any, 
-        { room_id_param: roomId }
-      );
-      
-      if (error) {
-        console.error("Error deleting room and related records:", error);
+      // First, delete all room_availability records for this room
+      const { error: availabilityError } = await supabase
+        .from('room_availability')
+        .delete()
+        .eq('room_id', roomId);
+        
+      if (availabilityError) {
+        console.error("Error deleting room availability records:", availabilityError);
         toast({
           title: "Error deleting room",
-          description: error.message,
+          description: "Failed to delete all room availability records.",
           variant: "destructive"
         });
         return false;
       }
       
-      console.log("Room deleted successfully");
+      // Then, delete all room_reservations records for this room (if they exist)
+      const { error: reservationsError } = await supabase
+        .from('room_reservations')
+        .delete()
+        .eq('room_id', roomId);
+        
+      if (reservationsError) {
+        console.error("Error deleting room reservation records:", reservationsError);
+        // Continue anyway as reservations might not exist
+      }
+      
+      // Finally, delete the room itself
+      const { error: roomError } = await supabase
+        .from('rooms')
+        .delete()
+        .eq('id', roomId);
+      
+      if (roomError) {
+        console.error("Error deleting room:", roomError);
+        toast({
+          title: "Error deleting room",
+          description: roomError.message,
+          variant: "destructive"
+        });
+        return false;
+      }
+      
+      console.log("Room and related records deleted successfully");
       toast({
         title: "Success",
         description: "Room deleted successfully.",
