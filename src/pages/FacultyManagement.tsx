@@ -398,7 +398,7 @@ const FacultyManagement = () => {
         </Dialog>
         
         <UserRightsManagement 
-          isOpen={isRightsManagementOpen} 
+          open={isRightsManagementOpen} 
           onClose={() => setIsRightsManagementOpen(false)} 
         />
       </div>

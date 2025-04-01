@@ -21,39 +21,37 @@ export const useUserRightsManagement = (isDialogOpen: boolean) => {
     try {
       setLoading(true);
       
-      // Filter out users with rejected faculty status by joining with faculty_requests table
-      const { data: profilesWithRejectedStatus, error: joinError } = await supabase
+      // Get all users from profiles table
+      const { data: profiles, error } = await supabase
         .from('profiles')
-        .select(`
-          id, 
-          name,
-          email,
-          role,
-          avatar,
-          faculty_requests!left (
-            status
-          )
-        `)
-        .order('role');
+        .select('id, name, email, role, avatar');
       
-      if (joinError) throw joinError;
+      if (error) throw error;
       
-      // Filter out users who have a rejected faculty status
-      const filteredUsers = profilesWithRejectedStatus
-        ? profilesWithRejectedStatus.filter(profile => {
-            // Only include profiles that don't have a faculty_requests entry with status = 'rejected'
-            const facultyRequests = profile.faculty_requests;
-            if (!facultyRequests || facultyRequests.length === 0) return true;
-            
-            // If any faculty request is rejected, exclude this user
-            return !facultyRequests.some((request: any) => request.status === 'rejected');
-          }).map(profile => ({
-            id: profile.id,
-            name: profile.name,
-            email: profile.email,
-            role: profile.role as UserRole,
-            avatarUrl: profile.avatar
-          }))
+      // Separately get all rejected faculty users
+      const { data: rejectedFaculty, error: rejectionError } = await supabase
+        .from('faculty_requests')
+        .select('user_id')
+        .eq('status', 'rejected');
+      
+      if (rejectionError) throw rejectionError;
+      
+      // Create a set of rejected user IDs for faster lookup
+      const rejectedUserIds = new Set(
+        rejectedFaculty ? rejectedFaculty.map(item => item.user_id) : []
+      );
+      
+      // Filter out users who have been rejected
+      const filteredUsers = profiles
+        ? profiles
+            .filter(profile => !rejectedUserIds.has(profile.id))
+            .map(profile => ({
+              id: profile.id,
+              name: profile.name,
+              email: profile.email,
+              role: profile.role as UserRole,
+              avatarUrl: profile.avatar
+            }))
         : [];
 
       setUsers(filteredUsers);
