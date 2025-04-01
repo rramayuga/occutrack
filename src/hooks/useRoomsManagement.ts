@@ -95,32 +95,6 @@ export const useRoomsManagement = () => {
       
       console.log("Found room to delete:", roomData.name);
       
-      // Check if the room has any reservations
-      const { data: reservationsData, error: reservationsCheckError } = await supabase
-        .from('room_reservations')
-        .select('id')
-        .eq('room_id', roomId)
-        .limit(1);
-        
-      if (reservationsCheckError) {
-        console.error("Error checking room reservations:", reservationsCheckError);
-        toast({
-          title: "Error checking reservations",
-          description: "Could not verify if the room has existing reservations.",
-          variant: "destructive"
-        });
-        return false;
-      }
-      
-      if (reservationsData && reservationsData.length > 0) {
-        toast({
-          title: "Room has reservations",
-          description: "This room cannot be deleted because it has existing reservations. Please cancel all reservations for this room first.",
-          variant: "destructive"
-        });
-        return false;
-      }
-      
       // Use the database function to delete the room and its related records
       const { error: deletionError } = await supabase
         .rpc('delete_room_cascade', { room_id_param: roomId });

@@ -51,9 +51,12 @@ const UserRightsManagement: React.FC<UserRightsManagementDialogProps> = ({ open,
       // Filter out users who have a rejected faculty status
       const filteredUsers = profilesWithRejectedStatus
         ? profilesWithRejectedStatus.filter(profile => {
-            // Only exclude profiles that have a faculty_requests entry with status = 'rejected'
-            const facultyRequestStatus = profile.faculty_requests?.[0]?.status;
-            return facultyRequestStatus !== 'rejected';
+            // Only include profiles that don't have a faculty_requests entry with status = 'rejected'
+            const facultyRequests = profile.faculty_requests;
+            if (!facultyRequests || facultyRequests.length === 0) return true;
+            
+            // If any faculty request is rejected, exclude this user
+            return !facultyRequests.some(request => request.status === 'rejected');
           }).map(profile => ({
             id: profile.id,
             name: profile.name,
