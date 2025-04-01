@@ -95,48 +95,41 @@ export const useRoomsManagement = () => {
       
       console.log("Found room to delete:", roomData.name);
       
-      // First delete related room_availability records
-      const { error: availabilityError } = await supabase
-        .from('room_availability')
-        .delete()
-        .eq('room_id', roomId);
+      // Check if the room has any reservations
+      const { data: reservationsData, error: reservationsCheckError } = await supabase
+        .from('room_reservations')
+        .select('id')
+        .eq('room_id', roomId)
+        .limit(1);
         
-      if (availabilityError) {
-        console.error("Error deleting room availability records:", availabilityError);
+      if (reservationsCheckError) {
+        console.error("Error checking room reservations:", reservationsCheckError);
         toast({
-          title: "Error deleting room",
-          description: "Failed to delete related availability records.",
+          title: "Error checking reservations",
+          description: "Could not verify if the room has existing reservations.",
           variant: "destructive"
         });
         return false;
       }
       
-      console.log("Deleted availability records successfully");
-      
-      // Then delete related room_reservations records if they exist
-      const { error: reservationsError } = await supabase
-        .from('room_reservations')
-        .delete()
-        .eq('room_id', roomId);
-        
-      if (reservationsError) {
-        console.error("Error deleting room reservations:", reservationsError);
-        // Don't return false here, as there might not be any reservations
-      } else {
-        console.log("Deleted reservation records successfully");
+      if (reservationsData && reservationsData.length > 0) {
+        toast({
+          title: "Room has reservations",
+          description: "This room cannot be deleted because it has existing reservations. Please cancel all reservations for this room first.",
+          variant: "destructive"
+        });
+        return false;
       }
       
-      // Finally delete the room itself
-      const { error: roomDeletionError } = await supabase
-        .from('rooms')
-        .delete()
-        .eq('id', roomId);
+      // Use the database function to delete the room and its related records
+      const { error: deletionError } = await supabase
+        .rpc('delete_room_cascade', { room_id_param: roomId });
         
-      if (roomDeletionError) {
-        console.error("Error deleting room:", roomDeletionError);
+      if (deletionError) {
+        console.error("Error deleting room:", deletionError);
         toast({
           title: "Error deleting room",
-          description: roomDeletionError.message,
+          description: deletionError.message,
           variant: "destructive"
         });
         return false;

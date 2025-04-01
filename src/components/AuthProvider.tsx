@@ -36,6 +36,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const fetchUserProfile = async (userId: string) => {
     try {
+      // Check if this is a faculty member with a rejected request
+      const { data: facultyRequest, error: facultyError } = await supabase
+        .from('faculty_requests')
+        .select('status')
+        .eq('user_id', userId)
+        .eq('status', 'rejected')
+        .maybeSingle();
+
+      if (facultyError) {
+        console.error('Error checking faculty status:', facultyError);
+      }
+      
+      // If the faculty request was rejected, sign the user out and show a message
+      if (facultyRequest && facultyRequest.status === 'rejected') {
+        await supabase.auth.signOut();
+        toast({
+          title: 'Access Denied',
+          description: 'Your faculty account request has been rejected. Please contact administration for more information.',
+          variant: 'destructive'
+        });
+        navigate('/login');
+        setIsLoading(false);
+        return;
+      }
+
+      // Continue with normal profile fetching
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
