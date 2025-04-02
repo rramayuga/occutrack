@@ -40,8 +40,12 @@ const UsersList: React.FC<UsersListProps> = ({
               <div className="text-sm text-muted-foreground">{user.email}</div>
               <div>
                 <UserRoleSelector 
+                  key={`${user.id}-${user.role}`} 
                   currentRole={user.role} 
-                  onRoleChange={(newRole) => handleRoleChange(user.id, newRole)} 
+                  onRoleChange={(newRole) => {
+                    console.log(`Changing role for user ${user.id} from ${user.role} to ${newRole}`);
+                    handleRoleChange(user.id, newRole);
+                  }} 
                 />
               </div>
             </div>

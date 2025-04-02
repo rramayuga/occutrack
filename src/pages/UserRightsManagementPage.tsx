@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUserRightsManagement } from '@/hooks/useUserRightsManagement';
 import UserRightsFilters from '@/components/admin/users/UserRightsFilters';
@@ -14,9 +14,15 @@ const UserRightsManagementPage = () => {
     roleFilter,
     setRoleFilter,
     handleRoleChange,
-    filteredUsers
+    filteredUsers,
+    fetchUsers
   } = useUserRightsManagement(true);  // Always fetch users when component mounts
   
+  // Re-fetch users when component mounts to ensure we have the latest data
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />

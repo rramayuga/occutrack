@@ -69,12 +69,21 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
   
   const handleRoleChange = async (userId: string, newRole: UserRole) => {
     try {
-      const { error } = await supabase
+      console.log(`Updating role for user ${userId} to ${newRole}`);
+      
+      // Update the database
+      const { error, data } = await supabase
         .from('profiles')
         .update({ role: newRole })
-        .eq('id', userId);
+        .eq('id', userId)
+        .select();
         
-      if (error) throw error;
+      if (error) {
+        console.error('Database error when updating role:', error);
+        throw error;
+      }
+      
+      console.log('Update response:', data);
       
       // Update the local state with the new role
       setUsers(prevUsers => 
@@ -87,6 +96,22 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
         title: 'Role updated',
         description: 'User role has been updated successfully',
       });
+      
+      // Verify the update by fetching the user again
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', userId)
+        .single();
+      
+      if (verifyError) {
+        console.error('Error verifying role update:', verifyError);
+      } else {
+        console.log('Verified role after update:', verifyData.role);
+        if (verifyData.role !== newRole) {
+          console.warn('Role verification failed: database shows', verifyData.role, 'but we expected', newRole);
+        }
+      }
     } catch (error) {
       console.error('Error updating user role:', error);
       toast({
