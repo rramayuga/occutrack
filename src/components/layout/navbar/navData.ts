@@ -56,7 +56,7 @@ export const adminLinks = [
     name: 'User Rights', 
     path: '/user-rights', 
     icon: React.createElement(Shield, { size: 18 }), 
-    roles: ['admin'] as UserRole[] 
+    roles: ['admin', 'superadmin'] as UserRole[] 
   },
   { 
     name: 'Post Announcements', 

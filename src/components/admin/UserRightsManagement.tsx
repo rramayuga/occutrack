@@ -16,18 +16,17 @@ interface UserRightsManagementDialogProps {
 const UserRightsManagement: React.FC<UserRightsManagementDialogProps> = ({ open, onClose }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const isAdmin = user?.role === 'admin';
-  const isSuperAdmin = user?.role === 'superadmin';
+  const hasAccess = user?.role === 'admin' || user?.role === 'superadmin';
   
-  // If admin, redirect to the dedicated page
+  // If admin or superadmin, redirect to the dedicated page
   React.useEffect(() => {
-    if (open && isAdmin && !isSuperAdmin) {
+    if (open && hasAccess) {
       navigate('/user-rights');
       onClose();
     }
-  }, [open, isAdmin, isSuperAdmin, navigate, onClose]);
+  }, [open, hasAccess, navigate, onClose]);
   
-  // Only use the hook and render the dialog for superadmin
+  // Only use the hook and render the dialog for authorized users
   const {
     loading,
     searchTerm,
@@ -36,10 +35,10 @@ const UserRightsManagement: React.FC<UserRightsManagementDialogProps> = ({ open,
     setRoleFilter,
     handleRoleChange,
     filteredUsers
-  } = useUserRightsManagement(open && isSuperAdmin);
+  } = useUserRightsManagement(open && hasAccess);
   
-  if (isAdmin && !isSuperAdmin) {
-    return null; // Don't render anything for admin as they will be redirected
+  if (!hasAccess) {
+    return null; // Don't render anything for unauthorized users
   }
   
   return (

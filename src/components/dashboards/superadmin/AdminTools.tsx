@@ -1,9 +1,12 @@
 
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Database, Settings, Lock, Bell } from 'lucide-react';
+import { Database, Settings, Lock, Bell, Users } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const AdminTools: React.FC = () => {
+  const navigate = useNavigate();
+  
   return (
     <Card>
       <CardHeader>
@@ -12,6 +15,19 @@ const AdminTools: React.FC = () => {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
+          <div 
+            className="flex items-center p-2 hover:bg-muted rounded-lg transition-colors cursor-pointer" 
+            onClick={() => navigate('/user-rights')}
+          >
+            <div className="rounded-full p-2 bg-primary/10 mr-3">
+              <Users className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <h4 className="text-sm font-medium">User Rights Management</h4>
+              <p className="text-xs text-muted-foreground">Manage user roles and permissions</p>
+            </div>
+          </div>
+          
           <div className="flex items-center p-2 hover:bg-muted rounded-lg transition-colors cursor-pointer">
             <div className="rounded-full p-2 bg-primary/10 mr-3">
               <Database className="h-4 w-4 text-primary" />
