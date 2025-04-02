@@ -76,10 +76,12 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
         
       if (error) throw error;
       
-      // Update the local state
-      setUsers(users.map(user => 
-        user.id === userId ? { ...user, role: newRole } : user
-      ));
+      // Update the local state with the new role
+      setUsers(prevUsers => 
+        prevUsers.map(user => 
+          user.id === userId ? { ...user, role: newRole } : user
+        )
+      );
       
       toast({
         title: 'Role updated',

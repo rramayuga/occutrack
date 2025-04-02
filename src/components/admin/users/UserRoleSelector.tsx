@@ -11,7 +11,7 @@ interface UserRoleSelectorProps {
 const UserRoleSelector: React.FC<UserRoleSelectorProps> = ({ currentRole, onRoleChange }) => {
   return (
     <Select 
-      defaultValue={currentRole} 
+      value={currentRole}
       onValueChange={(value) => onRoleChange(value as UserRole)}
     >
       <SelectTrigger className="w-32">
