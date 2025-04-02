@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,9 +62,10 @@ const UserManagement = () => {
   const [notes, setNotes] = useState('');
   const { toast } = useToast();
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setIsLoading(true);
+      console.log('UserManagement: Fetching users...');
       
       // Get all users from profiles table
       const { data: profiles, error } = await supabase
@@ -107,6 +108,7 @@ const UserManagement = () => {
         };
       }) : [];
       
+      console.log('UserManagement: Fetched users:', usersWithStatus);
       setUsers(usersWithStatus);
       applyFilters(usersWithStatus, searchQuery, roleFilter, statusFilter, sortDirection);
     } catch (error) {
@@ -119,7 +121,7 @@ const UserManagement = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [searchQuery, roleFilter, statusFilter, sortDirection, toast]);
 
   const applyFilters = (
     userList: UserWithStatus[],
@@ -174,6 +176,7 @@ const UserManagement = () => {
         schema: 'public', 
         table: 'profiles' 
       }, () => {
+        console.log('Received profiles change notification');
         fetchUsers();
       })
       .subscribe();
@@ -185,6 +188,7 @@ const UserManagement = () => {
         schema: 'public', 
         table: 'faculty_requests' 
       }, () => {
+        console.log('Received faculty_requests change notification');
         fetchUsers();
       })
       .subscribe();
@@ -193,7 +197,7 @@ const UserManagement = () => {
       supabase.removeChannel(profilesChannel);
       supabase.removeChannel(facultyRequestsChannel);
     };
-  }, []);
+  }, [fetchUsers]);
 
   useEffect(() => {
     applyFilters(users, searchQuery, roleFilter, statusFilter, sortDirection);
@@ -205,24 +209,51 @@ const UserManagement = () => {
 
   const handleRoleChange = async (userId: string, newRole: UserRole) => {
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ role: newRole })
-        .eq('id', userId);
-        
-      if (error) throw error;
+      console.log(`UserManagement: Updating role for user ${userId} to ${newRole}`);
       
-      toast({
-        title: 'Role updated',
-        description: 'User role has been updated successfully',
-      });
-      
-      // Update local state
+      // First update the local state immediately for better UI responsiveness
       setUsers(prevUsers => 
         prevUsers.map(user => 
           user.id === userId ? { ...user, role: newRole } : user
         )
       );
+      
+      // Then update the database
+      const { error } = await supabase
+        .from('profiles')
+        .update({ role: newRole })
+        .eq('id', userId);
+        
+      if (error) {
+        console.error('Database error when updating role:', error);
+        throw error;
+      }
+      
+      // Verify the update
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', userId)
+        .single();
+      
+      if (verifyError) {
+        console.error('Error verifying role update:', verifyError);
+      } else {
+        console.log('Verified role after update:', verifyData.role);
+        
+        // If the role doesn't match what we expect, refetch all users
+        if (verifyData.role !== newRole) {
+          console.warn('Role verification failed. Database shows:', verifyData.role, 'Expected:', newRole);
+          fetchUsers(); // Refetch to get the correct data
+        } else {
+          console.log('Role updated successfully in database and local state');
+        }
+      }
+      
+      toast({
+        title: 'Role updated',
+        description: 'User role has been updated successfully',
+      });
     } catch (error) {
       console.error('Error updating user role:', error);
       toast({
@@ -230,6 +261,9 @@ const UserManagement = () => {
         description: 'Failed to update user role',
         variant: 'destructive'
       });
+      
+      // Refetch users to ensure we have the latest data
+      fetchUsers();
     }
   };
 
@@ -422,6 +456,7 @@ const UserManagement = () => {
                         <TableCell>{user.email}</TableCell>
                         <TableCell>
                           <UserRoleSelector 
+                            key={`${user.id}-${user.role}-${Date.now()}`} 
                             currentRole={user.role} 
                             onRoleChange={(newRole) => handleRoleChange(user.id, newRole)} 
                           />
