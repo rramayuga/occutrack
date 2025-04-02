@@ -12,6 +12,8 @@ import Roles from "./pages/Roles";
 import Rooms from "./pages/Rooms";
 import RoomManagement from "./pages/RoomManagement";
 import FacultyManagement from "./pages/FacultyManagement";
+import UserManagement from "./pages/UserManagement";
+import UserRightsManagementPage from "./pages/UserRightsManagementPage";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import FacultyConfirmation from "./pages/FacultyConfirmation";
@@ -33,6 +35,8 @@ const App = () => (
           <Route path="/rooms" element={<Rooms />} />
           <Route path="/room-management" element={<RoomManagement />} />
           <Route path="/faculty-management" element={<FacultyManagement />} />
+          <Route path="/user-management" element={<UserManagement />} />
+          <Route path="/user-rights" element={<UserRightsManagementPage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/faculty-confirmation" element={<FacultyConfirmation />} />

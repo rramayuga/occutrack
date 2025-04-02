@@ -4,7 +4,7 @@ import { User, UserRole } from '@/lib/types';
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
-export const useUserRightsManagement = (isDialogOpen: boolean) => {
+export const useUserRightsManagement = (shouldFetch: boolean = false) => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -12,10 +12,10 @@ export const useUserRightsManagement = (isDialogOpen: boolean) => {
   const { toast } = useToast();
   
   useEffect(() => {
-    if (isDialogOpen) {
+    if (shouldFetch) {
       fetchUsers();
     }
-  }, [isDialogOpen]);
+  }, [shouldFetch]);
   
   const fetchUsers = async () => {
     try {
@@ -113,6 +113,7 @@ export const useUserRightsManagement = (isDialogOpen: boolean) => {
     roleFilter,
     setRoleFilter,
     handleRoleChange,
-    filteredUsers
+    filteredUsers,
+    fetchUsers
   };
 };

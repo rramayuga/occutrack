@@ -2,7 +2,7 @@
 import React from 'react';
 import { 
   Home, BookOpen, Building, Bell, 
-  CalendarCheck, Users, FileText, Settings
+  CalendarCheck, Users, FileText, Settings, Shield, UserCog
 } from 'lucide-react';
 import { UserRole } from '@/lib/types';
 
@@ -44,7 +44,19 @@ export const adminLinks = [
     name: 'Faculty Management', 
     path: '/faculty-management', 
     icon: React.createElement(Users, { size: 18 }), 
-    roles: ['admin', 'superadmin'] as UserRole[] 
+    roles: ['admin'] as UserRole[] 
+  },
+  { 
+    name: 'User Management', 
+    path: '/user-management', 
+    icon: React.createElement(Users, { size: 18 }), 
+    roles: ['superadmin'] as UserRole[] 
+  },
+  { 
+    name: 'User Rights', 
+    path: '/user-rights', 
+    icon: React.createElement(Shield, { size: 18 }), 
+    roles: ['admin'] as UserRole[] 
   },
   { 
     name: 'Post Announcements', 

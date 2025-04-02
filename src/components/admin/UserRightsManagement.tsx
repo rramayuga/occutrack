@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import UserRightsFilters from './users/UserRightsFilters';
 import UsersList from './users/UsersList';
 import { useUserRightsManagement } from '@/hooks/useUserRightsManagement';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/lib/auth';
 
 interface UserRightsManagementDialogProps {
   open: boolean;
@@ -12,6 +14,20 @@ interface UserRightsManagementDialogProps {
 }
 
 const UserRightsManagement: React.FC<UserRightsManagementDialogProps> = ({ open, onClose }) => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const isAdmin = user?.role === 'admin';
+  const isSuperAdmin = user?.role === 'superadmin';
+  
+  // If admin, redirect to the dedicated page
+  React.useEffect(() => {
+    if (open && isAdmin && !isSuperAdmin) {
+      navigate('/user-rights');
+      onClose();
+    }
+  }, [open, isAdmin, isSuperAdmin, navigate, onClose]);
+  
+  // Only use the hook and render the dialog for superadmin
   const {
     loading,
     searchTerm,
@@ -20,7 +36,11 @@ const UserRightsManagement: React.FC<UserRightsManagementDialogProps> = ({ open,
     setRoleFilter,
     handleRoleChange,
     filteredUsers
-  } = useUserRightsManagement(open);
+  } = useUserRightsManagement(open && isSuperAdmin);
+  
+  if (isAdmin && !isSuperAdmin) {
+    return null; // Don't render anything for admin as they will be redirected
+  }
   
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
