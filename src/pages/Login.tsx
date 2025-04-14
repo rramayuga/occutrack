@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Card, CardContent, CardDescription, 
@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
 import { Building, Mail, Lock, AlertCircle } from 'lucide-react';
 import { handleLogin, handleGoogleSignIn } from '@/utils/auth-utils';
+import { useAuth } from '@/lib/auth';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -20,6 +21,14 @@ const Login = () => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  // Redirect to dashboard if already logged in
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

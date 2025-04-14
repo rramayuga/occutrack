@@ -13,30 +13,53 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check active sessions and subscribe to auth changes
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Check active sessions and set up subscription for auth changes
+    const setupAuth = async () => {
+      setIsLoading(true);
+      
+      // First, set up the auth change subscription
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        async (_event, session) => {
+          if (session?.user) {
+            try {
+              const userData = await fetchUserProfile(session.user.id);
+              if (!userData) {
+                await supabase.auth.signOut();
+                setUser(null);
+              }
+            } catch (error) {
+              console.error('Error in auth state change handler:', error);
+              setUser(null);
+            }
+          } else {
+            setUser(null);
+          }
+          setIsLoading(false);
+        }
+      );
+
+      // Then check the current session
+      const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
-        fetchUserProfile(session.user.id);
+        try {
+          await fetchUserProfile(session.user.id);
+        } catch (error) {
+          console.error('Error fetching initial user profile:', error);
+          setUser(null);
+        }
       } else {
         setIsLoading(false);
       }
-    });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        fetchUserProfile(session.user.id);
-      } else {
-        setUser(null);
-        setIsLoading(false);
-      }
-    });
+      return () => subscription.unsubscribe();
+    };
 
-    return () => subscription.unsubscribe();
-  }, []);
+    setupAuth();
+  }, [navigate]);
 
   const fetchUserProfile = async (userId: string) => {
     try {
-      // Check if this is a faculty member with a rejected request
+      // First check if this is a faculty member with a rejected request
       const { data: facultyRequest, error: facultyError } = await supabase
         .from('faculty_requests')
         .select('status')
@@ -58,7 +81,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         });
         navigate('/login');
         setIsLoading(false);
-        return;
+        setUser(null);
+        return null;
       }
 
       // Continue with normal profile fetching
@@ -71,14 +95,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (error) throw error;
 
       if (profile) {
-        setUser({
+        const userData = {
           id: profile.id,
           name: profile.name,
           email: profile.email,
           role: profile.role as UserRole,
           avatarUrl: profile.avatar
-        });
+        };
+        
+        setUser(userData);
+        setIsLoading(false);
+        return userData;
       }
+      
+      setIsLoading(false);
+      return null;
     } catch (error) {
       console.error('Error fetching user profile:', error);
       toast({
@@ -86,13 +117,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         description: 'Failed to load user profile',
         variant: 'destructive'
       });
-    } finally {
       setIsLoading(false);
+      throw error;
     }
   };
 
   const signOut = async () => {
     try {
+      setIsLoading(true);
       await supabase.auth.signOut();
       navigate('/login');
     } catch (error) {
@@ -102,6 +134,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         description: 'Failed to sign out',
         variant: 'destructive'
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
