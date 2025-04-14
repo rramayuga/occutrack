@@ -252,11 +252,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
       </div>
 
       <Tabs defaultValue="buildings" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 md:w-auto">
+        <TabsList className="grid w-full grid-cols-3 md:w-auto">
           <TabsTrigger value="buildings">Buildings</TabsTrigger>
           <TabsTrigger value="faculty">Faculty</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
-          <TabsTrigger value="room-stats">Room Stats</TabsTrigger>
         </TabsList>
         
         <TabsContent value="buildings" className="space-y-6">
@@ -387,18 +386,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
               <CardTitle>Room Utilization Analytics</CardTitle>
               <CardDescription>View utilization metrics for campus rooms</CardDescription>
             </CardHeader>
-            <CardContent className="h-80 flex items-center justify-center border-t">
-              <p className="text-muted-foreground">Analytics dashboard coming soon</p>
+            <CardContent className="h-auto">
+              <RoomUsageStats />
             </CardContent>
           </Card>
-        </TabsContent>
-        
-        <TabsContent value="room-stats" className="space-y-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold">Room Usage Statistics</h2>
-          </div>
-          
-          <RoomUsageStats />
         </TabsContent>
       </Tabs>
       

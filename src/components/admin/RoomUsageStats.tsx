@@ -1,15 +1,16 @@
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, startOfDay, endOfDay } from "date-fns";
+import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, BarChart2, PieChart } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
 
 interface RoomUsageData {
   roomName: string;
@@ -28,11 +29,9 @@ const RoomUsageStats = () => {
   const [roomUsageData, setRoomUsageData] = useState<RoomUsageData[]>([]);
   const [roomTypeData, setRoomTypeData] = useState<RoomTypeData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    fetchRoomUsageData();
-  }, [startDate, endDate]);
-
+  const { toast } = useToast();
+  
+  // Function to fetch room usage data
   const fetchRoomUsageData = async () => {
     setIsLoading(true);
     try {
@@ -124,18 +123,72 @@ const RoomUsageStats = () => {
       }));
 
       setRoomTypeData(roomTypeArray);
+      setIsLoading(false);
     } catch (error) {
       console.error("Error fetching room usage data:", error);
-    } finally {
+      toast({
+        title: "Error",
+        description: "Failed to load room usage data",
+        variant: "destructive"
+      });
       setIsLoading(false);
     }
   };
 
+  // Initial data fetch
+  useEffect(() => {
+    fetchRoomUsageData();
+  }, [startDate, endDate]);
+
+  // Set up real-time subscription for room reservations
+  useEffect(() => {
+    const channel = supabase
+      .channel('room-reservations-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen for all events (INSERT, UPDATE, DELETE)
+          schema: 'public',
+          table: 'room_reservations'
+        },
+        (payload) => {
+          console.log('Real-time update received:', payload);
+          // Refresh data when any changes occur
+          fetchRoomUsageData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [startDate, endDate]);
+
+  // Preset date range options
+  const setLastMonth = () => {
+    const lastMonth = subMonths(new Date(), 1);
+    setStartDate(startOfMonth(lastMonth));
+    setEndDate(endOfMonth(lastMonth));
+  };
+
+  const setCurrentMonth = () => {
+    setStartDate(startOfMonth(new Date()));
+    setEndDate(endOfMonth(new Date()));
+  };
+
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle className="text-xl">Room Usage Analytics</CardTitle>
-        <div className="flex flex-col sm:flex-row gap-4 mt-2">
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+        <div className="flex flex-wrap gap-2 items-center">
+          <Button variant="outline" size="sm" onClick={setCurrentMonth}>
+            Current Month
+          </Button>
+          <Button variant="outline" size="sm" onClick={setLastMonth}>
+            Last Month
+          </Button>
+        </div>
+        
+        <div className="flex flex-wrap gap-4">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">From:</span>
             <Popover>
@@ -143,7 +196,7 @@ const RoomUsageStats = () => {
                 <Button 
                   variant="outline" 
                   size="sm"
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 w-[130px]"
                 >
                   <CalendarIcon className="h-4 w-4" />
                   {format(startDate, 'MMM dd, yyyy')}
@@ -156,11 +209,11 @@ const RoomUsageStats = () => {
                   onSelect={(date) => date && setStartDate(date)}
                   disabled={(date) => date > endDate || date > new Date()}
                   initialFocus
-                  className="p-3 pointer-events-auto"
                 />
               </PopoverContent>
             </Popover>
           </div>
+          
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">To:</span>
             <Popover>
@@ -168,7 +221,7 @@ const RoomUsageStats = () => {
                 <Button 
                   variant="outline" 
                   size="sm"
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 w-[130px]"
                 >
                   <CalendarIcon className="h-4 w-4" />
                   {format(endDate, 'MMM dd, yyyy')}
@@ -181,103 +234,138 @@ const RoomUsageStats = () => {
                   onSelect={(date) => date && setEndDate(date)}
                   disabled={(date) => date < startDate || date > new Date()}
                   initialFocus
-                  className="p-3 pointer-events-auto"
                 />
               </PopoverContent>
             </Popover>
           </div>
+          
+          <Button 
+            size="sm" 
+            onClick={fetchRoomUsageData}
+            disabled={isLoading}
+          >
+            Refresh
+          </Button>
         </div>
-      </CardHeader>
-      <CardContent>
-        <Tabs defaultValue="usage">
-          <TabsList className="mb-4">
-            <TabsTrigger value="usage">Room Usage</TabsTrigger>
-            <TabsTrigger value="types">Room Types</TabsTrigger>
-          </TabsList>
-          <TabsContent value="usage" className="h-80">
-            {isLoading ? (
-              <div className="h-full flex items-center justify-center">
+      </div>
+
+      <Tabs defaultValue="usage">
+        <TabsList className="mb-4">
+          <TabsTrigger value="usage" className="flex items-center gap-1">
+            <BarChart2 className="h-4 w-4" />
+            <span>Room Usage</span>
+          </TabsTrigger>
+          <TabsTrigger value="types" className="flex items-center gap-1">
+            <PieChart className="h-4 w-4" />
+            <span>Room Types</span>
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="usage" className="h-[400px]">
+          {isLoading ? (
+            <div className="h-full flex items-center justify-center">
+              <div className="animate-pulse text-center">
+                <div className="h-6 w-32 bg-muted rounded mx-auto mb-2"></div>
                 <p className="text-muted-foreground">Loading data...</p>
               </div>
-            ) : roomUsageData.length > 0 ? (
-              <ChartContainer config={{
-                utilizationHours: { label: "Hours", color: "#3b82f6" },
-                reservations: { label: "Reservations", color: "#10b981" }
-              }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={roomUsageData}
-                    margin={{ top: 10, right: 30, left: 0, bottom: 70 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis 
-                      dataKey="roomName" 
-                      angle={-45} 
-                      textAnchor="end" 
-                      tick={{ fontSize: 12 }}
-                      height={70}
-                    />
-                    <YAxis yAxisId="left" orientation="left" stroke="#3b82f6" />
-                    <YAxis yAxisId="right" orientation="right" stroke="#10b981" />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Legend />
-                    <Bar 
-                      dataKey="utilizationHours" 
-                      name="Hours Used" 
-                      yAxisId="left" 
-                      fill="var(--color-utilizationHours)" 
-                    />
-                    <Bar 
-                      dataKey="reservations" 
-                      name="Total Reservations" 
-                      yAxisId="right" 
-                      fill="var(--color-reservations)" 
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </ChartContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center">
-                <p className="text-muted-foreground">No room usage data available for the selected period.</p>
+            </div>
+          ) : roomUsageData.length > 0 ? (
+            <ChartContainer config={{
+              utilizationHours: { label: "Hours", color: "#3b82f6" },
+              reservations: { label: "Reservations", color: "#10b981" }
+            }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={roomUsageData}
+                  margin={{ top: 10, right: 30, left: 0, bottom: 70 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="roomName" 
+                    angle={-45} 
+                    textAnchor="end" 
+                    tick={{ fontSize: 12 }}
+                    height={70}
+                  />
+                  <YAxis yAxisId="left" orientation="left" stroke="#3b82f6" />
+                  <YAxis yAxisId="right" orientation="right" stroke="#10b981" />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Legend />
+                  <Bar 
+                    dataKey="utilizationHours" 
+                    name="Hours Used" 
+                    yAxisId="left" 
+                    fill="var(--color-utilizationHours)" 
+                  />
+                  <Bar 
+                    dataKey="reservations" 
+                    name="Total Reservations" 
+                    yAxisId="right" 
+                    fill="var(--color-reservations)" 
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+          ) : (
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center">
+                <p className="text-muted-foreground mb-2">No room usage data available for the selected period.</p>
+                <p className="text-sm text-muted-foreground">Try selecting a different date range.</p>
               </div>
-            )}
-          </TabsContent>
-          <TabsContent value="types" className="h-80">
-            {isLoading ? (
-              <div className="h-full flex items-center justify-center">
+            </div>
+          )}
+        </TabsContent>
+        
+        <TabsContent value="types" className="h-[400px]">
+          {isLoading ? (
+            <div className="h-full flex items-center justify-center">
+              <div className="animate-pulse text-center">
+                <div className="h-6 w-32 bg-muted rounded mx-auto mb-2"></div>
                 <p className="text-muted-foreground">Loading data...</p>
               </div>
-            ) : roomTypeData.length > 0 ? (
-              <ChartContainer config={{
-                value: { label: "Reservations", color: "#6366f1" }
-              }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={roomTypeData}
-                    margin={{ top: 10, right: 30, left: 0, bottom: 20 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Legend />
-                    <Bar 
-                      dataKey="value" 
-                      name="Reservations" 
-                      fill="var(--color-value)" 
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </ChartContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center">
-                <p className="text-muted-foreground">No room type data available for the selected period.</p>
+            </div>
+          ) : roomTypeData.length > 0 ? (
+            <ChartContainer config={{
+              value: { label: "Reservations", color: "#6366f1" }
+            }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={roomTypeData}
+                  margin={{ top: 10, right: 30, left: 0, bottom: 20 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Legend />
+                  <Bar 
+                    dataKey="value" 
+                    name="Reservations" 
+                    fill="var(--color-value)" 
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+          ) : (
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center">
+                <p className="text-muted-foreground mb-2">No room type data available for the selected period.</p>
+                <p className="text-sm text-muted-foreground">Try selecting a different date range.</p>
               </div>
-            )}
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+      
+      <Card className="mt-4">
+        <CardContent className="p-4">
+          <div className="text-xs text-muted-foreground">
+            <p className="mb-1">Last updated: {format(new Date(), 'MMM dd, yyyy HH:mm:ss')}</p>
+            <p>Data is updated in real-time as reservations change.</p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
