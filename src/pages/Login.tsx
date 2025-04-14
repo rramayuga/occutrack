@@ -21,7 +21,7 @@ const Login = () => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
 
   // Redirect to dashboard if already logged in
   useEffect(() => {
@@ -42,17 +42,18 @@ const Login = () => {
     setError('');
     
     try {
-      const data = await handleLogin(email, password);
-
-      if (data.user) {
-        toast({
-          title: "Login successful",
-          description: "Welcome back!",
-        });
-        
-        // Redirect based on user role
-        navigate('/dashboard');
-      }
+      await handleLogin(email, password);
+      
+      // Refresh user data after login
+      await refreshUser();
+      
+      toast({
+        title: "Login successful",
+        description: "Welcome back!",
+      });
+      
+      // Navigate to dashboard
+      navigate('/dashboard');
     } catch (error: any) {
       console.error('Login error:', error);
       setError(error.message || 'Invalid email or password. Please try again.');

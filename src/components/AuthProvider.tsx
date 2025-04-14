@@ -48,7 +48,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .eq('id', userId)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching profile:', error);
+        return null;
+      }
 
       if (profile) {
         const userData = {
@@ -60,11 +63,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         };
         
         setUser(userData);
-        setIsLoading(false);
         return userData;
       }
       
-      setIsLoading(false);
       return null;
     } catch (error) {
       console.error('Error fetching user profile:', error);
@@ -73,8 +74,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         description: 'Failed to load user profile',
         variant: 'destructive'
       });
-      setIsLoading(false);
       throw error;
+    } finally {
+      setIsLoading(false);
     }
   }, [navigate, toast]);
 
@@ -87,11 +89,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         await fetchUserProfile(data.session.user.id);
       } else {
         setUser(null);
-        setIsLoading(false);
       }
     } catch (error) {
       console.error('Error refreshing user:', error);
       setUser(null);
+    } finally {
       setIsLoading(false);
     }
   }, [fetchUserProfile]);
@@ -108,7 +110,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             try {
               const userData = await fetchUserProfile(session.user.id);
               if (!userData) {
-                await supabase.auth.signOut();
                 setUser(null);
               }
             } catch (error) {

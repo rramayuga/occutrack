@@ -74,70 +74,37 @@ export const handleGoogleSignIn = async () => {
 };
 
 export const handleLogin = async (email: string, password: string) => {
-  try {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-    
-    if (error) {
-      console.error('Login error:', error);
-      throw error;
-    }
-
-    if (!data.user) {
-      throw new Error('Authentication failed');
-    }
-
-    // Check if the user is a rejected faculty member
-    const { data: facultyRequest } = await supabase
-      .from('faculty_requests')
-      .select('status')
-      .eq('user_id', data.user.id)
-      .eq('status', 'rejected')
-      .maybeSingle();
-
-    if (facultyRequest && facultyRequest.status === 'rejected') {
-      // Immediately sign the user out
-      await supabase.auth.signOut();
-      throw new Error('Your faculty account request has been rejected. Please contact administration.');
-    }
-
-    // Fetch the user's profile to get their role
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', data.user.id)
-      .single();
-
-    if (profileError) {
-      console.error('Profile fetch error:', profileError);
-      // Instead of failing immediately, we'll return the basic user data
-      // and let the AuthProvider handle fetching the profile
-      return { 
-        user: data.user,
-        session: data.session 
-      };
-    }
-
-    if (profile) {
-      return { 
-        user: {
-          ...data.user,
-          role: profile.role,
-          name: profile.name,
-        },
-        session: data.session 
-      };
-    }
-
-    // Return basic user data if profile not found
-    return {
-      user: data.user,
-      session: data.session
-    };
-  } catch (error) {
-    console.error('Error in handleLogin:', error);
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password
+  });
+  
+  if (error) {
+    console.error('Login error:', error);
     throw error;
   }
+
+  if (!data.user) {
+    throw new Error('Authentication failed');
+  }
+
+  // Check if the user is a rejected faculty member
+  const { data: facultyRequest } = await supabase
+    .from('faculty_requests')
+    .select('status')
+    .eq('user_id', data.user.id)
+    .eq('status', 'rejected')
+    .maybeSingle();
+
+  if (facultyRequest && facultyRequest.status === 'rejected') {
+    // Immediately sign the user out
+    await supabase.auth.signOut();
+    throw new Error('Your faculty account request has been rejected. Please contact administration.');
+  }
+
+  // Return the user and session data directly
+  return { 
+    user: data.user,
+    session: data.session 
+  };
 };
