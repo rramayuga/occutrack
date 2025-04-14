@@ -84,10 +84,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const refreshUser = useCallback(async () => {
     try {
       setIsLoading(true);
+      
+      // Get the current session directly
       const { data } = await supabase.auth.getSession();
+      
       if (data.session?.user) {
         await fetchUserProfile(data.session.user.id);
       } else {
+        // If no session, clear the user state
         setUser(null);
       }
     } catch (error) {
@@ -99,53 +103,55 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [fetchUserProfile]);
 
   useEffect(() => {
-    // Check active sessions and set up subscription for auth changes
-    const setupAuth = async () => {
+    // Handle auth state changes for already authenticated users first
+    const initialSetup = async () => {
       setIsLoading(true);
       
-      // First, set up the auth change subscription
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(
-        async (_event, session) => {
-          if (session?.user) {
-            try {
-              const userData = await fetchUserProfile(session.user.id);
-              if (!userData) {
-                setUser(null);
-              }
-            } catch (error) {
-              console.error('Error in auth state change handler:', error);
-              setUser(null);
-            }
-          } else {
-            setUser(null);
-          }
+      try {
+        // First, check if there's an existing session
+        const { data: sessionData } = await supabase.auth.getSession();
+        
+        if (sessionData.session?.user) {
+          await fetchUserProfile(sessionData.session.user.id);
+        } else {
           setIsLoading(false);
         }
-      );
-
-      // Then check the current session
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        try {
-          await fetchUserProfile(session.user.id);
-        } catch (error) {
-          console.error('Error fetching initial user profile:', error);
-          setUser(null);
-        }
-      } else {
+      } catch (error) {
+        console.error('Error during initial auth check:', error);
         setIsLoading(false);
       }
-
-      return () => subscription.unsubscribe();
     };
+    
+    initialSetup();
+    
+    // Then set up the auth change subscription for future changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state changed:', event, session ? 'session exists' : 'no session');
+        
+        if (session?.user) {
+          try {
+            await fetchUserProfile(session.user.id);
+          } catch (error) {
+            console.error('Error in auth state change handler:', error);
+            setUser(null);
+            setIsLoading(false);
+          }
+        } else {
+          setUser(null);
+          setIsLoading(false);
+        }
+      }
+    );
 
-    setupAuth();
+    return () => subscription.unsubscribe();
   }, [fetchUserProfile]);
 
   const signOut = async () => {
     try {
       setIsLoading(true);
       await supabase.auth.signOut();
+      setUser(null);
       navigate('/login');
     } catch (error) {
       console.error('Error signing out:', error);

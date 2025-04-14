@@ -44,16 +44,17 @@ const Login = () => {
     try {
       await handleLogin(email, password);
       
-      // Refresh user data after login
-      await refreshUser();
-      
-      toast({
-        title: "Login successful",
-        description: "Welcome back!",
-      });
-      
-      // Navigate to dashboard
-      navigate('/dashboard');
+      // Add a small delay before refreshing user data to allow auth state to update
+      setTimeout(async () => {
+        await refreshUser();
+        
+        toast({
+          title: "Login successful",
+          description: "Welcome back!",
+        });
+        
+        navigate('/dashboard');
+      }, 500);
     } catch (error: any) {
       console.error('Login error:', error);
       setError(error.message || 'Invalid email or password. Please try again.');

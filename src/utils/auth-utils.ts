@@ -74,37 +74,46 @@ export const handleGoogleSignIn = async () => {
 };
 
 export const handleLogin = async (email: string, password: string) => {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password
-  });
-  
-  if (error) {
-    console.error('Login error:', error);
+  try {
+    // Clear any existing session first to prevent conflicts
+    await supabase.auth.signOut();
+    
+    // Then attempt login with fresh state
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+    
+    if (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
+
+    if (!data.user) {
+      throw new Error('Authentication failed');
+    }
+
+    // Check if the user is a rejected faculty member
+    const { data: facultyRequest } = await supabase
+      .from('faculty_requests')
+      .select('status')
+      .eq('user_id', data.user.id)
+      .eq('status', 'rejected')
+      .maybeSingle();
+
+    if (facultyRequest && facultyRequest.status === 'rejected') {
+      // Immediately sign the user out
+      await supabase.auth.signOut();
+      throw new Error('Your faculty account request has been rejected. Please contact administration.');
+    }
+
+    // Return the user and session data directly
+    return { 
+      user: data.user,
+      session: data.session 
+    };
+  } catch (error) {
+    console.error('Login process error:', error);
     throw error;
   }
-
-  if (!data.user) {
-    throw new Error('Authentication failed');
-  }
-
-  // Check if the user is a rejected faculty member
-  const { data: facultyRequest } = await supabase
-    .from('faculty_requests')
-    .select('status')
-    .eq('user_id', data.user.id)
-    .eq('status', 'rejected')
-    .maybeSingle();
-
-  if (facultyRequest && facultyRequest.status === 'rejected') {
-    // Immediately sign the user out
-    await supabase.auth.signOut();
-    throw new Error('Your faculty account request has been rejected. Please contact administration.');
-  }
-
-  // Return the user and session data directly
-  return { 
-    user: data.user,
-    session: data.session 
-  };
 };
