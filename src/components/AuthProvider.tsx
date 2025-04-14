@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { AuthContext } from '@/lib/auth';
@@ -12,52 +12,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  useEffect(() => {
-    // Check active sessions and set up subscription for auth changes
-    const setupAuth = async () => {
-      setIsLoading(true);
-      
-      // First, set up the auth change subscription
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(
-        async (_event, session) => {
-          if (session?.user) {
-            try {
-              const userData = await fetchUserProfile(session.user.id);
-              if (!userData) {
-                await supabase.auth.signOut();
-                setUser(null);
-              }
-            } catch (error) {
-              console.error('Error in auth state change handler:', error);
-              setUser(null);
-            }
-          } else {
-            setUser(null);
-          }
-          setIsLoading(false);
-        }
-      );
-
-      // Then check the current session
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        try {
-          await fetchUserProfile(session.user.id);
-        } catch (error) {
-          console.error('Error fetching initial user profile:', error);
-          setUser(null);
-        }
-      } else {
-        setIsLoading(false);
-      }
-
-      return () => subscription.unsubscribe();
-    };
-
-    setupAuth();
-  }, [navigate]);
-
-  const fetchUserProfile = async (userId: string) => {
+  // Create a reusable function to fetch user profile
+  const fetchUserProfile = useCallback(async (userId: string) => {
     try {
       // First check if this is a faculty member with a rejected request
       const { data: facultyRequest, error: facultyError } = await supabase
@@ -120,7 +76,70 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setIsLoading(false);
       throw error;
     }
-  };
+  }, [navigate, toast]);
+
+  // Add a refresh user method
+  const refreshUser = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.user) {
+        await fetchUserProfile(data.session.user.id);
+      } else {
+        setUser(null);
+        setIsLoading(false);
+      }
+    } catch (error) {
+      console.error('Error refreshing user:', error);
+      setUser(null);
+      setIsLoading(false);
+    }
+  }, [fetchUserProfile]);
+
+  useEffect(() => {
+    // Check active sessions and set up subscription for auth changes
+    const setupAuth = async () => {
+      setIsLoading(true);
+      
+      // First, set up the auth change subscription
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        async (_event, session) => {
+          if (session?.user) {
+            try {
+              const userData = await fetchUserProfile(session.user.id);
+              if (!userData) {
+                await supabase.auth.signOut();
+                setUser(null);
+              }
+            } catch (error) {
+              console.error('Error in auth state change handler:', error);
+              setUser(null);
+            }
+          } else {
+            setUser(null);
+          }
+          setIsLoading(false);
+        }
+      );
+
+      // Then check the current session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        try {
+          await fetchUserProfile(session.user.id);
+        } catch (error) {
+          console.error('Error fetching initial user profile:', error);
+          setUser(null);
+        }
+      } else {
+        setIsLoading(false);
+      }
+
+      return () => subscription.unsubscribe();
+    };
+
+    setupAuth();
+  }, [fetchUserProfile]);
 
   const signOut = async () => {
     try {
@@ -140,7 +159,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, signOut }}>
+    <AuthContext.Provider value={{ user, isLoading, signOut, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

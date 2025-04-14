@@ -112,20 +112,29 @@ export const handleLogin = async (email: string, password: string) => {
 
     if (profileError) {
       console.error('Profile fetch error:', profileError);
-      throw new Error('Failed to load user profile');
+      // Instead of failing immediately, we'll return the basic user data
+      // and let the AuthProvider handle fetching the profile
+      return { 
+        user: data.user,
+        session: data.session 
+      };
     }
 
-    if (!profile) {
-      throw new Error('Profile not found');
+    if (profile) {
+      return { 
+        user: {
+          ...data.user,
+          role: profile.role,
+          name: profile.name,
+        },
+        session: data.session 
+      };
     }
 
-    return { 
-      user: {
-        ...data.user,
-        role: profile.role,
-        name: profile.name,
-      },
-      session: data.session 
+    // Return basic user data if profile not found
+    return {
+      user: data.user,
+      session: data.session
     };
   } catch (error) {
     console.error('Error in handleLogin:', error);

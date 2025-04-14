@@ -16,6 +16,7 @@ import BuildingForm, { BuildingFormValues } from '@/components/admin/BuildingFor
 import RoomForm, { RoomFormValues } from '@/components/admin/RoomForm';
 import EditBuildingDialog from '@/components/admin/EditBuildingDialog';
 import DeleteBuildingDialog from '@/components/admin/DeleteBuildingDialog';
+import RoomUsageStats from '@/components/admin/RoomUsageStats';
 import { useBuildings } from '@/hooks/useBuildings';
 import { useEnhancedRoomsManagement } from '@/hooks/useEnhancedRoomsManagement';
 import { supabase } from "@/integrations/supabase/client";
@@ -251,10 +252,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
       </div>
 
       <Tabs defaultValue="buildings" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 md:w-auto">
+        <TabsList className="grid w-full grid-cols-4 md:w-auto">
           <TabsTrigger value="buildings">Buildings</TabsTrigger>
           <TabsTrigger value="faculty">Faculty</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          <TabsTrigger value="room-stats">Room Stats</TabsTrigger>
         </TabsList>
         
         <TabsContent value="buildings" className="space-y-6">
@@ -389,6 +391,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
               <p className="text-muted-foreground">Analytics dashboard coming soon</p>
             </CardContent>
           </Card>
+        </TabsContent>
+        
+        <TabsContent value="room-stats" className="space-y-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold">Room Usage Statistics</h2>
+          </div>
+          
+          <RoomUsageStats />
         </TabsContent>
       </Tabs>
       

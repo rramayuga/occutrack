@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Room } from '@/lib/types';
 import { supabase } from "@/integrations/supabase/client";
@@ -96,49 +95,15 @@ export const useRoomsManagement = () => {
       
       console.log("Found room to delete:", roomData.name);
       
-      // First delete any room_availability records
-      const { error: availabilityError } = await supabase
-        .from('room_availability')
-        .delete()
-        .eq('room_id', roomId);
+      // Use the delete_room_cascade function to properly delete the room and all related records
+      const { data, error } = await supabase
+        .rpc('delete_room_cascade', { room_id_param: roomId });
         
-      if (availabilityError) {
-        console.error("Error deleting room availability records:", availabilityError);
+      if (error) {
+        console.error("Error deleting room:", error);
         toast({
           title: "Error deleting room",
-          description: "Failed to delete room availability records: " + availabilityError.message,
-          variant: "destructive"
-        });
-        return false;
-      }
-      
-      // Then delete any reservations
-      const { error: reservationsError } = await supabase
-        .from('room_reservations')
-        .delete()
-        .eq('room_id', roomId);
-        
-      if (reservationsError) {
-        console.error("Error deleting room reservations:", reservationsError);
-        toast({
-          title: "Error deleting room",
-          description: "Failed to delete room reservations: " + reservationsError.message,
-          variant: "destructive"
-        });
-        return false;
-      }
-      
-      // Finally delete the room itself
-      const { error: deletionError } = await supabase
-        .from('rooms')
-        .delete()
-        .eq('id', roomId);
-        
-      if (deletionError) {
-        console.error("Error deleting room:", deletionError);
-        toast({
-          title: "Error deleting room",
-          description: deletionError.message,
+          description: error.message,
           variant: "destructive"
         });
         return false;
