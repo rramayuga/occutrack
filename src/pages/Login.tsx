@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
@@ -21,7 +20,7 @@ const Login = () => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, refreshUser } = useAuth();
+  const { user } = useAuth();
 
   // Redirect to dashboard if already logged in
   useEffect(() => {
@@ -44,21 +43,16 @@ const Login = () => {
     try {
       await handleLogin(email, password);
       
-      // Add a small delay before refreshing user data to allow auth state to update
-      setTimeout(async () => {
-        await refreshUser();
-        
-        toast({
-          title: "Login successful",
-          description: "Welcome back!",
-        });
-        
-        navigate('/dashboard');
-      }, 500);
+      toast({
+        title: "Login successful",
+        description: "Welcome back!",
+      });
+      
+      // Let the auth state update automatically via onAuthStateChange
+      // instead of manually calling refreshUser
     } catch (error: any) {
       console.error('Login error:', error);
       setError(error.message || 'Invalid email or password. Please try again.');
-    } finally {
       setIsLoading(false);
     }
   };

@@ -15,7 +15,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Create a reusable function to fetch user profile
   const fetchUserProfile = useCallback(async (userId: string) => {
     try {
-      // First check if this is a faculty member with a rejected request
+      // Check if this is a faculty member with a rejected request
       const { data: facultyRequest, error: facultyError } = await supabase
         .from('faculty_requests')
         .select('status')
@@ -27,7 +27,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.error('Error checking faculty status:', facultyError);
       }
       
-      // If the faculty request was rejected, sign the user out and show a message
+      // If the faculty request was rejected, sign the user out
       if (facultyRequest && facultyRequest.status === 'rejected') {
         await supabase.auth.signOut();
         toast({
@@ -36,8 +36,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           variant: 'destructive'
         });
         navigate('/login');
-        setIsLoading(false);
         setUser(null);
+        setIsLoading(false);
         return null;
       }
 
@@ -69,29 +69,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       return null;
     } catch (error) {
       console.error('Error fetching user profile:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load user profile',
-        variant: 'destructive'
-      });
-      throw error;
-    } finally {
       setIsLoading(false);
+      throw error;
     }
   }, [navigate, toast]);
 
-  // Add a refresh user method
+  // Add a refresh user method - simplified to avoid redundant operations
   const refreshUser = useCallback(async () => {
     try {
-      setIsLoading(true);
-      
-      // Get the current session directly
       const { data } = await supabase.auth.getSession();
       
       if (data.session?.user) {
         await fetchUserProfile(data.session.user.id);
       } else {
-        // If no session, clear the user state
         setUser(null);
       }
     } catch (error) {
@@ -103,48 +93,53 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [fetchUserProfile]);
 
   useEffect(() => {
-    // Handle auth state changes for already authenticated users first
-    const initialSetup = async () => {
+    let mounted = true;
+    
+    // Initial auth check
+    const checkAuth = async () => {
       setIsLoading(true);
       
       try {
-        // First, check if there's an existing session
         const { data: sessionData } = await supabase.auth.getSession();
         
-        if (sessionData.session?.user) {
+        if (sessionData.session?.user && mounted) {
           await fetchUserProfile(sessionData.session.user.id);
-        } else {
-          setIsLoading(false);
         }
       } catch (error) {
         console.error('Error during initial auth check:', error);
-        setIsLoading(false);
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
     };
     
-    initialSetup();
+    checkAuth();
     
-    // Then set up the auth change subscription for future changes
+    // Set up auth listener - using non-async callback to prevent deadlocks
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         console.log('Auth state changed:', event, session ? 'session exists' : 'no session');
         
-        if (session?.user) {
-          try {
-            await fetchUserProfile(session.user.id);
-          } catch (error) {
-            console.error('Error in auth state change handler:', error);
-            setUser(null);
-            setIsLoading(false);
-          }
-        } else {
+        if (session?.user && mounted) {
+          // Use setTimeout to avoid potential deadlocks with Supabase auth
+          setTimeout(async () => {
+            if (mounted) {
+              await fetchUserProfile(session.user.id);
+              setIsLoading(false);
+            }
+          }, 0);
+        } else if (mounted) {
           setUser(null);
           setIsLoading(false);
         }
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, [fetchUserProfile]);
 
   const signOut = async () => {

@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export const handleStudentRegistration = async (
@@ -75,10 +74,7 @@ export const handleGoogleSignIn = async () => {
 
 export const handleLogin = async (email: string, password: string) => {
   try {
-    // Clear any existing session first to prevent conflicts
-    await supabase.auth.signOut();
-    
-    // Then attempt login with fresh state
+    // First attempt login with fresh state
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
