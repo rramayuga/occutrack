@@ -18,7 +18,11 @@ const RoomAnalyticsLayout: React.FC<RoomAnalyticsLayoutProps> = ({
   roomUsageData 
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
-  const totalPages = Math.ceil(roomUsageData.length / 10);
+  const itemsPerPage = 10;
+  const totalPages = Math.ceil(roomUsageData.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentPageData = roomUsageData.slice(startIndex, endIndex);
 
   const handleNextPage = () => {
     if (currentPage < totalPages) {
@@ -55,12 +59,14 @@ const RoomAnalyticsLayout: React.FC<RoomAnalyticsLayoutProps> = ({
   }
 
   return (
-    <div className="space-y-6">
-      <RoomUsageChart data={roomUsageData} currentPage={currentPage} />
+    <div className="space-y-8">
+      <div className="h-[400px] w-full mb-8">
+        <RoomUsageChart data={currentPageData} currentPage={currentPage} />
+      </div>
       
       <div className="flex items-center justify-between mb-4">
         <p className="text-sm text-muted-foreground">
-          Showing {Math.min((currentPage - 1) * 10 + 1, roomUsageData.length)} - {Math.min(currentPage * 10, roomUsageData.length)} of {roomUsageData.length} rooms
+          Showing {startIndex + 1} - {Math.min(endIndex, roomUsageData.length)} of {roomUsageData.length} rooms
         </p>
         <div className="flex gap-2">
           <Button
@@ -69,7 +75,7 @@ const RoomAnalyticsLayout: React.FC<RoomAnalyticsLayoutProps> = ({
             onClick={handlePreviousPage}
             disabled={currentPage === 1}
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="h-4 w-4 mr-1" />
             Previous
           </Button>
           <Button
@@ -79,12 +85,14 @@ const RoomAnalyticsLayout: React.FC<RoomAnalyticsLayoutProps> = ({
             disabled={currentPage === totalPages}
           >
             Next
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="h-4 w-4 ml-1" />
           </Button>
         </div>
       </div>
 
-      <RoomUsageCards data={roomUsageData.slice((currentPage - 1) * 10, currentPage * 10)} />
+      <div className="mb-8">
+        <RoomUsageCards data={currentPageData} />
+      </div>
 
       <Card>
         <CardContent className="p-4">

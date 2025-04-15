@@ -7,6 +7,9 @@ import AdminTools from './superadmin/AdminTools';
 import StaffOverview from './superadmin/StaffOverview';
 import CampusNetwork from './superadmin/CampusNetwork';
 import { useSuperAdminData } from './superadmin/useSuperAdminData';
+import { Button } from '@/components/ui/button';
+import { Shield, MessageSquare } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface SuperAdminDashboardProps {
   user: User;
@@ -14,29 +17,43 @@ interface SuperAdminDashboardProps {
 
 export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user }) => {
   const { facultyMembers, adminUsers, isLoading } = useSuperAdminData();
+  const navigate = useNavigate();
 
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-2">Super Administrator Dashboard</h1>
       <p className="text-muted-foreground mb-8">Welcome back, {user.name}!</p>
 
-      {/* Overview Cards */}
+      <div className="flex gap-4 mb-8">
+        <Button 
+          onClick={() => navigate('/user-rights')}
+          className="flex items-center gap-2"
+        >
+          <Shield className="h-4 w-4" />
+          Manage User Rights
+        </Button>
+        <Button 
+          onClick={() => navigate('/admin/announcements')}
+          className="flex items-center gap-2"
+        >
+          <MessageSquare className="h-4 w-4" />
+          Post Announcements
+        </Button>
+      </div>
+
       <OverviewCards />
 
-      {/* System Status and Admin Tools */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <SystemOverview />
         <AdminTools />
       </div>
 
-      {/* Admin/Faculty Staff Overview */}
       <StaffOverview 
         adminUsers={adminUsers}
         facultyMembers={facultyMembers}
         isLoading={isLoading}
       />
 
-      {/* Multi-Campus Overview */}
       <CampusNetwork />
     </div>
   );
