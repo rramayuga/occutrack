@@ -39,7 +39,9 @@ const RoomAnalyticsLayout: React.FC<RoomAnalyticsLayoutProps> = ({
 
   return (
     <div className="space-y-6">
-      <RoomUsageChart data={roomUsageData} />
+      <div className="h-[400px] w-full">
+        <RoomUsageChart data={roomUsageData} />
+      </div>
       <RoomUsageCards data={roomUsageData} />
       <Card>
         <CardContent className="p-4">
