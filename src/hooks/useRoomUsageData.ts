@@ -22,31 +22,7 @@ export const useRoomUsageData = (
       const formattedStartDate = format(startDate, 'yyyy-MM-dd');
       const formattedEndDate = format(endDate, 'yyyy-MM-dd');
 
-      const { data: reservationData, error: reservationError } = await supabase
-        .from('room_reservations')
-        .select(`
-          id,
-          room_id,
-          date,
-          start_time,
-          end_time,
-          rooms (
-            id,
-            name,
-            type,
-            status,
-            floor,
-            building_id,
-            buildings (
-              name
-            )
-          )
-        `)
-        .gte('date', formattedStartDate)
-        .lte('date', formattedEndDate);
-
-      if (reservationError) throw reservationError;
-
+      // First, get all rooms with their building information
       const { data: roomsData, error: roomsError } = await supabase
         .from('rooms')
         .select(`
@@ -55,14 +31,24 @@ export const useRoomUsageData = (
           type,
           status,
           floor,
-          building_id,
           buildings (
+            id,
             name
           )
         `);
 
       if (roomsError) throw roomsError;
 
+      // Then get all reservations for these rooms
+      const { data: reservationData, error: reservationError } = await supabase
+        .from('room_reservations')
+        .select('*')
+        .gte('date', formattedStartDate)
+        .lte('date', formattedEndDate);
+
+      if (reservationError) throw reservationError;
+
+      // Process the data to create room usage statistics
       const roomUsageMap = new Map<string, RoomUsageData>();
       
       roomsData.forEach((room: any) => {
