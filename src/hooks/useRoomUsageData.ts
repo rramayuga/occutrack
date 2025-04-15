@@ -91,7 +91,12 @@ export const useRoomUsageData = (
           const statusMatch = statusFilter === "all" || room.status === statusFilter;
           return buildingMatch && floorMatch && statusMatch;
         })
-        .sort((a, b) => b.utilizationHours - a.utilizationHours);
+        .sort((a, b) => {
+          // Extract numbers from room names for natural sorting
+          const aNum = parseInt(a.roomName.match(/\d+/)?.[0] || '0');
+          const bNum = parseInt(b.roomName.match(/\d+/)?.[0] || '0');
+          return aNum - bNum;
+        });
 
       setRoomUsageData(roomUsageArray);
       setIsLoading(false);

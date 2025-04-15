@@ -1,8 +1,10 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { RoomUsageData } from '../types/room';
 import { format } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import RoomUsageChart from './RoomUsageChart';
 import RoomUsageCards from './RoomUsageCards';
 
@@ -15,6 +17,21 @@ const RoomAnalyticsLayout: React.FC<RoomAnalyticsLayoutProps> = ({
   isLoading, 
   roomUsageData 
 }) => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const totalPages = Math.ceil(roomUsageData.length / 10);
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(prev => prev + 1);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(prev => prev - 1);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="h-[400px] flex items-center justify-center">
@@ -39,10 +56,36 @@ const RoomAnalyticsLayout: React.FC<RoomAnalyticsLayoutProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="h-[400px] w-full">
-        <RoomUsageChart data={roomUsageData} />
+      <RoomUsageChart data={roomUsageData} currentPage={currentPage} />
+      
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm text-muted-foreground">
+          Showing {Math.min((currentPage - 1) * 10 + 1, roomUsageData.length)} - {Math.min(currentPage * 10, roomUsageData.length)} of {roomUsageData.length} rooms
+        </p>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handlePreviousPage}
+            disabled={currentPage === 1}
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleNextPage}
+            disabled={currentPage === totalPages}
+          >
+            Next
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
-      <RoomUsageCards data={roomUsageData} />
+
+      <RoomUsageCards data={roomUsageData.slice((currentPage - 1) * 10, currentPage * 10)} />
+
       <Card>
         <CardContent className="p-4">
           <div className="text-xs text-muted-foreground">
