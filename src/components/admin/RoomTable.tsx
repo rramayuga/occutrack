@@ -1,16 +1,18 @@
 
 import React, { useState } from 'react';
-import { Room } from '@/lib/types';
+import { useToast } from "@/hooks/use-toast";
 import {
   Table,
-  TableHeader,
   TableBody,
-  TableHead,
-  TableRow,
   TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import RoomStatusBadge from "@/components/rooms/RoomStatusBadge";
+import { Room } from '@/lib/types';
+import { Badge } from "@/components/ui/badge";
+import { AlertTriangle } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,7 +26,7 @@ import {
 
 interface RoomTableProps {
   rooms: Room[];
-  onDeleteRoom: (roomId: string) => void;
+  onDeleteRoom: (id: string) => Promise<void>;
   isLoading: boolean;
   selectedBuilding: string;
 }
@@ -32,27 +34,27 @@ interface RoomTableProps {
 const RoomTable: React.FC<RoomTableProps> = ({ 
   rooms, 
   onDeleteRoom, 
-  isLoading, 
+  isLoading,
   selectedBuilding 
 }) => {
-  const [roomToDelete, setRoomToDelete] = useState<Room | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
-  
-  const handleDeleteClick = (room: Room) => {
-    setRoomToDelete(room);
+
+  const handleDeleteClick = (roomId: string) => {
+    setSelectedRoomId(roomId);
+    setIsDeleteDialogOpen(true);
   };
-  
-  const handleConfirmDelete = async () => {
-    if (!roomToDelete) return;
+
+  const confirmDelete = async () => {
+    if (!selectedRoomId) return;
     
+    setIsDeleting(true);
     try {
-      setIsDeleting(true);
-      await onDeleteRoom(roomToDelete.id);
-      toast({
-        title: "Room deleted",
-        description: `${roomToDelete.name} has been successfully deleted.`
-      });
+      await onDeleteRoom(selectedRoomId);
+      setIsDeleteDialogOpen(false);
+      setSelectedRoomId(null);
     } catch (error) {
       console.error('Error deleting room:', error);
       toast({
@@ -62,82 +64,122 @@ const RoomTable: React.FC<RoomTableProps> = ({
       });
     } finally {
       setIsDeleting(false);
-      setRoomToDelete(null);
     }
   };
-  
-  return (
-    <>
-      <div className="overflow-x-auto rounded-md border">
+
+  if (isLoading) {
+    return (
+      <div className="rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Floor</TableHead>
-              <TableHead>Capacity</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-4">
-                  Loading rooms...
+            {[1, 2, 3].map((i) => (
+              <TableRow key={i}>
+                <TableCell>
+                  <div className="h-4 w-24 bg-muted rounded animate-pulse"></div>
+                </TableCell>
+                <TableCell>
+                  <div className="h-4 w-20 bg-muted rounded animate-pulse"></div>
+                </TableCell>
+                <TableCell>
+                  <div className="h-4 w-12 bg-muted rounded animate-pulse"></div>
+                </TableCell>
+                <TableCell>
+                  <div className="h-4 w-16 bg-muted rounded animate-pulse"></div>
+                </TableCell>
+                <TableCell>
+                  <div className="h-8 w-20 bg-muted rounded animate-pulse"></div>
                 </TableCell>
               </TableRow>
-            ) : rooms.length > 0 ? (
-              rooms.map((room) => (
-                <TableRow key={room.id}>
-                  <TableCell>{room.name}</TableCell>
-                  <TableCell>{room.type}</TableCell>
-                  <TableCell>{room.floor}</TableCell>
-                  <TableCell>{room.capacity || "N/A"}</TableCell>
-                  <TableCell>
-                    <RoomStatusBadge 
-                      status={room.status} 
-                      isAvailable={room.isAvailable} 
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleDeleteClick(room)}
-                      disabled={isDeleting}
-                    >
-                      Delete
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-4">
-                  {selectedBuilding ? "No rooms found in this building." : "Select a building to view rooms."}
-                </TableCell>
-              </TableRow>
-            )}
+            ))}
           </TableBody>
         </Table>
       </div>
-      
-      <AlertDialog open={roomToDelete !== null} onOpenChange={(open) => !open && setRoomToDelete(null)}>
+    );
+  }
+
+  if (!selectedBuilding) {
+    return (
+      <div className="text-center py-10">
+        <AlertTriangle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+        <p className="text-muted-foreground mb-2">Please select a building to view rooms</p>
+        <p className="text-sm text-muted-foreground">Select a building from the dropdown menu above.</p>
+      </div>
+    );
+  }
+
+  if (rooms.length === 0) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-muted-foreground mb-2">No rooms found</p>
+        <p className="text-sm text-muted-foreground">Try adjusting your filters or add a new room.</p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Floor</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rooms.map((room) => (
+              <TableRow key={room.id}>
+                <TableCell className="font-medium">{room.name}</TableCell>
+                <TableCell>{room.type}</TableCell>
+                <TableCell>{room.floor}</TableCell>
+                <TableCell>
+                  <Badge variant={room.isAvailable ? "default" : "secondary"}>
+                    {room.isAvailable ? "Available" : "Occupied"}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => handleDeleteClick(room.id)}
+                  >
+                    Delete
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Room</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete the room "{roomToDelete?.name}"? 
-              This action cannot be undone and will remove all associated reservations.
+              Are you sure you want to delete this room? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction 
-              onClick={handleConfirmDelete}
-              disabled={isDeleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isDeleting} 
+              onClick={(e) => {
+                e.preventDefault();
+                confirmDelete();
+              }}
             >
               {isDeleting ? "Deleting..." : "Delete"}
             </AlertDialogAction>

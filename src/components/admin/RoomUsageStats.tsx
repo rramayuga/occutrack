@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -5,11 +6,12 @@ import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import RoomAnalyticsFilters from './analytics/RoomAnalyticsFilters';
 import RoomUsageChart from './analytics/RoomUsageChart';
 import RoomUsageCards from './analytics/RoomUsageCards';
 import { RoomUsageData } from './types/room';
+import { Card, CardContent } from "@/components/ui/card";
 
 const RoomUsageStats = () => {
   const [startDate, setStartDate] = useState<Date>(startOfMonth(new Date()));
