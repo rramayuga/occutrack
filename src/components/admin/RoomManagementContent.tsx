@@ -97,9 +97,9 @@ const RoomManagementContent = () => {
       const success = await deleteRoom(roomId);
       
       if (success) {
-        // Fixed type error by properly typing the filter function
-        setRooms((prevRooms: Room[]) => prevRooms.filter((room: Room) => room.id !== roomId));
-        setFilteredRooms((prevRooms: Room[]) => prevRooms.filter((room: Room) => room.id !== roomId));
+        // Fixed type error by using state updater pattern with proper types
+        setRooms((prevRooms) => prevRooms.filter((room) => room.id !== roomId));
+        setFilteredRooms((prevRooms) => prevRooms.filter((room) => room.id !== roomId));
         
         await refetchRooms();
         

@@ -173,19 +173,6 @@ const RoomUsageStats = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-        <RoomAnalyticsFilters
-          selectedBuilding={selectedBuilding}
-          setSelectedBuilding={setSelectedBuilding}
-          selectedFloor={selectedFloor}
-          setSelectedFloor={setSelectedFloor}
-          statusFilter={statusFilter}
-          setStatusFilter={setStatusFilter}
-          buildings={buildings}
-          floors={getFloors()}
-        />
-      </div>
-
       <div className="flex flex-wrap gap-4">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">From:</span>
@@ -236,6 +223,19 @@ const RoomUsageStats = () => {
             </PopoverContent>
           </Popover>
         </div>
+      </div>
+
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+        <RoomAnalyticsFilters
+          selectedBuilding={selectedBuilding}
+          setSelectedBuilding={setSelectedBuilding}
+          selectedFloor={selectedFloor}
+          setSelectedFloor={setSelectedFloor}
+          statusFilter={statusFilter}
+          setStatusFilter={setStatusFilter}
+          buildings={buildings}
+          floors={getFloors()}
+        />
       </div>
 
       {isLoading ? (
