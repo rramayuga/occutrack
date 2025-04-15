@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { User } from '@/lib/types';
+import { useNavigate } from 'react-router-dom';
+import { User, BuildingWithFloors, Room } from '@/lib/types';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, Plus } from 'lucide-react';
@@ -8,7 +10,37 @@ import { useToast } from "@/hooks/use-toast";
 import BuildingsTab from './admin/BuildingsTab';
 import FacultyTab from './admin/FacultyTab';
 import AnalyticsTab from './admin/AnalyticsTab';
+import BuildingForm from '@/components/admin/BuildingForm';
+import RoomForm from '@/components/admin/RoomForm';
+import EditBuildingDialog from '@/components/admin/EditBuildingDialog';
+import DeleteBuildingDialog from '@/components/admin/DeleteBuildingDialog';
+import { useBuildings } from '@/hooks/useBuildings';
+import { useEnhancedRoomsManagement } from '@/hooks/useEnhancedRoomsManagement';
 import { supabase } from "@/integrations/supabase/client";
+
+interface FacultyMember {
+  id: string;
+  name: string;
+  email: string;
+  department: string;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: string;
+  user_id: string;
+}
+
+interface BuildingFormValues {
+  name: string;
+  floorCount: number;
+  location?: string;
+}
+
+interface RoomFormValues {
+  name: string;
+  type: string;
+  floor: number;
+  buildingId: string;
+  isAvailable: boolean;
+}
 
 interface AdminDashboardProps {
   user: User;
@@ -29,6 +61,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const { buildings, loading, addBuilding, editBuilding, deleteBuilding } = useBuildings();
   const { addRoom } = useEnhancedRoomsManagement();
   const { toast } = useToast();
+  const navigate = useNavigate();
   
   useEffect(() => {
     const fetchFacultyData = async () => {
