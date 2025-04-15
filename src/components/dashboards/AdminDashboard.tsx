@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { User, Room, FacultyMember, BuildingWithFloors } from '@/lib/types';
 import { 
   Card, CardContent, CardDescription, CardHeader, CardTitle 
@@ -36,6 +36,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingWithFloors | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [utilizationRate, setUtilizationRate] = useState<string>("0%");
   
   const { buildings, loading, addBuilding, editBuilding, deleteBuilding } = useBuildings();
   const { addRoom } = useEnhancedRoomsManagement();
@@ -106,6 +107,54 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
     
     fetchFacultyData();
   }, []);
+  
+  const calculateUtilizationRate = useCallback(async () => {
+    try {
+      const { data: roomsData, error: roomsError } = await supabase
+        .from('rooms')
+        .select('status');
+        
+      if (roomsError) throw roomsError;
+      
+      if (roomsData) {
+        const totalRooms = roomsData.length;
+        const occupiedRooms = roomsData.filter(room => 
+          room.status === 'occupied'
+        ).length;
+        
+        const rate = totalRooms > 0 
+          ? Math.round((occupiedRooms / totalRooms) * 100)
+          : 0;
+          
+        setUtilizationRate(`${rate}%`);
+      }
+    } catch (error) {
+      console.error('Error calculating utilization rate:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    calculateUtilizationRate();
+    
+    const channel = supabase
+      .channel('room-status-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'rooms'
+        },
+        () => {
+          calculateUtilizationRate();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [calculateUtilizationRate]);
   
   const onBuildingSubmit = async (data: BuildingFormValues) => {
     const result = await addBuilding(data.name, data.floorCount, data.location);
@@ -244,7 +293,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
           </CardHeader>
           <CardContent>
             <div className="flex justify-between items-center">
-              <span className="text-3xl font-bold">78%</span>
+              <span className="text-3xl font-bold">{utilizationRate}</span>
               <BarChart className="h-5 w-5 text-muted-foreground" />
             </div>
           </CardContent>

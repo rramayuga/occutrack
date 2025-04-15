@@ -74,7 +74,19 @@ export const handleGoogleSignIn = async () => {
 
 export const handleLogin = async (email: string, password: string) => {
   try {
-    // First attempt login with fresh state
+    // First check if the user has been rejected
+    const { data: facultyRequest } = await supabase
+      .from('faculty_requests')
+      .select('status')
+      .eq('email', email)
+      .eq('status', 'rejected')
+      .single();
+
+    if (facultyRequest?.status === 'rejected') {
+      throw new Error('Your faculty account request has been rejected. Please contact administration.');
+    }
+
+    // Proceed with login if not rejected
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
@@ -89,26 +101,11 @@ export const handleLogin = async (email: string, password: string) => {
       throw new Error('Authentication failed');
     }
 
-    // Check if the user is a rejected faculty member
-    const { data: facultyRequest } = await supabase
-      .from('faculty_requests')
-      .select('status')
-      .eq('user_id', data.user.id)
-      .eq('status', 'rejected')
-      .maybeSingle();
-
-    if (facultyRequest && facultyRequest.status === 'rejected') {
-      // Immediately sign the user out
-      await supabase.auth.signOut();
-      throw new Error('Your faculty account request has been rejected. Please contact administration.');
-    }
-
-    // Return the user and session data directly
     return { 
       user: data.user,
       session: data.session 
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Login process error:', error);
     throw error;
   }
