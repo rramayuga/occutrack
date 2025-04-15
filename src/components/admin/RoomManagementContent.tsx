@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useRoomsManagement } from '@/hooks/useRoomsManagement';
 import { useBuildings } from '@/hooks/useBuildings';
@@ -96,8 +97,14 @@ const RoomManagementContent = () => {
       const success = await deleteRoom(roomId);
       
       if (success) {
-        setRooms((prevRooms: Room[]) => prevRooms.filter((room) => room.id !== roomId) as Room[]);
-        setFilteredRooms((prevRooms: Room[]) => prevRooms.filter((room) => room.id !== roomId) as Room[]);
+        // Fix: Use type assertion for the filtered arrays
+        setRooms(prevRooms => {
+          return prevRooms.filter(room => room.id !== roomId);
+        });
+        
+        setFilteredRooms(prevRooms => {
+          return prevRooms.filter(room => room.id !== roomId);
+        });
         
         await refetchRooms();
         
