@@ -1,36 +1,20 @@
-import React, { useState } from 'react';
-import { useRoomsManagement } from '@/hooks/useRoomsManagement';
+
+import React, { useEffect } from 'react';
 import { useBuildings } from '@/hooks/useBuildings';
-import { useRooms } from '@/hooks/useRooms';
-import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Download, Upload } from 'lucide-react';
 import BuildingsList from './BuildingsList';
 import RoomTable from './RoomTable';
 import RoomFilters from './RoomFilters';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter
-} from "@/components/ui/dialog";
-import BuildingForm from './BuildingForm';
 import RoomForm from './RoomForm';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useRoomManagement } from './context/RoomManagementContext';
-import { Room, BuildingWithFloors } from '@/lib/types';
-import { Input } from "@/components/ui/input";
+import { useRoomManagementState } from '@/hooks/useRoomManagementState';
+import RoomActionsToolbar from './rooms/RoomActionsToolbar';
+import ImportRoomDialog from './rooms/ImportRoomDialog';
 
 const RoomManagementContent = () => {
-  const [isAddingRoom, setIsAddingRoom] = useState(false);
-  const [isAddingBuilding, setIsAddingBuilding] = useState(false);
-  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
-  const [csvFile, setCsvFile] = useState<File | null>(null);
-  const [activeTab, setActiveTab] = useState("buildings");
+  const [activeTab, setActiveTab] = React.useState("buildings");
   
-  const { addRoom, deleteRoom, handleRoomCsvUpload, exportRoomsToCsv, isUploading } = useRoomsManagement();
   const { 
     buildings, 
     loading: buildingsLoading, 
@@ -38,8 +22,24 @@ const RoomManagementContent = () => {
     editBuilding,
     deleteBuilding
   } = useBuildings();
-  const { rooms: fetchedRooms, loading: roomsLoading, refetchRooms } = useRooms();
-  const { toast } = useToast();
+
+  const {
+    rooms,
+    setRooms,
+    isAddingRoom,
+    setIsAddingRoom,
+    isImportDialogOpen,
+    setIsImportDialogOpen,
+    csvFile,
+    setCsvFile,
+    isUploading,
+    roomsLoading,
+    handleAddRoom,
+    handleDeleteRoom,
+    handleCsvImport,
+    exportRoomsToCsv,
+    fetchedRooms
+  } = useRoomManagementState();
   
   const { 
     selectedBuilding, 
@@ -51,92 +51,10 @@ const RoomManagementContent = () => {
     filteredRooms, 
     setFilteredRooms 
   } = useRoomManagement();
-  
-  const [rooms, setRooms] = useState<Room[]>([]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     setRooms(fetchedRooms);
   }, [fetchedRooms]);
-  
-  React.useEffect(() => {
-    filterRooms();
-  }, [selectedBuilding, selectedFloor, roomFilter, rooms]);
-  
-  const getFloorsForSelectedBuilding = () => {
-    if (!selectedBuilding) return [];
-    const building = buildings.find(b => b.id === selectedBuilding);
-    if (!building || !building.floors) return [];
-    
-    return building.floors.map(floor => floor.number);
-  };
-
-  const handleAddRoom = async (formData: any) => {
-    const roomData: Omit<Room, 'id'> = {
-      name: formData.name,
-      type: formData.type,
-      floor: formData.floor,
-      buildingId: formData.buildingId,
-      isAvailable: formData.isAvailable,
-      capacity: 30,
-      status: formData.isAvailable ? 'available' : 'occupied'
-    };
-    
-    const success = await addRoom(roomData);
-    if (success) {
-      setIsAddingRoom(false);
-      toast({
-        title: "Room added",
-        description: "The room has been successfully added."
-      });
-    }
-  };
-
-  const handleDeleteRoom = async (roomId: string) => {
-    try {
-      const success = await deleteRoom(roomId);
-      
-      if (success) {
-        const newRooms = rooms.filter(room => room.id !== roomId);
-        setRooms(newRooms);
-        
-        const newFilteredRooms = filteredRooms.filter(room => room.id !== roomId);
-        setFilteredRooms(newFilteredRooms);
-        
-        await refetchRooms();
-        
-        toast({
-          title: "Room deleted",
-          description: "The room has been successfully deleted."
-        });
-      }
-    } catch (error) {
-      console.error('Error deleting room:', error);
-      toast({
-        title: "Error",
-        description: "Could not delete room. Please try again.",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleCsvImport = async () => {
-    if (!csvFile) {
-      toast({
-        title: "No file selected",
-        description: "Please select a CSV file to import.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    try {
-      await handleRoomCsvUpload(csvFile);
-      setIsImportDialogOpen(false);
-      setCsvFile(null);
-    } catch (error) {
-      console.error('Error importing CSV:', error);
-    }
-  };
 
   const filterRooms = () => {
     let filtered = [...rooms];
@@ -159,18 +77,19 @@ const RoomManagementContent = () => {
     
     setFilteredRooms(filtered);
   };
+  
+  useEffect(() => {
+    filterRooms();
+  }, [selectedBuilding, selectedFloor, roomFilter, rooms]);
 
-  const handleAddBuildingSubmit = async (data: any) => {
-    if (await addBuilding(data.name, data.floorCount, data.location)) {
-      setIsAddingBuilding(false);
-    }
+  const getFloorsForSelectedBuilding = () => {
+    if (!selectedBuilding) return [];
+    const building = buildings.find(b => b.id === selectedBuilding);
+    if (!building || !building.floors) return [];
+    return building.floors.map(floor => floor.number);
   };
 
-  const handleUpdateBuildingSubmit = async (id: string, data: any) => {
-    await editBuilding(id, data.name, data.location);
-  };
-
-  const handleViewRooms = (buildingId: string) => {
+  const handleViewBuilding = (buildingId: string) => {
     setSelectedBuilding(buildingId);
     setActiveTab("rooms");
   };
@@ -182,48 +101,34 @@ const RoomManagementContent = () => {
         <TabsTrigger value="rooms">Rooms</TabsTrigger>
       </TabsList>
 
-      <TabsContent value="buildings" className="space-y-4">
-        <div className="flex justify-between items-center">
-          <Button onClick={() => setIsAddingBuilding(true)}>Add Building</Button>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={exportRoomsToCsv}>
-              <Download className="h-4 w-4 mr-2" /> Export CSV
-            </Button>
-            <Button variant="outline" onClick={() => setIsImportDialogOpen(true)}>
-              <Upload className="h-4 w-4 mr-2" /> Import CSV
-            </Button>
-          </div>
-        </div>
-
+      <TabsContent value="buildings">
         <BuildingsList 
           buildings={buildings}
-          onViewRooms={handleViewRooms}
+          onViewRooms={handleViewBuilding}
           onDeleteBuilding={deleteBuilding}
-          onUpdateBuilding={handleUpdateBuildingSubmit}
+          onUpdateBuilding={editBuilding}
           isLoading={buildingsLoading}
         />
       </TabsContent>
 
       <TabsContent value="rooms" className="space-y-4">
-        <div className="flex flex-col md:flex-row gap-4 justify-between">
-          <RoomFilters 
-            buildings={buildings}
-            selectedBuilding={selectedBuilding}
-            setSelectedBuilding={setSelectedBuilding}
-            selectedFloor={selectedFloor}
-            setSelectedFloor={setSelectedFloor}
-            roomFilter={roomFilter}
-            setRoomFilter={setRoomFilter}
-            getFloorsForSelectedBuilding={getFloorsForSelectedBuilding}
-          />
+        <RoomFilters 
+          buildings={buildings}
+          selectedBuilding={selectedBuilding}
+          setSelectedBuilding={setSelectedBuilding}
+          selectedFloor={selectedFloor}
+          setSelectedFloor={setSelectedFloor}
+          roomFilter={roomFilter}
+          setRoomFilter={setRoomFilter}
+          getFloorsForSelectedBuilding={getFloorsForSelectedBuilding}
+        />
 
-          <Button
-            onClick={() => setIsAddingRoom(true)}
-            disabled={!selectedBuilding}
-          >
-            Add Room
-          </Button>
-        </div>
+        <RoomActionsToolbar
+          onImport={() => setIsImportDialogOpen(true)}
+          onExport={exportRoomsToCsv}
+          onAddRoom={() => setIsAddingRoom(true)}
+          selectedBuilding={selectedBuilding}
+        />
 
         <RoomTable 
           rooms={filteredRooms}
@@ -231,81 +136,32 @@ const RoomManagementContent = () => {
           isLoading={roomsLoading}
           selectedBuilding={selectedBuilding}
         />
-      </TabsContent>
 
-      <Dialog open={isAddingBuilding} onOpenChange={setIsAddingBuilding}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Building</DialogTitle>
-            <DialogDescription>
-              Enter the details for the new building.
-            </DialogDescription>
-          </DialogHeader>
-          <BuildingForm 
-            onSubmit={handleAddBuildingSubmit} 
-            onCancel={() => setIsAddingBuilding(false)} 
-          />
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isAddingRoom} onOpenChange={setIsAddingRoom}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Room</DialogTitle>
-            <DialogDescription>
-              Enter the details for the new room.
-            </DialogDescription>
-          </DialogHeader>
-          <RoomForm 
-            onSubmit={handleAddRoom} 
-            onCancel={() => setIsAddingRoom(false)} 
-            defaultBuildingId={selectedBuilding}
-          />
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Import Rooms from CSV</DialogTitle>
-            <DialogDescription>
-              Upload a CSV file to import or update rooms. The file should include columns for name, type, floor, buildingId, and isAvailable.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <Input 
-              type="file" 
-              accept=".csv" 
-              onChange={(e) => {
-                if (e.target.files && e.target.files.length > 0) {
-                  setCsvFile(e.target.files[0]);
-                }
-              }} 
+        <Dialog open={isAddingRoom} onOpenChange={setIsAddingRoom}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Room</DialogTitle>
+            </DialogHeader>
+            <RoomForm 
+              onSubmit={handleAddRoom} 
+              onCancel={() => setIsAddingRoom(false)} 
+              defaultBuildingId={selectedBuilding}
             />
-            <p className="text-xs text-muted-foreground">
-              Existing rooms with matching names in the same building will be updated.
-            </p>
-          </div>
-          
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setIsImportDialogOpen(false);
-                setCsvFile(null);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleCsvImport} 
-              disabled={isUploading || !csvFile}
-            >
-              {isUploading ? "Importing..." : "Import"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+
+        <ImportRoomDialog 
+          isOpen={isImportDialogOpen}
+          onClose={() => {
+            setIsImportDialogOpen(false);
+            setCsvFile(null);
+          }}
+          onFileSelect={(file) => setCsvFile(file)}
+          onImport={handleCsvImport}
+          isUploading={isUploading}
+          hasFile={!!csvFile}
+        />
+      </TabsContent>
     </Tabs>
   );
 };
