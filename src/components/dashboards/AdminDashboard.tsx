@@ -1,26 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { User, Room, FacultyMember, BuildingWithFloors } from '@/lib/types';
-import { 
-  Card, CardContent, CardDescription, CardHeader, CardTitle 
-} from "@/components/ui/card";
+import { User } from '@/lib/types';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  BarChart, Users, Building, Settings, Plus, Search, Edit, Trash
-} from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useToast } from "@/components/ui/use-toast";
-import BuildingCard from '@/components/admin/BuildingCard';
-import BuildingForm, { BuildingFormValues } from '@/components/admin/BuildingForm';
-import RoomForm, { RoomFormValues } from '@/components/admin/RoomForm';
-import EditBuildingDialog from '@/components/admin/EditBuildingDialog';
-import DeleteBuildingDialog from '@/components/admin/DeleteBuildingDialog';
-import RoomUsageStats from '@/components/admin/RoomUsageStats';
-import { useBuildings } from '@/hooks/useBuildings';
-import { useEnhancedRoomsManagement } from '@/hooks/useEnhancedRoomsManagement';
+import { Search, Plus } from 'lucide-react';
+import AdminDashboardCards from './admin/AdminDashboardCards';
+import { useToast } from "@/hooks/use-toast";
+import BuildingsTab from './admin/BuildingsTab';
+import FacultyTab from './admin/FacultyTab';
+import AnalyticsTab from './admin/AnalyticsTab';
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from 'react-router-dom';
 
 interface AdminDashboardProps {
   user: User;
@@ -41,7 +29,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const { buildings, loading, addBuilding, editBuilding, deleteBuilding } = useBuildings();
   const { addRoom } = useEnhancedRoomsManagement();
   const { toast } = useToast();
-  const navigate = useNavigate();
   
   useEffect(() => {
     const fetchFacultyData = async () => {
@@ -251,54 +238,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Buildings</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex justify-between items-center">
-              <span className="text-3xl font-bold">{buildings.length}</span>
-              <Building className="h-5 w-5 text-muted-foreground" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Rooms</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex justify-between items-center">
-              <span className="text-3xl font-bold">
-                {buildings.reduce((total, building) => total + (building.roomCount || 0), 0)}
-              </span>
-              <Settings className="h-5 w-5 text-muted-foreground" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Faculty Members</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex justify-between items-center">
-              <span className="text-3xl font-bold">{facultyCount}</span>
-              <Users className="h-5 w-5 text-muted-foreground" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Utilization Rate</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex justify-between items-center">
-              <span className="text-3xl font-bold">{utilizationRate}</span>
-              <BarChart className="h-5 w-5 text-muted-foreground" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <AdminDashboardCards
+        buildings={buildings.length}
+        rooms={buildings.reduce((total, building) => total + (building.roomCount || 0), 0)}
+        facultyCount={facultyCount}
+        utilizationRate={utilizationRate}
+      />
 
       <Tabs defaultValue="buildings" className="space-y-6">
         <TabsList className="grid w-full grid-cols-3 md:w-auto">
@@ -307,138 +252,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="buildings" className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-bold">Building Management</h2>
-            <div className="flex gap-2">
-              <Input 
-                className="max-w-xs" 
-                placeholder="Search buildings..." 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              <Button variant="outline" size="sm" onClick={() => setIsBuildingDialogOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" /> Add
-              </Button>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {loading ? (
-              Array(3).fill(0).map((_, i) => (
-                <Card key={i} className="opacity-50">
-                  <CardHeader>
-                    <CardTitle className="h-6 bg-gray-200 animate-pulse rounded" />
-                    <CardDescription className="h-4 bg-gray-200 animate-pulse rounded w-1/2 mt-2" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-6 bg-gray-200 animate-pulse rounded mb-4" />
-                    <div className="flex space-x-2">
-                      <div className="h-8 bg-gray-200 animate-pulse rounded flex-1" />
-                      <div className="h-8 bg-gray-200 animate-pulse rounded flex-1" />
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            ) : filteredBuildings.length === 0 ? (
-              <div className="col-span-3 text-center p-8 border rounded-lg">
-                <p className="text-muted-foreground">
-                  {searchTerm ? "No buildings match your search." : "No buildings available. Add a building to get started."}
-                </p>
-              </div>
-            ) : (
-              filteredBuildings.map((building) => (
-                <BuildingCard 
-                  key={building.id}
-                  id={building.id}
-                  name={building.name}
-                  roomCount={building.roomCount || 0}
-                  utilization={building.utilization || '0%'}
-                  onView={() => handleViewBuilding(building.id)}
-                  onEdit={() => handleEditBuilding(building)}
-                  onDelete={() => handleDeleteBuilding(building)}
-                />
-              ))
-            )}
-          </div>
+        <TabsContent value="buildings">
+          <BuildingsTab
+            buildings={buildings}
+            loading={loading}
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            onAddBuilding={() => setIsBuildingDialogOpen(true)}
+            filteredBuildings={filteredBuildings}
+            handleViewBuilding={handleViewBuilding}
+            handleEditBuilding={handleEditBuilding}
+            handleDeleteBuilding={handleDeleteBuilding}
+          />
         </TabsContent>
         
-        <TabsContent value="faculty" className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-bold">Faculty Management</h2>
-            <div className="flex gap-2">
-              <Input 
-                className="max-w-xs" 
-                placeholder="Search faculty..." 
-              />
-              <Button variant="outline" size="sm" onClick={() => navigate('/faculty-management')}>
-                <Users className="h-4 w-4 mr-2" /> Manage
-              </Button>
-            </div>
-          </div>
-          
-          <div className="rounded-lg border">
-            <div className="grid grid-cols-5 font-medium p-4 border-b">
-              <div>Name</div>
-              <div>Department</div>
-              <div>Email</div>
-              <div>Status</div>
-              <div>Actions</div>
-            </div>
-            
-            <div className="min-h-[200px]">
-              {isLoadingFaculty ? (
-                <div className="p-4 text-center text-muted-foreground">
-                  Loading approved faculty members...
-                </div>
-              ) : facultyMembers.length === 0 ? (
-                <div className="p-8 text-center text-muted-foreground">
-                  No approved faculty members found.
-                </div>
-              ) : (
-                facultyMembers.map(faculty => (
-                  <div key={faculty.id} className="grid grid-cols-5 p-4 border-b last:border-0 items-center">
-                    <div>{faculty.name}</div>
-                    <div>{faculty.department}</div>
-                    <div className="text-sm">{faculty.email}</div>
-                    <div>
-                      <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
-                        Active
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => handleViewFaculty(faculty.id)}
-                      >
-                        View
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => handleEditFaculty(faculty.id)}
-                      >
-                        Edit
-                      </Button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
+        <TabsContent value="faculty">
+          <FacultyTab
+            isLoadingFaculty={isLoadingFaculty}
+            facultyMembers={facultyMembers}
+            handleViewFaculty={handleViewFaculty}
+            handleEditFaculty={handleEditFaculty}
+          />
         </TabsContent>
         
-        <TabsContent value="analytics" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Room Utilization Analytics</CardTitle>
-              <CardDescription>View utilization metrics for campus rooms</CardDescription>
-            </CardHeader>
-            <CardContent className="h-auto">
-              <RoomUsageStats />
-            </CardContent>
-          </Card>
+        <TabsContent value="analytics">
+          <AnalyticsTab />
         </TabsContent>
       </Tabs>
       
