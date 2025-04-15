@@ -10,17 +10,15 @@ interface RoomUsageChartProps {
 }
 
 const RoomUsageChart: React.FC<RoomUsageChartProps> = ({ data, currentPage }) => {
-  const displayData = data.slice((currentPage - 1) * 10, currentPage * 10);
-  
   return (
-    <div className="h-[400px] w-full mb-8">
+    <div className="h-[400px] w-full">
       <ChartContainer config={{
         utilizationHours: { label: "Hours", color: "#22c55e" },
         reservations: { label: "Reservations", color: "#ef4444" }
       }}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
-            data={displayData}
+            data={data}
             margin={{ top: 20, right: 30, left: 20, bottom: 70 }}
           >
             <CartesianGrid strokeDasharray="3 3" />

@@ -9,6 +9,7 @@ import RoomUsageCards from './RoomUsageCards';
 import RoomAnalyticsHeader from './RoomAnalyticsHeader';
 import { Card, CardContent } from "@/components/ui/card";
 import { RoomUsageData } from '../types/room';
+import { Pagination, PaginationContent, PaginationItem, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 
 const RoomUsageStats: React.FC = () => {
   const [startDate, setStartDate] = useState<Date>(startOfMonth(new Date()));
@@ -189,8 +190,11 @@ const RoomUsageStats: React.FC = () => {
     }
   };
 
+  // Get the current page data for chart and cards
+  const currentPageData = roomUsageData.slice((currentPage - 1) * 10, currentPage * 10);
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <RoomAnalyticsHeader
         startDate={startDate}
         endDate={endDate}
@@ -219,34 +223,36 @@ const RoomUsageStats: React.FC = () => {
           </div>
         </div>
       ) : roomUsageData.length > 0 ? (
-        <div className="space-y-6">
-          <RoomUsageChart data={roomUsageData} currentPage={currentPage} />
+        <div className="space-y-8">
+          <div className="h-[400px] w-full">
+            <RoomUsageChart data={currentPageData} currentPage={currentPage} />
+          </div>
           
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm text-muted-foreground">
               Showing {Math.min((currentPage - 1) * 10 + 1, roomUsageData.length)} - {Math.min(currentPage * 10, roomUsageData.length)} of {roomUsageData.length} rooms
             </p>
-            <div className="flex gap-2">
-              <button
-                className="px-3 py-1 rounded border flex items-center gap-1 text-sm disabled:opacity-50"
-                onClick={handlePreviousPage}
-                disabled={currentPage === 1}
-              >
-                <span className="sr-only">Previous</span>
-                ← Previous
-              </button>
-              <button
-                className="px-3 py-1 rounded border flex items-center gap-1 text-sm disabled:opacity-50"
-                onClick={handleNextPage}
-                disabled={currentPage === totalPages}
-              >
-                Next →
-                <span className="sr-only">Next</span>
-              </button>
-            </div>
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious 
+                    onClick={handlePreviousPage} 
+                    className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                  />
+                </PaginationItem>
+                <PaginationItem>
+                  <PaginationNext 
+                    onClick={handleNextPage} 
+                    className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
           </div>
           
-          <RoomUsageCards data={roomUsageData.slice((currentPage - 1) * 10, currentPage * 10)} />
+          <div className="mb-8">
+            <RoomUsageCards data={currentPageData} />
+          </div>
         </div>
       ) : (
         <div className="h-[400px] flex items-center justify-center">
