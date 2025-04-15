@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useRoomsManagement } from '@/hooks/useRoomsManagement';
 import { useBuildings } from '@/hooks/useBuildings';
@@ -96,8 +97,9 @@ const RoomManagementContent = () => {
       const success = await deleteRoom(roomId);
       
       if (success) {
-        setRooms(prevRooms => prevRooms.filter(room => room.id !== roomId));
-        setFilteredRooms(prevRooms => prevRooms.filter(room => room.id !== roomId));
+        // Fixed type error by properly typing the filter function
+        setRooms((prevRooms: Room[]) => prevRooms.filter((room: Room) => room.id !== roomId));
+        setFilteredRooms((prevRooms: Room[]) => prevRooms.filter((room: Room) => room.id !== roomId));
         
         await refetchRooms();
         
