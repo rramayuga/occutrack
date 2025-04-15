@@ -36,14 +36,32 @@ const RoomTable: React.FC<RoomTableProps> = ({
   selectedBuilding 
 }) => {
   const [roomToDelete, setRoomToDelete] = useState<Room | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const { toast } = useToast();
   
   const handleDeleteClick = (room: Room) => {
     setRoomToDelete(room);
   };
   
-  const handleConfirmDelete = () => {
-    if (roomToDelete) {
-      onDeleteRoom(roomToDelete.id);
+  const handleConfirmDelete = async () => {
+    if (!roomToDelete) return;
+    
+    try {
+      setIsDeleting(true);
+      await onDeleteRoom(roomToDelete.id);
+      toast({
+        title: "Room deleted",
+        description: `${roomToDelete.name} has been successfully deleted.`
+      });
+    } catch (error) {
+      console.error('Error deleting room:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete room. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsDeleting(false);
       setRoomToDelete(null);
     }
   };
@@ -87,6 +105,7 @@ const RoomTable: React.FC<RoomTableProps> = ({
                       variant="destructive"
                       size="sm"
                       onClick={() => handleDeleteClick(room)}
+                      disabled={isDeleting}
                     >
                       Delete
                     </Button>
@@ -110,12 +129,18 @@ const RoomTable: React.FC<RoomTableProps> = ({
             <AlertDialogTitle>Delete Room</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete the room "{roomToDelete?.name}"? 
-              This action cannot be undone.
+              This action cannot be undone and will remove all associated reservations.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDelete}>Confirm</AlertDialogAction>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -1,46 +1,27 @@
-
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar } from "@/components/ui/calendar";
 import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, BarChart2, PieChart, Building, ArrowUpDown } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Button } from "@/components/ui/button";
+import { CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
-import { ScrollArea } from "@/components/ui/scroll-area";
-
-interface RoomUsageData {
-  roomName: string;
-  reservations: number;
-  utilizationHours: number;
-  status: string;
-  buildingName: string;
-  floor: number;
-}
-
-interface RoomTypeData {
-  name: string;
-  value: number;
-}
+import RoomAnalyticsFilters from './analytics/RoomAnalyticsFilters';
+import RoomUsageChart from './analytics/RoomUsageChart';
+import RoomUsageCards from './analytics/RoomUsageCards';
+import { RoomUsageData } from './types/room';
 
 const RoomUsageStats = () => {
   const [startDate, setStartDate] = useState<Date>(startOfMonth(new Date()));
   const [endDate, setEndDate] = useState<Date>(endOfMonth(new Date()));
   const [roomUsageData, setRoomUsageData] = useState<RoomUsageData[]>([]);
-  const [roomTypeData, setRoomTypeData] = useState<RoomTypeData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedBuilding, setSelectedBuilding] = useState<string>("all");
   const [selectedFloor, setSelectedFloor] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [buildings, setBuildings] = useState<{ id: string; name: string }[]>([]);
   const { toast } = useToast();
-  
-  // Fetch buildings for the filter
+
   useEffect(() => {
     const fetchBuildings = async () => {
       const { data, error } = await supabase
@@ -54,14 +35,13 @@ const RoomUsageStats = () => {
     
     fetchBuildings();
   }, []);
-  
+
   const fetchRoomUsageData = async () => {
     setIsLoading(true);
     try {
       const formattedStartDate = format(startDate, 'yyyy-MM-dd');
       const formattedEndDate = format(endDate, 'yyyy-MM-dd');
 
-      // Get room reservation data with building information
       const { data: reservationData, error: reservationError } = await supabase
         .from('room_reservations')
         .select(`
@@ -87,7 +67,6 @@ const RoomUsageStats = () => {
 
       if (reservationError) throw reservationError;
 
-      // Get all rooms with building info for complete data
       const { data: roomsData, error: roomsError } = await supabase
         .from('rooms')
         .select(`
@@ -104,10 +83,8 @@ const RoomUsageStats = () => {
 
       if (roomsError) throw roomsError;
 
-      // Process data for room usage chart
       const roomUsageMap = new Map<string, RoomUsageData>();
       
-      // Initialize map with all rooms
       roomsData.forEach((room: any) => {
         roomUsageMap.set(room.id, {
           roomName: room.name,
@@ -119,7 +96,6 @@ const RoomUsageStats = () => {
         });
       });
 
-      // Process reservation data
       reservationData.forEach((reservation: any) => {
         const roomId = reservation.room_id;
         const roomData = roomUsageMap.get(roomId);
@@ -142,7 +118,6 @@ const RoomUsageStats = () => {
         }
       });
 
-      // Convert map to array and apply filters
       let roomUsageArray = Array.from(roomUsageMap.values())
         .filter(room => {
           const buildingMatch = selectedBuilding === "all" || room.buildingName === selectedBuilding;
@@ -165,7 +140,6 @@ const RoomUsageStats = () => {
     }
   };
 
-  // Set up real-time subscription for room reservations
   useEffect(() => {
     fetchRoomUsageData();
     
@@ -198,47 +172,16 @@ const RoomUsageStats = () => {
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
-          <Select value={selectedBuilding} onValueChange={setSelectedBuilding}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select building" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Buildings</SelectItem>
-              {buildings.map(building => (
-                <SelectItem key={building.id} value={building.name}>
-                  {building.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={selectedFloor} onValueChange={setSelectedFloor}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select floor" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Floors</SelectItem>
-              {getFloors().map(floor => (
-                <SelectItem key={floor} value={floor.toString()}>
-                  Floor {floor}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger>
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="available">Available</SelectItem>
-              <SelectItem value="occupied">Occupied</SelectItem>
-              <SelectItem value="maintenance">Under Maintenance</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <RoomAnalyticsFilters
+          selectedBuilding={selectedBuilding}
+          setSelectedBuilding={setSelectedBuilding}
+          selectedFloor={selectedFloor}
+          setSelectedFloor={setSelectedFloor}
+          statusFilter={statusFilter}
+          setStatusFilter={setStatusFilter}
+          buildings={buildings}
+          floors={getFloors()}
+        />
       </div>
 
       <div className="flex flex-wrap gap-4">
@@ -302,78 +245,8 @@ const RoomUsageStats = () => {
         </div>
       ) : roomUsageData.length > 0 ? (
         <div className="space-y-6">
-          <div className="h-[400px] w-full">
-            <ChartContainer config={{
-              utilizationHours: { label: "Hours", color: "#3b82f6" },
-              reservations: { label: "Reservations", color: "#10b981" }
-            }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={roomUsageData.slice(0, 10)}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 70 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="roomName" 
-                    angle={-45} 
-                    textAnchor="end" 
-                    tick={{ fontSize: 12 }}
-                    height={70}
-                  />
-                  <YAxis yAxisId="left" orientation="left" stroke="#3b82f6" />
-                  <YAxis yAxisId="right" orientation="right" stroke="#10b981" />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Legend />
-                  <Bar 
-                    dataKey="utilizationHours" 
-                    name="Hours Used" 
-                    yAxisId="left" 
-                    fill="var(--color-utilizationHours)" 
-                  />
-                  <Bar 
-                    dataKey="reservations" 
-                    name="Total Reservations" 
-                    yAxisId="right" 
-                    fill="var(--color-reservations)" 
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartContainer>
-          </div>
-
-          <ScrollArea className="h-[400px] rounded-md border">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
-              {roomUsageData.map((room, index) => (
-                <Card key={index} className="flex flex-col">
-                  <CardContent className="p-4 space-y-2">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h4 className="font-semibold">{room.roomName}</h4>
-                        <p className="text-sm text-muted-foreground">{room.buildingName} - Floor {room.floor}</p>
-                      </div>
-                      <div className={`px-2 py-1 rounded-full text-xs ${
-                        room.status === 'available' ? 'bg-green-100 text-green-800' :
-                        room.status === 'occupied' ? 'bg-red-100 text-red-800' :
-                        'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {room.status.charAt(0).toUpperCase() + room.status.slice(1)}
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 mt-2">
-                      <div className="space-y-1">
-                        <p className="text-sm text-muted-foreground">Usage Hours</p>
-                        <p className="text-lg font-semibold">{room.utilizationHours.toFixed(1)}h</p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-sm text-muted-foreground">Reservations</p>
-                        <p className="text-lg font-semibold">{room.reservations}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </ScrollArea>
+          <RoomUsageChart data={roomUsageData} />
+          <RoomUsageCards data={roomUsageData} />
         </div>
       ) : (
         <div className="h-[400px] flex items-center justify-center">
