@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,6 +19,7 @@ const RoomUsageStats: React.FC = () => {
   const [selectedFloor, setSelectedFloor] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [buildings, setBuildings] = useState<{ id: string; name: string }[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -123,9 +125,15 @@ const RoomUsageStats: React.FC = () => {
           const statusMatch = statusFilter === "all" || room.status === statusFilter;
           return buildingMatch && floorMatch && statusMatch;
         })
-        .sort((a, b) => b.utilizationHours - a.utilizationHours);
+        .sort((a, b) => {
+          // Extract numbers from room names for natural sorting
+          const aNum = parseInt(a.roomName.match(/\d+/)?.[0] || '0');
+          const bNum = parseInt(b.roomName.match(/\d+/)?.[0] || '0');
+          return aNum - bNum;
+        });
 
       setRoomUsageData(roomUsageArray);
+      setCurrentPage(1); // Reset to first page when data changes
       setIsLoading(false);
     } catch (error) {
       console.error("Error fetching room usage data:", error);
@@ -167,6 +175,20 @@ const RoomUsageStats: React.FC = () => {
     return Array.from(floors).sort((a, b) => a - b);
   };
 
+  const totalPages = Math.ceil(roomUsageData.length / 10);
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(prev => prev + 1);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(prev => prev - 1);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <RoomAnalyticsHeader
@@ -198,10 +220,33 @@ const RoomUsageStats: React.FC = () => {
         </div>
       ) : roomUsageData.length > 0 ? (
         <div className="space-y-6">
-          <div className="h-[400px] w-full">
-            <RoomUsageChart data={roomUsageData} />
+          <RoomUsageChart data={roomUsageData} currentPage={currentPage} />
+          
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm text-muted-foreground">
+              Showing {Math.min((currentPage - 1) * 10 + 1, roomUsageData.length)} - {Math.min(currentPage * 10, roomUsageData.length)} of {roomUsageData.length} rooms
+            </p>
+            <div className="flex gap-2">
+              <button
+                className="px-3 py-1 rounded border flex items-center gap-1 text-sm disabled:opacity-50"
+                onClick={handlePreviousPage}
+                disabled={currentPage === 1}
+              >
+                <span className="sr-only">Previous</span>
+                ← Previous
+              </button>
+              <button
+                className="px-3 py-1 rounded border flex items-center gap-1 text-sm disabled:opacity-50"
+                onClick={handleNextPage}
+                disabled={currentPage === totalPages}
+              >
+                Next →
+                <span className="sr-only">Next</span>
+              </button>
+            </div>
           </div>
-          <RoomUsageCards data={roomUsageData} />
+          
+          <RoomUsageCards data={roomUsageData.slice((currentPage - 1) * 10, currentPage * 10)} />
         </div>
       ) : (
         <div className="h-[400px] flex items-center justify-center">
