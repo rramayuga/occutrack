@@ -1,46 +1,20 @@
-import React, { useState, useEffect, useCallback } from 'react';
+
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, BuildingWithFloors, Room } from '@/lib/types';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { BuildingWithFloors } from '@/lib/types';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, Plus } from 'lucide-react';
 import AdminDashboardCards from './admin/AdminDashboardCards';
-import { useToast } from "@/hooks/use-toast";
 import BuildingsTab from './admin/BuildingsTab';
 import FacultyTab from './admin/FacultyTab';
 import AnalyticsTab from './admin/AnalyticsTab';
-import BuildingForm from '@/components/admin/BuildingForm';
-import RoomForm from '@/components/admin/RoomForm';
-import EditBuildingDialog from '@/components/admin/EditBuildingDialog';
-import DeleteBuildingDialog from '@/components/admin/DeleteBuildingDialog';
+import BuildingManagementDialogs from '../admin/dialogs/BuildingManagementDialogs';
 import { useBuildings } from '@/hooks/useBuildings';
 import { useEnhancedRoomsManagement } from '@/hooks/useEnhancedRoomsManagement';
-import { supabase } from "@/integrations/supabase/client";
-
-interface FacultyMember {
-  id: string;
-  name: string;
-  email: string;
-  department: string;
-  status: 'pending' | 'approved' | 'rejected';
-  createdAt: string;
-  user_id: string;
-}
-
-interface BuildingFormValues {
-  name: string;
-  floorCount: number;
-  location?: string;
-}
-
-interface RoomFormValues {
-  name: string;
-  type: string;
-  floor: number;
-  buildingId: string;
-  isAvailable: boolean;
-}
+import { useFacultyManagement } from '@/hooks/useFacultyManagement';
+import { useRoomUtilization } from '@/hooks/useRoomUtilization';
+import { useToast } from "@/hooks/use-toast";
 
 interface AdminDashboardProps {
   user: User;
@@ -50,140 +24,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const [isBuildingDialogOpen, setIsBuildingDialogOpen] = useState(false);
   const [isRoomDialogOpen, setIsRoomDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [facultyCount, setFacultyCount] = useState(0);
-  const [facultyMembers, setFacultyMembers] = useState<FacultyMember[]>([]);
-  const [isLoadingFaculty, setIsLoadingFaculty] = useState(true);
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingWithFloors | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [utilizationRate, setUtilizationRate] = useState<string>("0%");
-  
+
   const { buildings, loading, addBuilding, editBuilding, deleteBuilding } = useBuildings();
   const { addRoom } = useEnhancedRoomsManagement();
+  const { facultyCount, facultyMembers, isLoadingFaculty } = useFacultyManagement();
+  const utilizationRate = useRoomUtilization();
   const { toast } = useToast();
   const navigate = useNavigate();
-  
-  useEffect(() => {
-    const fetchFacultyData = async () => {
-      try {
-        setIsLoadingFaculty(true);
-        
-        const { data: facultyRequestsData, error: facultyRequestsError } = await supabase
-          .from('faculty_requests')
-          .select('*')
-          .eq('status', 'approved');
-          
-        if (facultyRequestsError) throw facultyRequestsError;
-        
-        const { data: profilesData, error: profilesError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('role', 'faculty');
-          
-        if (profilesError) throw profilesError;
-        
-        const facultyIds = new Set();
-        const combinedFaculty: FacultyMember[] = [];
-        
-        if (facultyRequestsData) {
-          facultyRequestsData.forEach(item => {
-            facultyIds.add(item.user_id);
-            combinedFaculty.push({
-              id: item.id,
-              name: item.name,
-              email: item.email,
-              department: item.department,
-              status: item.status as 'pending' | 'approved' | 'rejected',
-              createdAt: item.created_at,
-              user_id: item.user_id
-            });
-          });
-        }
-        
-        if (profilesData) {
-          profilesData.forEach(profile => {
-            if (!facultyIds.has(profile.id)) {
-              combinedFaculty.push({
-                id: profile.id,
-                name: profile.name,
-                email: profile.email,
-                department: 'N/A',
-                status: 'approved',
-                createdAt: profile.created_at,
-                user_id: profile.id
-              });
-            }
-          });
-        }
-        
-        setFacultyCount(combinedFaculty.length);
-        setFacultyMembers(combinedFaculty);
-      } catch (error) {
-        console.error('Error fetching faculty data:', error);
-      } finally {
-        setIsLoadingFaculty(false);
-      }
-    };
-    
-    fetchFacultyData();
-  }, []);
-  
-  const calculateUtilizationRate = useCallback(async () => {
-    try {
-      const { data: roomsData, error: roomsError } = await supabase
-        .from('rooms')
-        .select('status');
-        
-      if (roomsError) throw roomsError;
-      
-      if (roomsData) {
-        const totalRooms = roomsData.length;
-        const occupiedRooms = roomsData.filter(room => 
-          room.status === 'occupied'
-        ).length;
-        
-        const rate = totalRooms > 0 
-          ? Math.round((occupiedRooms / totalRooms) * 100)
-          : 0;
-          
-        setUtilizationRate(`${rate}%`);
-      }
-    } catch (error) {
-      console.error('Error calculating utilization rate:', error);
-    }
-  }, []);
 
-  useEffect(() => {
-    calculateUtilizationRate();
-    
-    const channel = supabase
-      .channel('room-status-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'rooms'
-        },
-        () => {
-          calculateUtilizationRate();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [calculateUtilizationRate]);
-  
-  const onBuildingSubmit = async (data: BuildingFormValues) => {
+  const onBuildingSubmit = async (data: any) => {
     const result = await addBuilding(data.name, data.floorCount, data.location);
     if (result) {
       setIsBuildingDialogOpen(false);
     }
   };
-  
-  const onEditBuildingSubmit = async (data: BuildingFormValues) => {
+
+  const onEditBuildingSubmit = async (data: any) => {
     if (selectedBuilding) {
       const result = await editBuilding(selectedBuilding.id, data.name, data.location);
       if (result) {
@@ -196,7 +55,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
       }
     }
   };
-  
+
   const onDeleteBuilding = async () => {
     if (selectedBuilding) {
       const result = await deleteBuilding(selectedBuilding.id);
@@ -210,9 +69,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
       }
     }
   };
-  
-  const onRoomSubmit = async (data: RoomFormValues) => {
-    const roomData: Omit<Room, 'id'> = {
+
+  const onRoomSubmit = async (data: any) => {
+    const roomData = {
       name: data.name,
       type: data.type,
       floor: data.floor,
@@ -226,34 +85,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
       setIsRoomDialogOpen(false);
     }
   };
-  
+
   const handleViewBuilding = (id: string) => {
     window.location.href = '/rooms';
   };
-  
+
   const handleEditBuilding = (building: BuildingWithFloors) => {
     setSelectedBuilding(building);
     setIsEditDialogOpen(true);
   };
-  
+
   const handleDeleteBuilding = (building: BuildingWithFloors) => {
     setSelectedBuilding(building);
     setIsDeleteDialogOpen(true);
   };
-  
+
   const handleViewFaculty = (facultyId: string) => {
     navigate('/faculty-management', { state: { selectedFacultyId: facultyId } });
   };
-  
+
   const handleEditFaculty = (facultyId: string) => {
-    navigate('/faculty-management', { state: { selectedFacultyId: facultyId, isEditing: true } });
+    navigate('/faculty-management', { 
+      state: { selectedFacultyId: facultyId, isEditing: true } 
+    });
   };
-  
+
   const filteredBuildings = buildings.filter(building => {
     if (!searchTerm) return true;
     return building.name.toLowerCase().includes(searchTerm.toLowerCase());
   });
-  
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex flex-wrap items-center justify-between mb-8">
@@ -312,50 +173,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
           <AnalyticsTab />
         </TabsContent>
       </Tabs>
-      
-      <Dialog open={isBuildingDialogOpen} onOpenChange={setIsBuildingDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Add New Building</DialogTitle>
-          </DialogHeader>
-          <BuildingForm 
-            onSubmit={onBuildingSubmit} 
-            onCancel={() => setIsBuildingDialogOpen(false)} 
-          />
-        </DialogContent>
-      </Dialog>
-      
-      <Dialog open={isRoomDialogOpen} onOpenChange={setIsRoomDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Add New Room</DialogTitle>
-          </DialogHeader>
-          <RoomForm 
-            onSubmit={onRoomSubmit} 
-            onCancel={() => setIsRoomDialogOpen(false)} 
-          />
-        </DialogContent>
-      </Dialog>
-      
-      <EditBuildingDialog
-        building={selectedBuilding}
-        isOpen={isEditDialogOpen}
-        onClose={() => {
-          setIsEditDialogOpen(false);
-          setSelectedBuilding(null);
-        }}
-        onSubmit={onEditBuildingSubmit}
-      />
-      
-      <DeleteBuildingDialog
-        building={selectedBuilding}
-        isOpen={isDeleteDialogOpen}
-        onClose={() => {
-          setIsDeleteDialogOpen(false);
-          setSelectedBuilding(null);
-        }}
-        onConfirm={onDeleteBuilding}
+
+      <BuildingManagementDialogs
+        isBuildingDialogOpen={isBuildingDialogOpen}
+        setIsBuildingDialogOpen={setIsBuildingDialogOpen}
+        isRoomDialogOpen={isRoomDialogOpen}
+        setIsRoomDialogOpen={setIsRoomDialogOpen}
+        isEditDialogOpen={isEditDialogOpen}
+        setIsEditDialogOpen={setIsEditDialogOpen}
+        isDeleteDialogOpen={isDeleteDialogOpen}
+        setIsDeleteDialogOpen={setIsDeleteDialogOpen}
+        selectedBuilding={selectedBuilding}
+        setSelectedBuilding={setSelectedBuilding}
+        onBuildingSubmit={onBuildingSubmit}
+        onRoomSubmit={onRoomSubmit}
+        onEditBuildingSubmit={onEditBuildingSubmit}
+        onDeleteBuilding={onDeleteBuilding}
       />
     </div>
   );
 };
+
+export default AdminDashboard;
