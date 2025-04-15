@@ -48,7 +48,7 @@ export const useFacultyManagement = () => {
             name: item.name,
             email: item.email,
             department: item.department,
-            status: item.status,
+            status: item.status as 'pending' | 'approved' | 'rejected',
             createdAt: item.created_at,
             user_id: item.user_id
           });
@@ -63,7 +63,7 @@ export const useFacultyManagement = () => {
               name: profile.name,
               email: profile.email,
               department: 'N/A',
-              status: 'approved',
+              status: 'approved' as const,
               createdAt: profile.created_at,
               user_id: profile.id
             });
