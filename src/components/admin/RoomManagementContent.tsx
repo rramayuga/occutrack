@@ -19,7 +19,7 @@ const RoomManagementContent = () => {
     buildings, 
     loading: buildingsLoading, 
     addBuilding,
-    editBuilding,
+    editBuilding, // This function expects (id, name, location) parameters
     deleteBuilding
   } = useBuildings();
 
@@ -106,7 +106,10 @@ const RoomManagementContent = () => {
           buildings={buildings}
           onViewRooms={handleViewBuilding}
           onDeleteBuilding={deleteBuilding}
-          onUpdateBuilding={editBuilding}
+          onUpdateBuilding={(id, data) => {
+            // Fix the type mismatch by extracting the fields and passing them correctly
+            editBuilding(id, data.name, data.location);
+          }}
           isLoading={buildingsLoading}
         />
       </TabsContent>
