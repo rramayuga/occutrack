@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 
 export const useRoomOccupancy = (roomId: string, isAvailable: boolean, occupiedBy?: string) => {
-  const [currentOccupant, setCurrentOccupant] = useState<string | null>(null);
+  const [currentOccupant, setCurrentOccupant] = useState<string | null>(occupiedBy || null);
 
   const fetchRoomOccupant = async () => {
     try {

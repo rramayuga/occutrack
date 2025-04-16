@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { AlertCircle } from "lucide-react";
 import Navbar from '@/components/layout/Navbar';
@@ -20,6 +20,13 @@ const Rooms = () => {
   
   const { user } = useAuth();
 
+  // Set a default building if none is selected and buildings are available
+  useEffect(() => {
+    if (buildings.length > 0 && !selectedBuilding) {
+      setSelectedBuilding(buildings[0].id);
+    }
+  }, [buildings, selectedBuilding, setSelectedBuilding]);
+
   // Filter rooms for the selected building
   const buildingRooms = rooms.filter(room => room.buildingId === selectedBuilding);
   
@@ -37,7 +44,7 @@ const Rooms = () => {
   const floors = selectedBuildingData?.floors || [];
 
   // Determine if the current user can modify room availability
-  const canModifyRooms = user?.role === 'faculty';
+  const canModifyRooms = user?.role === 'faculty' || user?.role === 'admin' || user?.role === 'superadmin';
 
   console.log("Rendering Rooms component with:", { 
     buildingsCount: buildings.length, 
@@ -68,7 +75,7 @@ const Rooms = () => {
           </div>
         ) : (
           <Tabs 
-            defaultValue={selectedBuilding} 
+            value={selectedBuilding} 
             onValueChange={setSelectedBuilding} 
             className="w-full"
           >
