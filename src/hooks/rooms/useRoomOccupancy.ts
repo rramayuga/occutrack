@@ -42,8 +42,34 @@ export const useRoomOccupancy = (roomId: string, isAvailable: boolean, occupiedB
   useEffect(() => {
     if (!isAvailable) {
       fetchRoomOccupant();
+    } else {
+      // If the room becomes available, clear the occupant
+      setCurrentOccupant(null);
     }
   }, [roomId, isAvailable]);
+
+  // Setup a subscription to room_availability changes to update the occupant in real-time
+  useEffect(() => {
+    const channel = supabase
+      .channel('room-availability-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'room_availability',
+          filter: `room_id=eq.${roomId}`
+        },
+        () => {
+          fetchRoomOccupant();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [roomId]);
 
   return { currentOccupant };
 };

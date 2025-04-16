@@ -93,14 +93,7 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
         return;
       }
       
-      // First update the local state immediately for better UI responsiveness
-      setUsers(prevUsers => 
-        prevUsers.map(user => 
-          user.id === userId ? { ...user, role: newRole } : user
-        )
-      );
-      
-      // Then update the database
+      // First update the database - changed order to update database first
       const { error } = await supabase
         .from('profiles')
         .update({ role: newRole })
@@ -108,40 +101,24 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
         
       if (error) {
         console.error('Database error when updating role:', error);
-        // Revert the local state change if there's an error
-        setUsers(prevUsers => 
-          prevUsers.map(user => 
-            user.id === userId ? { ...user, role: user.role } : user
-          )
-        );
         throw error;
       }
       
-      // Verify the update by fetching the user again
-      const { data: verifyData, error: verifyError } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', userId)
-        .single();
-      
-      if (verifyError) {
-        console.error('Error verifying role update:', verifyError);
-      } else {
-        console.log('Verified role after update:', verifyData.role);
-        
-        // If the role in the database doesn't match what we expect, refetch all users
-        if (verifyData.role !== newRole) {
-          console.warn('Role verification failed: database shows', verifyData.role, 'but we expected', newRole);
-          await fetchUsers(); // Refetch all users to get the correct data
-        } else {
-          console.log('Role updated successfully in the database');
-        }
-      }
+      // Then update the local state 
+      setUsers(prevUsers => 
+        prevUsers.map(user => 
+          user.id === userId ? { ...user, role: newRole } : user
+        )
+      );
       
       toast({
         title: 'Role updated',
         description: 'User role has been updated successfully',
       });
+      
+      // Refetch all users to ensure we have updated data
+      await fetchUsers();
+      
     } catch (error) {
       console.error('Error updating user role:', error);
       toast({
