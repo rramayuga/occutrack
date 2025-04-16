@@ -3,6 +3,7 @@ import React from 'react';
 import { User, UserRole } from '@/lib/types';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import UserRoleSelector from './UserRoleSelector';
+import { useAuth } from '@/lib/auth';
 
 interface UsersListProps {
   users: User[];
@@ -17,6 +18,9 @@ const UsersList: React.FC<UsersListProps> = ({
   filteredUsers,
   handleRoleChange
 }) => {
+  const { user: currentUser } = useAuth();
+  const isSuperAdmin = currentUser?.role === 'superadmin';
+
   return (
     <ScrollArea className="flex-1 border rounded-md">
       {loading ? (

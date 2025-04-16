@@ -46,6 +46,7 @@ const RoomCard: React.FC<RoomCardProps> = ({
   };
 
   const status = getEffectiveStatus();
+  const isSuperAdmin = user?.role === 'superadmin';
 
   return (
     <>
@@ -71,7 +72,7 @@ const RoomCard: React.FC<RoomCardProps> = ({
           </div>
         </CardContent>
         <CardFooter className="pt-1 flex flex-col">
-          {!canModifyRooms && (
+          {!canModifyRooms && !isSuperAdmin && (
             <div className="text-xs text-muted-foreground flex items-center mb-2 w-full justify-center">
               <Lock className="h-3 w-3 mr-1" />
               {status === 'maintenance' ? 'Under maintenance' : 
@@ -80,7 +81,7 @@ const RoomCard: React.FC<RoomCardProps> = ({
           )}
           
           <RoomActions 
-            canModifyRooms={canModifyRooms || (user?.role === 'admin' || user?.role === 'superadmin')}
+            canModifyRooms={canModifyRooms}
             showSchedules={showSchedules}
             status={status}
             userRole={user?.role}

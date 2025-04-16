@@ -44,7 +44,8 @@ const Rooms = () => {
   const floors = selectedBuildingData?.floors || [];
 
   // Determine if the current user can modify room availability
-  const canModifyRooms = user?.role === 'faculty' || user?.role === 'admin' || user?.role === 'superadmin';
+  const authorizedRoles = ['faculty', 'admin', 'superadmin'];
+  const canModifyRooms = user && authorizedRoles.includes(user.role);
 
   console.log("Rendering Rooms component with:", { 
     buildingsCount: buildings.length, 

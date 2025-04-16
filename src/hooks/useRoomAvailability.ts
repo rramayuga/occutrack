@@ -10,8 +10,9 @@ export function useRoomAvailability() {
   const { toast } = useToast();
 
   const handleToggleRoomAvailability = async (room: Room, rooms: Room[], setRooms: React.Dispatch<React.SetStateAction<Room[]>>) => {
-    // Only allow faculty to toggle room availability
-    if (user?.role !== 'faculty') {
+    // Allow faculty, admin, and superadmin users to toggle room availability
+    const authorizedRoles = ['faculty', 'admin', 'superadmin'];
+    if (!user || !authorizedRoles.includes(user.role)) {
       if (user?.role === 'student') {
         toast({
           title: "Access Denied",
