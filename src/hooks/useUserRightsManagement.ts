@@ -51,12 +51,13 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
             }))
         : [];
       
-      // If user is admin (and not superadmin), only show faculty and student users
+      // If user is admin (but not superadmin), only show faculty and student users
       if (currentUser?.role === 'admin') {
         filteredUsers = filteredUsers.filter(user => 
           user.role === 'faculty' || user.role === 'student'
         );
       }
+      // SuperAdmin can manage all users
 
       console.log('Fetched users:', filteredUsers);
       setUsers(filteredUsers);
@@ -76,7 +77,7 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
     try {
       console.log(`Updating role for user ${userId} to ${newRole}`);
       
-      // Check if the current user is admin and trying to set a role other than faculty or student
+      // Check if the current user is admin (not superadmin) and trying to set a role other than faculty or student
       if (currentUser?.role === 'admin' && 
           newRole !== 'faculty' && newRole !== 'student') {
         toast({
@@ -86,6 +87,8 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
         });
         return;
       }
+      
+      // SuperAdmins can assign any role
       
       // Update the database first before updating local state
       const { error } = await supabase

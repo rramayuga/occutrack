@@ -46,14 +46,12 @@ const RoomActions: React.FC<RoomActionsProps> = ({
             <SelectContent>
               <SelectItem value="available">Mark as Available</SelectItem>
               <SelectItem value="occupied">Mark as Occupied</SelectItem>
-              {isAdminOrSuperAdmin && (
-                <SelectItem value="maintenance">
-                  <div className="flex items-center">
-                    <Wrench className="h-4 w-4 mr-1 text-amber-500" />
-                    <span>Mark as Under Maintenance</span>
-                  </div>
-                </SelectItem>
-              )}
+              <SelectItem value="maintenance">
+                <div className="flex items-center">
+                  <Wrench className="h-4 w-4 mr-1 text-amber-500" />
+                  <span>Mark as Under Maintenance</span>
+                </div>
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
