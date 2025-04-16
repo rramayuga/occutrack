@@ -28,11 +28,12 @@ const RoomActions: React.FC<RoomActionsProps> = ({
   onToggleSchedules,
   onStatusChange
 }) => {
+  const isSuperAdmin = userRole === 'superadmin';
   const isAdminOrSuperAdmin = userRole === 'admin' || userRole === 'superadmin';
   
   return (
     <>
-      {canModifyRooms && (
+      {(canModifyRooms || isSuperAdmin) && (
         <div className="w-full mb-2">
           <Select
             value={status}
@@ -45,7 +46,7 @@ const RoomActions: React.FC<RoomActionsProps> = ({
             <SelectContent>
               <SelectItem value="available">Mark as Available</SelectItem>
               <SelectItem value="occupied">Mark as Occupied</SelectItem>
-              {(userRole === 'superadmin' || userRole === 'admin') && (
+              {isAdminOrSuperAdmin && (
                 <SelectItem value="maintenance">
                   <div className="flex items-center">
                     <Wrench className="h-4 w-4 mr-1 text-amber-500" />

@@ -116,7 +116,7 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
       // Refetch users to ensure we have the most current data
       setTimeout(() => {
         fetchUsers();
-      }, 500);
+      }, 1000);
       
     } catch (error) {
       console.error('Error updating user role:', error);
@@ -144,6 +144,25 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
   useEffect(() => {
     if (shouldFetch) {
       fetchUsers();
+    }
+  }, [shouldFetch, fetchUsers]);
+
+  // Set up a subscription to profile changes
+  useEffect(() => {
+    if (shouldFetch) {
+      const profilesChannel = supabase
+        .channel('profiles-changes')
+        .on('postgres_changes', 
+            { event: '*', schema: 'public', table: 'profiles' }, 
+            (payload) => {
+              console.log('Profile changes detected:', payload);
+              fetchUsers();
+            })
+        .subscribe();
+            
+      return () => {
+        supabase.removeChannel(profilesChannel);
+      };
     }
   }, [shouldFetch, fetchUsers]);
 
