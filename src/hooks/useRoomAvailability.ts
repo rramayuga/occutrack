@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Room } from '@/lib/types';
+import { Room, RoomStatus } from '@/lib/types';
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/lib/auth';
@@ -38,7 +38,7 @@ export function useRoomAvailability() {
       if (error) throw error;
 
       // For maintenance status, don't toggle availability
-      const newStatus = room.status === 'maintenance' ? 'maintenance' : 
+      const newStatus: RoomStatus = room.status === 'maintenance' ? 'maintenance' : 
                         newAvailability ? 'available' : 'occupied';
       
       // Update the room status in the rooms table
@@ -53,7 +53,7 @@ export function useRoomAvailability() {
       const updatedRooms = rooms.map(r => {
         if (r.id === room.id) {
           // Toggle the availability and update status
-          const updatedRoom = { 
+          const updatedRoom: Room = { 
             ...r, 
             isAvailable: newAvailability,
             status: newStatus
