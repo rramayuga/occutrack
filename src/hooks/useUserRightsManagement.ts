@@ -57,8 +57,8 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
             }))
         : [];
       
-      // If user is admin but not superadmin, only show faculty users
-      if (currentUser?.role === 'admin' && currentUser?.role !== 'superadmin') {
+      // If user is admin (and not superadmin), only show faculty and student users
+      if (currentUser?.role === 'admin') {
         filteredUsers = filteredUsers.filter(user => 
           user.role === 'faculty' || user.role === 'student'
         );
@@ -82,8 +82,8 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
     try {
       console.log(`Updating role for user ${userId} to ${newRole}`);
       
-      // Check if the current user is admin but not superadmin and trying to set a role other than faculty
-      if (currentUser?.role === 'admin' && currentUser?.role !== 'superadmin' && 
+      // Check if the current user is admin and trying to set a role other than faculty or student
+      if (currentUser?.role === 'admin' && 
           newRole !== 'faculty' && newRole !== 'student') {
         toast({
           title: 'Permission Denied',
