@@ -16,6 +16,13 @@ export const useRoomStatus = (room: Room, onToggleAvailability: (roomId: string)
     try {
       console.log("Updating room status to:", status);
       
+      // Get current user
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      
+      const userId = userData.user?.id;
+      if (!userId) throw new Error("User not authenticated");
+      
       // Update the room status in the database
       const { error: roomError } = await supabase
         .from('rooms')
@@ -32,7 +39,7 @@ export const useRoomStatus = (room: Room, onToggleAvailability: (roomId: string)
         .insert({
           room_id: room.id,
           is_available: isAvailable,
-          updated_by: (await supabase.auth.getUser()).data.user?.id
+          updated_by: userId
         });
         
       if (availError) throw availError;

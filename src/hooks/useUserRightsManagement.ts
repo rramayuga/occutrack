@@ -93,7 +93,7 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
         return;
       }
       
-      // First update the database - changed order to update database first
+      // Update the database
       const { error } = await supabase
         .from('profiles')
         .update({ role: newRole })
@@ -104,20 +104,16 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
         throw error;
       }
       
-      // Then update the local state 
-      setUsers(prevUsers => 
-        prevUsers.map(user => 
-          user.id === userId ? { ...user, role: newRole } : user
-        )
-      );
+      // Wait a moment for the database update to complete
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Refetch all users to ensure we have updated data
+      await fetchUsers();
       
       toast({
         title: 'Role updated',
         description: 'User role has been updated successfully',
       });
-      
-      // Refetch all users to ensure we have updated data
-      await fetchUsers();
       
     } catch (error) {
       console.error('Error updating user role:', error);

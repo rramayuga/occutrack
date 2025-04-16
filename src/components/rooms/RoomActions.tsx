@@ -37,12 +37,19 @@ const RoomActions: React.FC<RoomActionsProps> = ({
     try {
       // If superadmin sets room to maintenance, create announcement
       if (userRole === 'superadmin' && newStatus === 'maintenance') {
+        const { data: userData } = await supabase.auth.getUser();
+        const userId = userData.user?.id;
+        
+        if (!userId) {
+          throw new Error("User not authenticated");
+        }
+        
         const { error: announcementError } = await supabase
           .from('announcements')
           .insert([{
             title: "Room Under Maintenance",
             content: `Room is now under maintenance. Please note that this room will be temporarily unavailable for reservations.`,
-            created_by: (await supabase.auth.getUser()).data.user?.id
+            created_by: userId
           }]);
 
         if (announcementError) throw announcementError;
