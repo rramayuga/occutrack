@@ -5,8 +5,21 @@ import { useUserRightsManagement } from '@/hooks/useUserRightsManagement';
 import UserRightsFilters from '@/components/admin/users/UserRightsFilters';
 import UsersList from '@/components/admin/users/UsersList';
 import Navbar from '@/components/layout/Navbar';
+import { useAuth } from '@/lib/auth';
+import { useNavigate } from 'react-router-dom';
 
 const UserRightsManagementPage = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const isAuthorized = user?.role === 'admin' || user?.role === 'superadmin';
+  
+  // Redirect to home if not authorized
+  useEffect(() => {
+    if (user && !isAuthorized) {
+      navigate('/');
+    }
+  }, [user, isAuthorized, navigate]);
+  
   const {
     loading,
     searchTerm,
@@ -16,12 +29,18 @@ const UserRightsManagementPage = () => {
     handleRoleChange,
     filteredUsers,
     fetchUsers
-  } = useUserRightsManagement(true);  // Always fetch users when component mounts
+  } = useUserRightsManagement(isAuthorized);  // Only fetch users when component mounts and user is authorized
   
   // Re-fetch users when component mounts to ensure we have the latest data
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    if (isAuthorized) {
+      fetchUsers();
+    }
+  }, [isAuthorized, fetchUsers]);
+
+  if (!isAuthorized) {
+    return null; // Don't render anything if not authorized
+  }
 
   return (
     <div className="min-h-screen bg-background">
