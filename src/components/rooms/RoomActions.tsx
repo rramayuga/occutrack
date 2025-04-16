@@ -36,7 +36,7 @@ const RoomActions: React.FC<RoomActionsProps> = ({
         <div className="w-full mb-2">
           <Select
             value={status}
-            onValueChange={onStatusChange}
+            onValueChange={(value) => onStatusChange(value as RoomStatus)}
           >
             <SelectTrigger className="w-full text-xs">
               <Settings className="h-4 w-4 mr-1" />
@@ -45,7 +45,7 @@ const RoomActions: React.FC<RoomActionsProps> = ({
             <SelectContent>
               <SelectItem value="available">Mark as Available</SelectItem>
               <SelectItem value="occupied">Mark as Occupied</SelectItem>
-              {userRole === 'superadmin' && (
+              {(userRole === 'superadmin' || userRole === 'admin') && (
                 <SelectItem value="maintenance">
                   <div className="flex items-center">
                     <Wrench className="h-4 w-4 mr-1 text-amber-500" />

@@ -50,7 +50,7 @@ export const useRoomOccupancy = (roomId: string, isAvailable: boolean, occupiedB
 
   // Setup a subscription to room_availability changes to update the occupant in real-time
   useEffect(() => {
-    const channel = supabase
+    const availabilityChannel = supabase
       .channel('room-availability-changes')
       .on(
         'postgres_changes',
@@ -84,7 +84,7 @@ export const useRoomOccupancy = (roomId: string, isAvailable: boolean, occupiedB
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(availabilityChannel);
       supabase.removeChannel(statusChannel);
     };
   }, [roomId]);

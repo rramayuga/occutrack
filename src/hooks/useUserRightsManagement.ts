@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { User, UserRole } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,13 +13,7 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
   
-  useEffect(() => {
-    if (shouldFetch) {
-      fetchUsers();
-    }
-  }, [shouldFetch]);
-  
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
       console.log('Fetching users...');
@@ -76,7 +70,7 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast, currentUser]);
   
   const handleRoleChange = async (userId: string, newRole: UserRole) => {
     try {
@@ -93,7 +87,7 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
         return;
       }
       
-      // Update the database
+      // Update the database first before updating local state
       const { error } = await supabase
         .from('profiles')
         .update({ role: newRole })
@@ -105,15 +99,24 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
       }
       
       // Wait a moment for the database update to complete
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Refetch all users to ensure we have updated data
-      await fetchUsers();
+      // Update the local state after successful database update
+      setUsers(prevUsers => 
+        prevUsers.map(user => 
+          user.id === userId ? { ...user, role: newRole } : user
+        )
+      );
       
       toast({
         title: 'Role updated',
         description: 'User role has been updated successfully',
       });
+      
+      // Refetch users to ensure we have the most current data
+      setTimeout(() => {
+        fetchUsers();
+      }, 500);
       
     } catch (error) {
       console.error('Error updating user role:', error);
@@ -137,6 +140,12 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
     
     return matchesSearch && matchesRole;
   });
+
+  useEffect(() => {
+    if (shouldFetch) {
+      fetchUsers();
+    }
+  }, [shouldFetch, fetchUsers]);
 
   return {
     users,

@@ -16,17 +16,23 @@ export const useRoomStatus = (room: Room, onToggleAvailability: (roomId: string)
     try {
       console.log("Updating room status to:", status);
       
-      // Get current user - first retrieve this before any other operations
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError) {
-        console.error("Failed to get user:", userError);
-        throw userError;
+      // First, get the current session
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error("Failed to get session:", sessionError);
+        throw sessionError;
       }
       
-      const userId = userData.user?.id;
-      if (!userId) {
-        console.error("No user ID found");
+      if (!sessionData.session) {
+        console.error("No active session found");
         throw new Error("User not authenticated");
+      }
+      
+      const userId = sessionData.session.user.id;
+      if (!userId) {
+        console.error("No user ID found in session");
+        throw new Error("User not authenticated properly");
       }
       
       console.log("Current user ID:", userId);
