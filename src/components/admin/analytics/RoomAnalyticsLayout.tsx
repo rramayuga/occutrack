@@ -3,8 +3,7 @@ import React, { useState } from 'react';
 import { RoomUsageData } from '../types/room';
 import { format } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Pagination, PaginationContent, PaginationItem, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import RoomUsageChart from './RoomUsageChart';
 import RoomUsageCards from './RoomUsageCards';
 
@@ -68,26 +67,22 @@ const RoomAnalyticsLayout: React.FC<RoomAnalyticsLayoutProps> = ({
         <p className="text-sm text-muted-foreground">
           Showing {startIndex + 1} - {Math.min(endIndex, roomUsageData.length)} of {roomUsageData.length} rooms
         </p>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handlePreviousPage}
-            disabled={currentPage === 1}
-          >
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            Previous
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleNextPage}
-            disabled={currentPage === totalPages}
-          >
-            Next
-            <ChevronRight className="h-4 w-4 ml-1" />
-          </Button>
-        </div>
+        <Pagination>
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious 
+                onClick={handlePreviousPage} 
+                className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+              />
+            </PaginationItem>
+            <PaginationItem>
+              <PaginationNext 
+                onClick={handleNextPage} 
+                className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
       </div>
 
       <div className="mb-8">

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { User, UserRole } from '@/lib/types';
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from '@/lib/auth';
 
 export const useUserRightsManagement = (shouldFetch: boolean = false) => {
   const [users, setUsers] = useState<User[]>([]);
@@ -10,6 +11,7 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
   const { toast } = useToast();
+  const { user: currentUser } = useAuth();
   
   useEffect(() => {
     if (shouldFetch) {
@@ -43,7 +45,7 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
       );
       
       // Filter out users who have been rejected
-      const filteredUsers = profiles
+      let filteredUsers = profiles
         ? profiles
             .filter(profile => !rejectedUserIds.has(profile.id))
             .map(profile => ({
@@ -54,6 +56,13 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
               avatarUrl: profile.avatar
             }))
         : [];
+      
+      // If user is admin but not superadmin, only show faculty users
+      if (currentUser?.role === 'admin' && currentUser?.role !== 'superadmin') {
+        filteredUsers = filteredUsers.filter(user => 
+          user.role === 'faculty' || user.role === 'student'
+        );
+      }
 
       console.log('Fetched users:', filteredUsers);
       setUsers(filteredUsers);
@@ -72,6 +81,17 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
   const handleRoleChange = async (userId: string, newRole: UserRole) => {
     try {
       console.log(`Updating role for user ${userId} to ${newRole}`);
+      
+      // Check if the current user is admin but not superadmin and trying to set a role other than faculty
+      if (currentUser?.role === 'admin' && currentUser?.role !== 'superadmin' && 
+          newRole !== 'faculty' && newRole !== 'student') {
+        toast({
+          title: 'Permission Denied',
+          description: 'Admin users can only assign faculty or student roles',
+          variant: 'destructive'
+        });
+        return;
+      }
       
       // First update the local state immediately for better UI responsiveness
       setUsers(prevUsers => 
