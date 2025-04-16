@@ -25,22 +25,39 @@ export function useRoomAvailability() {
 
     try {
       // Create a custom room_availability record
+      const newAvailability = !room.isAvailable;
       const { error } = await supabase
         .from('room_availability')
         .insert({
           room_id: room.id, 
-          is_available: !room.isAvailable,
+          is_available: newAvailability,
           updated_by: user.id,
           updated_at: new Date().toISOString()
         });
       
       if (error) throw error;
 
+      // For maintenance status, don't toggle availability
+      const newStatus = room.status === 'maintenance' ? 'maintenance' : 
+                        newAvailability ? 'available' : 'occupied';
+      
+      // Update the room status in the rooms table
+      const { error: statusError } = await supabase
+        .from('rooms')
+        .update({ status: newStatus })
+        .eq('id', room.id);
+        
+      if (statusError) throw statusError;
+
       // Update local state
       const updatedRooms = rooms.map(r => {
         if (r.id === room.id) {
-          // Toggle the availability
-          const updatedRoom = { ...r, isAvailable: !r.isAvailable };
+          // Toggle the availability and update status
+          const updatedRoom = { 
+            ...r, 
+            isAvailable: newAvailability,
+            status: newStatus
+          };
           
           // Show a toast notification
           toast({

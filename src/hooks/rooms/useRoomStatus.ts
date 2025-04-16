@@ -56,7 +56,8 @@ export const useRoomStatus = (room: Room, onToggleAvailability: (roomId: string)
         .insert({
           room_id: room.id,
           is_available: isAvailable,
-          updated_by: userId
+          updated_by: userId,
+          updated_at: new Date().toISOString()
         });
         
       if (availError) {
@@ -85,6 +86,7 @@ export const useRoomStatus = (room: Room, onToggleAvailability: (roomId: string)
         description: `Room status changed to ${status}`,
       });
       
+      // Force a refresh of room availability through the callback
       onToggleAvailability(room.id);
     } catch (error) {
       console.error("Error updating room status:", error);

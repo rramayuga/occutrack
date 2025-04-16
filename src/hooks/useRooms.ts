@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { BuildingWithFloors, Room } from '@/lib/types';
 import { useToast } from "@/components/ui/use-toast";
@@ -26,9 +27,11 @@ export function useRooms() {
     setupRoomAvailabilitySubscription 
   } = useRoomAvailability();
 
-  const fetchRooms = async () => {
+  const fetchRooms = useCallback(async () => {
     try {
       setLoading(true);
+      console.log("Fetching rooms from database...");
+      
       // Fetch rooms from Supabase
       const { data: roomsData, error: roomsError } = await supabase
         .from('rooms')
@@ -61,20 +64,20 @@ export function useRooms() {
         
         // Transform to Room format with availability from the map or default to true
         const roomsWithAvailability: Room[] = roomsData.map(room => {
-          const isAvailable = availabilityMap.has(room.id) ? availabilityMap.get(room.id) : true;
-          
-          // Use status from the database if available, otherwise derive from availability
-          const status = room.status || (isAvailable ? 'available' : 'occupied');
+          // Check if we have an availability record for this room
+          const isAvailable = availabilityMap.has(room.id) 
+            ? availabilityMap.get(room.id) 
+            : (room.status === 'available'); // Default to status if no availability record
           
           return {
             id: room.id,
             name: room.name,
             type: room.type,
             capacity: room.capacity,
-            isAvailable: isAvailable,
+            isAvailable: room.status === 'maintenance' ? false : isAvailable,
             floor: room.floor,
             buildingId: room.building_id,
-            status: status as any // Cast to satisfy TypeScript
+            status: room.status as any // Cast to satisfy TypeScript
           };
         });
         
@@ -94,20 +97,25 @@ export function useRooms() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
   
   // Expose refetchRooms to allow manual refresh when needed
   const refetchRooms = useCallback(async () => {
+    console.log("Manually refreshing rooms...");
     await fetchRooms();
-  }, []);
+  }, [fetchRooms]);
   
   // Use this to handle room availability toggling
-  const handleToggleRoomAvailability = (roomId: string) => {
+  const handleToggleRoomAvailability = useCallback((roomId: string) => {
+    console.log("Toggle availability for room:", roomId);
     const roomToToggle = rooms.find(room => room.id === roomId);
     if (roomToToggle) {
       toggleAvailability(roomToToggle, rooms, setRooms);
+    } else {
+      // If we can't find the room, just refresh all rooms
+      refetchRooms();
     }
-  };
+  }, [rooms, toggleAvailability, refetchRooms]);
 
   // This function is needed for the useRoomReservationCheck hook
   const updateRoomAvailability = useCallback(async (roomId: string, isAvailable: boolean) => {
@@ -123,10 +131,22 @@ export function useRooms() {
           updated_at: new Date().toISOString()
         });
       
+      // Also update the room status
+      await supabase
+        .from('rooms')
+        .update({
+          status: isAvailable ? 'available' : 'occupied'
+        })
+        .eq('id', roomId);
+      
       // Update local state
       setRooms(prevRooms => 
         prevRooms.map(room => 
-          room.id === roomId ? { ...room, isAvailable } : room
+          room.id === roomId ? { 
+            ...room, 
+            isAvailable,
+            status: isAvailable ? 'available' : 'occupied'
+          } : room
         )
       );
     } catch (error) {
@@ -171,7 +191,7 @@ export function useRooms() {
       unsubscribeRooms();
       unsubscribeAvailability();
     };
-  }, []);
+  }, [fetchRooms]);
 
   return {
     buildings,
