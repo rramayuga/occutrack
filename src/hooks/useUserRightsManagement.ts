@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { User, UserRole } from '@/lib/types';
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/lib/auth';
 
@@ -105,7 +105,7 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
       }
       
       // Wait a moment for the database update to complete
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // Refetch all users to ensure we have updated data
       await fetchUsers();

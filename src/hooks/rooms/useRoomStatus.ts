@@ -16,12 +16,20 @@ export const useRoomStatus = (room: Room, onToggleAvailability: (roomId: string)
     try {
       console.log("Updating room status to:", status);
       
-      // Get current user
+      // Get current user - first retrieve this before any other operations
       const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError) throw userError;
+      if (userError) {
+        console.error("Failed to get user:", userError);
+        throw userError;
+      }
       
       const userId = userData.user?.id;
-      if (!userId) throw new Error("User not authenticated");
+      if (!userId) {
+        console.error("No user ID found");
+        throw new Error("User not authenticated");
+      }
+      
+      console.log("Current user ID:", userId);
       
       // Update the room status in the database
       const { error: roomError } = await supabase
@@ -29,7 +37,10 @@ export const useRoomStatus = (room: Room, onToggleAvailability: (roomId: string)
         .update({ status: status })
         .eq('id', room.id);
       
-      if (roomError) throw roomError;
+      if (roomError) {
+        console.error("Error updating room status:", roomError);
+        throw roomError;
+      }
       
       // Also create a room_availability record to reflect the status change
       const isAvailable = status === 'available';
@@ -42,7 +53,26 @@ export const useRoomStatus = (room: Room, onToggleAvailability: (roomId: string)
           updated_by: userId
         });
         
-      if (availError) throw availError;
+      if (availError) {
+        console.error("Error updating room availability:", availError);
+        throw availError;
+      }
+      
+      // Create an announcement if room is under maintenance (status = 'maintenance')
+      if (status === 'maintenance') {
+        const { error: announcementError } = await supabase
+          .from('announcements')
+          .insert({
+            title: "Room Under Maintenance",
+            content: `Room ${room.name} is now under maintenance. Please note that this room will be temporarily unavailable for reservations.`,
+            created_by: userId
+          });
+          
+        if (announcementError) {
+          console.error("Error creating maintenance announcement:", announcementError);
+          // Don't throw error here, still allow status change to succeed
+        }
+      }
       
       toast({
         title: "Room status updated",

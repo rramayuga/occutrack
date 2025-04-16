@@ -66,8 +66,26 @@ export const useRoomOccupancy = (roomId: string, isAvailable: boolean, occupiedB
       )
       .subscribe();
 
+    // Also subscribe to room status changes
+    const statusChannel = supabase
+      .channel('room-status-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'rooms',
+          filter: `id=eq.${roomId}`
+        },
+        () => {
+          fetchRoomOccupant();
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(statusChannel);
     };
   }, [roomId]);
 
