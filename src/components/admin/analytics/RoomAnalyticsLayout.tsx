@@ -59,10 +59,17 @@ const RoomAnalyticsLayout: React.FC<RoomAnalyticsLayoutProps> = ({
 
   return (
     <div className="space-y-8">
+      {/* Chart Container with fixed height */}
       <div className="h-[400px] w-full mb-8">
         <RoomUsageChart data={currentPageData} currentPage={currentPage} />
       </div>
       
+      {/* Room Usage Cards */}
+      <div className="mb-8">
+        <RoomUsageCards data={currentPageData} />
+      </div>
+      
+      {/* Pagination Controls - Placed AFTER the cards */}
       <div className="flex items-center justify-between mb-4">
         <p className="text-sm text-muted-foreground">
           Showing {startIndex + 1} - {Math.min(endIndex, roomUsageData.length)} of {roomUsageData.length} rooms
@@ -83,10 +90,6 @@ const RoomAnalyticsLayout: React.FC<RoomAnalyticsLayoutProps> = ({
             </PaginationItem>
           </PaginationContent>
         </Pagination>
-      </div>
-
-      <div className="mb-8">
-        <RoomUsageCards data={currentPageData} />
       </div>
 
       <Card>
