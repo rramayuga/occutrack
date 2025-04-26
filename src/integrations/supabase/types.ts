@@ -234,7 +234,7 @@ export type Database = {
           floor: number
           id: string
           name: string
-          status: string | null
+          status: Database["public"]["Enums"]["room_status"] | null
           type: string
         }
         Insert: {
@@ -245,7 +245,7 @@ export type Database = {
           floor: number
           id?: string
           name: string
-          status?: string | null
+          status?: Database["public"]["Enums"]["room_status"] | null
           type: string
         }
         Update: {
@@ -256,7 +256,7 @@ export type Database = {
           floor?: number
           id?: string
           name?: string
-          status?: string | null
+          status?: Database["public"]["Enums"]["room_status"] | null
           type?: string
         }
         Relationships: [
@@ -295,7 +295,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      room_status: "available" | "occupied" | "maintenance"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -410,6 +410,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      room_status: ["available", "occupied", "maintenance"],
+    },
   },
 } as const
