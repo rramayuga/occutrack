@@ -88,8 +88,6 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
         return;
       }
       
-      // SuperAdmins can assign any role
-      
       // Update the database first before updating local state
       const { error } = await supabase
         .from('profiles')
@@ -100,9 +98,6 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
         console.error('Database error when updating role:', error);
         throw error;
       }
-      
-      // Wait a moment for the database update to complete
-      await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Update the local state after successful database update
       setUsers(prevUsers => 

@@ -29,7 +29,6 @@ const RoomActions: React.FC<RoomActionsProps> = ({
   onStatusChange
 }) => {
   const isSuperAdmin = userRole === 'superadmin';
-  const isAdminOrSuperAdmin = userRole === 'admin' || userRole === 'superadmin';
   
   return (
     <>
@@ -46,12 +45,14 @@ const RoomActions: React.FC<RoomActionsProps> = ({
             <SelectContent>
               <SelectItem value="available">Mark as Available</SelectItem>
               <SelectItem value="occupied">Mark as Occupied</SelectItem>
-              <SelectItem value="maintenance">
-                <div className="flex items-center">
-                  <Wrench className="h-4 w-4 mr-1 text-amber-500" />
-                  <span>Mark as Under Maintenance</span>
-                </div>
-              </SelectItem>
+              {isSuperAdmin && (
+                <SelectItem value="maintenance">
+                  <div className="flex items-center">
+                    <Wrench className="h-4 w-4 mr-1 text-amber-500" />
+                    <span>Mark as Under Maintenance</span>
+                  </div>
+                </SelectItem>
+              )}
             </SelectContent>
           </Select>
         </div>

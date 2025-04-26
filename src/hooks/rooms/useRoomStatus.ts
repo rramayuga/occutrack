@@ -3,9 +3,11 @@ import { useState } from 'react';
 import { Room, RoomStatus } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from '@/lib/auth';
 
 export const useRoomStatus = (room: Room, onToggleAvailability: (roomId: string) => void) => {
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const getEffectiveStatus = (): RoomStatus => {
     if (room.status) return room.status;
@@ -16,26 +18,29 @@ export const useRoomStatus = (room: Room, onToggleAvailability: (roomId: string)
     try {
       console.log("Updating room status to:", status);
       
-      // First, get the current session
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError) {
-        console.error("Failed to get session:", sessionError);
-        throw sessionError;
+      // Check if attempting to set maintenance status
+      if (status === 'maintenance' && user?.role !== 'superadmin') {
+        console.error("Only superadmin can set rooms to maintenance status");
+        toast({
+          title: 'Permission Denied',
+          description: 'Only SuperAdmin users can mark rooms for maintenance',
+          variant: 'destructive'
+        });
+        return;
       }
       
-      if (!sessionData.session) {
+      // If not authenticated, don't proceed
+      if (!user) {
         console.error("No active session found");
-        throw new Error("User not authenticated");
+        toast({
+          title: 'Authentication Required',
+          description: 'You must be logged in to change room status',
+          variant: 'destructive'
+        });
+        return;
       }
       
-      const userId = sessionData.session.user.id;
-      if (!userId) {
-        console.error("No user ID found in session");
-        throw new Error("User not authenticated properly");
-      }
-      
-      console.log("Current user ID:", userId);
+      console.log("Current user ID:", user.id);
       
       // Update the room status in the database
       const { error: roomError } = await supabase
@@ -56,7 +61,7 @@ export const useRoomStatus = (room: Room, onToggleAvailability: (roomId: string)
         .insert({
           room_id: room.id,
           is_available: isAvailable,
-          updated_by: userId,
+          updated_by: user.id,
           updated_at: new Date().toISOString()
         });
         
@@ -72,7 +77,7 @@ export const useRoomStatus = (room: Room, onToggleAvailability: (roomId: string)
           .insert({
             title: "Room Under Maintenance",
             content: `Room ${room.name} is now under maintenance. Please note that this room will be temporarily unavailable for reservations.`,
-            created_by: userId
+            created_by: user.id
           });
           
         if (announcementError) {
