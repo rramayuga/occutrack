@@ -7,14 +7,12 @@ import { RoomStatus } from '@/lib/types';
 
 interface RoomCardHeaderProps {
   name: string;
-  isAvailable: boolean;
   occupiedBy: string | null;
   status: RoomStatus;
 }
 
 const RoomCardHeader: React.FC<RoomCardHeaderProps> = ({
   name,
-  isAvailable,
   occupiedBy,
   status
 }) => {
@@ -22,10 +20,9 @@ const RoomCardHeader: React.FC<RoomCardHeaderProps> = ({
     <>
       <div className="flex justify-between items-start">
         <CardTitle className="text-base">{name}</CardTitle>
-        <RoomStatusBadge status={status} isAvailable={isAvailable} />
+        <RoomStatusBadge status={status} />
       </div>
       <RoomOccupantInfo 
-        isAvailable={isAvailable} 
         occupiedBy={occupiedBy}
         status={status} 
       />

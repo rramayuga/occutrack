@@ -47,7 +47,6 @@ const RoomCard: React.FC<RoomCardProps> = ({
 
   const status = getEffectiveStatus();
   const isSuperAdmin = user?.role === 'superadmin';
-  // Check if the user can modify rooms (either through props or being a superadmin)
   const userCanModifyRooms = canModifyRooms || isSuperAdmin;
 
   return (
@@ -55,14 +54,13 @@ const RoomCard: React.FC<RoomCardProps> = ({
       <Card 
         className={`hover:shadow-md transition-shadow ${onSelectRoom ? 'cursor-pointer' : ''} ${
           status === 'maintenance' ? 'border-amber-200' : 
-          !room.isAvailable ? 'border-red-200' : ''
+          status === 'occupied' ? 'border-red-200' : ''
         }`}
         onClick={onSelectRoom ? handleCardClick : undefined}
       >
         <CardHeader className="pb-2">
           <RoomCardHeader 
             name={room.name}
-            isAvailable={room.isAvailable}
             occupiedBy={occupiedBy}
             status={status}
           />
@@ -78,7 +76,7 @@ const RoomCard: React.FC<RoomCardProps> = ({
             <div className="text-xs text-muted-foreground flex items-center mb-2 w-full justify-center">
               <Lock className="h-3 w-3 mr-1" />
               {status === 'maintenance' ? 'Under maintenance' : 
-               !room.isAvailable ? 'Currently in use' : 'Ready for use'}
+               status === 'occupied' ? 'Currently in use' : 'Ready for use'}
             </div>
           )}
           

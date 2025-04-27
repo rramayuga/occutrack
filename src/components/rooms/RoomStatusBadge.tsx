@@ -4,15 +4,11 @@ import { Badge } from "@/components/ui/badge";
 import { RoomStatus } from '@/lib/types';
 
 interface RoomStatusBadgeProps {
-  status?: RoomStatus;
-  isAvailable: boolean;
+  status: RoomStatus;
 }
 
-const RoomStatusBadge: React.FC<RoomStatusBadgeProps> = ({ status, isAvailable }) => {
-  // Determine the effective status
-  const effectiveStatus = status || (isAvailable ? 'available' : 'occupied');
-  
-  switch (effectiveStatus) {
+const RoomStatusBadge: React.FC<RoomStatusBadgeProps> = ({ status }) => {
+  switch (status) {
     case 'maintenance':
       return (
         <Badge variant="outline" className="bg-amber-100 text-amber-800 hover:bg-amber-200">

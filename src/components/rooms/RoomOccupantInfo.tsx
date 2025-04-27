@@ -3,18 +3,16 @@ import React from 'react';
 import { RoomStatus } from '@/lib/types';
 
 interface RoomOccupantInfoProps {
-  isAvailable: boolean;
   occupiedBy: string | null;
-  status?: RoomStatus;
+  status: RoomStatus;
 }
 
 const RoomOccupantInfo: React.FC<RoomOccupantInfoProps> = ({ 
-  isAvailable, 
   occupiedBy,
   status
 }) => {
-  // If room is available and not under maintenance, don't show any status
-  if (isAvailable && status !== 'maintenance') return null;
+  // If room is available, don't show any status
+  if (status === 'available') return null;
   
   // If room is under maintenance, display maintenance message
   if (status === 'maintenance') {
