@@ -59,7 +59,7 @@ export const useRoomStatus = (room: Room, onToggleAvailability: (roomId: string)
       const { error: availError } = await supabase
         .from('room_availability')
         .insert({
-          room_id: room.id,
+          room_id: room.id, 
           is_available: isAvailable,
           updated_by: user.id,
           updated_at: new Date().toISOString()

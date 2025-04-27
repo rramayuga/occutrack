@@ -10,7 +10,7 @@ export const useRoomCardLogic = (room: Room, onToggleAvailability: (roomId: stri
   const { user } = useAuth();
   
   const { getEffectiveStatus, handleStatusChange } = useRoomStatus(room, onToggleAvailability);
-  const { currentOccupant: occupiedBy } = useRoomOccupancy(room.id, room.isAvailable, room.occupiedBy);
+  const { currentOccupant: occupiedBy } = useRoomOccupancy(room.id, room.status !== 'occupied', room.occupiedBy);
   const { roomSchedules, showSchedules, handleToggleSchedules } = useRoomSchedules(room.id, room.name);
   const {
     isCancelDialogOpen,

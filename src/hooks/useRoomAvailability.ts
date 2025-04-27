@@ -24,8 +24,18 @@ export function useRoomAvailability() {
     }
 
     try {
+      // If the room is under maintenance, don't allow toggling availability
+      if (room.status === 'maintenance' && user.role !== 'superadmin') {
+        toast({
+          title: "Access Denied",
+          description: "Only SuperAdmin users can change rooms under maintenance.",
+          variant: "destructive"
+        });
+        return;
+      }
+
       // Create a custom room_availability record
-      const newAvailability = !room.isAvailable;
+      const newAvailability = room.status === 'occupied' ? true : false;
       const { error } = await supabase
         .from('room_availability')
         .insert({
@@ -61,9 +71,12 @@ export function useRoomAvailability() {
           
           // Show a toast notification
           toast({
-            title: updatedRoom.isAvailable ? "Room Available" : "Room Occupied",
-            description: `${updatedRoom.name} is now ${updatedRoom.isAvailable ? 'available' : 'occupied'}.`,
-            variant: updatedRoom.isAvailable ? "default" : "destructive"
+            title: updatedRoom.status === 'available' ? "Room Available" : 
+                  updatedRoom.status === 'occupied' ? "Room Occupied" : 
+                  "Room Under Maintenance",
+            description: `${updatedRoom.name} is now ${updatedRoom.status}.`,
+            variant: updatedRoom.status === 'available' ? "default" : 
+                    updatedRoom.status === 'maintenance' ? "destructive" : "default"
           });
           
           return updatedRoom;
