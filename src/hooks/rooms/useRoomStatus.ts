@@ -1,10 +1,11 @@
+
 import { useState } from 'react';
 import { Room, RoomStatus } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/lib/auth';
 
-export const useRoomStatus = (room: Room, onToggleAvailability: (roomId: string) => void) => {
+export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => {
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -98,8 +99,9 @@ export const useRoomStatus = (room: Room, onToggleAvailability: (roomId: string)
         description: `Room status changed to ${status}`,
       });
       
-      // Force a refresh of room availability through the callback
-      onToggleAvailability(room.id);
+      // FIXED: Force a refresh of room data through refetchRooms
+      await refetchRooms();
+      
     } catch (error) {
       console.error("Error updating room status:", error);
       toast({

@@ -15,7 +15,8 @@ const Rooms = () => {
     loading, 
     selectedBuilding, 
     setSelectedBuilding, 
-    handleToggleRoomAvailability 
+    handleToggleRoomAvailability,
+    refetchRooms
   } = useRooms();
   
   const { user } = useAuth();
@@ -105,6 +106,7 @@ const Rooms = () => {
                             rooms={floorRooms}
                             canModifyRooms={canModifyRooms}
                             onToggleAvailability={handleToggleRoomAvailability}
+                            refetchRooms={refetchRooms}
                           />
                         );
                       })}

@@ -1,14 +1,14 @@
 
 import React from 'react';
-import RoomCard from './RoomCard';
 import { Room } from '@/lib/types';
+import RoomCard from './RoomCard';
 
 interface FloorRoomsProps {
   floor: number;
   rooms: Room[];
   canModifyRooms: boolean;
   onToggleAvailability: (roomId: string) => void;
-  onSelectRoom?: (room: Room) => void;
+  refetchRooms: () => Promise<void>;
 }
 
 const FloorRooms: React.FC<FloorRoomsProps> = ({ 
@@ -16,37 +16,31 @@ const FloorRooms: React.FC<FloorRoomsProps> = ({
   rooms, 
   canModifyRooms, 
   onToggleAvailability,
-  onSelectRoom
+  refetchRooms
 }) => {
-  const floorLabel = 
-    floor === 1 ? "First" : 
-    floor === 2 ? "Second" :
-    floor === 3 ? "Third" : 
-    floor === 4 ? "Fourth" : `${floor}th`;
+  // Sort rooms by name
+  const sortedRooms = [...rooms].sort((a, b) => a.name.localeCompare(b.name));
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-xl font-semibold border-b pb-2">
-        {floorLabel} Floor
-      </h2>
-      
-      {rooms.length === 0 ? (
-        <p className="text-muted-foreground text-center py-4">
-          No rooms found on this floor.
-        </p>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {rooms.map((room) => (
+    <div>
+      <h2 className="text-xl font-medium mb-3">Floor {floor}</h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {sortedRooms.length === 0 ? (
+          <p className="text-muted-foreground col-span-full text-center py-4">
+            No rooms on this floor.
+          </p>
+        ) : (
+          sortedRooms.map(room => (
             <RoomCard
               key={room.id}
               room={room}
               canModifyRooms={canModifyRooms}
               onToggleAvailability={onToggleAvailability}
-              onSelectRoom={onSelectRoom ? () => onSelectRoom(room) : undefined}
+              refetchRooms={refetchRooms}
             />
-          ))}
-        </div>
-      )}
+          ))
+        )}
+      </div>
     </div>
   );
 };

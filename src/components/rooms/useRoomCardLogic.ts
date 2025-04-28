@@ -6,10 +6,10 @@ import { useRoomOccupancy } from '@/hooks/rooms/useRoomOccupancy';
 import { useRoomSchedules } from '@/hooks/rooms/useRoomSchedules';
 import { useReservationManagement } from '@/hooks/rooms/useReservationManagement';
 
-export const useRoomCardLogic = (room: Room, onToggleAvailability: (roomId: string) => void) => {
+export const useRoomCardLogic = (room: Room, onToggleAvailability: (roomId: string) => void, refetchRooms: () => Promise<void>) => {
   const { user } = useAuth();
   
-  const { getEffectiveStatus, handleStatusChange } = useRoomStatus(room, onToggleAvailability);
+  const { getEffectiveStatus, handleStatusChange } = useRoomStatus(room, refetchRooms);
   const { currentOccupant: occupiedBy } = useRoomOccupancy(room.id, room.status !== 'occupied', room.occupiedBy);
   const { roomSchedules, showSchedules, handleToggleSchedules } = useRoomSchedules(room.id, room.name);
   const {

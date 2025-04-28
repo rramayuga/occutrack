@@ -15,13 +15,15 @@ export interface RoomCardProps {
   canModifyRooms: boolean;
   onToggleAvailability: (roomId: string) => void;
   onSelectRoom?: () => void;
+  refetchRooms: () => Promise<void>;
 }
 
 const RoomCard: React.FC<RoomCardProps> = ({ 
   room, 
   canModifyRooms, 
   onToggleAvailability,
-  onSelectRoom
+  onSelectRoom,
+  refetchRooms
 }) => {
   const { user } = useAuth();
   const {
@@ -37,7 +39,7 @@ const RoomCard: React.FC<RoomCardProps> = ({
     handleCancelClick,
     isUserFaculty,
     setIsCancelDialogOpen
-  } = useRoomCardLogic(room, onToggleAvailability);
+  } = useRoomCardLogic(room, onToggleAvailability, refetchRooms);
 
   const handleCardClick = () => {
     if (onSelectRoom) {
