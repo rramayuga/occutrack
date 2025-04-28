@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { BuildingWithFloors, Room } from '@/lib/types';
+import { BuildingWithFloors, Room, RoomStatus } from '@/lib/types';
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/lib/auth';
@@ -59,7 +59,8 @@ export function useRooms() {
             if (!availabilityMap.has(record.room_id)) {
               availabilityMap.set(record.room_id, {
                 isAvailable: record.is_available,
-                status: record.status // Get the status if available
+                // Since status may not be in the room_availability table yet, default to based on is_available
+                status: record.status || (record.is_available ? 'available' : 'occupied')
               });
             }
           });
@@ -73,7 +74,7 @@ export function useRooms() {
           // Always prioritize the status field from rooms table
           const status = room.status || 
                        (availabilityRecord && availabilityRecord.status) ||
-                       (room.isAvailable ? 'available' : 'occupied');
+                       (availabilityRecord && availabilityRecord.isAvailable ? 'available' : 'occupied');
           
           // Determine isAvailable based on status (only 'available' status means available)
           const isAvailable = status === 'available';
@@ -86,7 +87,7 @@ export function useRooms() {
             isAvailable: isAvailable,
             floor: room.floor,
             buildingId: room.building_id,
-            status: status as any // Cast to satisfy TypeScript
+            status: status as RoomStatus
           };
         });
         
