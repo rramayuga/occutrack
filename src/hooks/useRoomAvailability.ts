@@ -24,11 +24,11 @@ export function useRoomAvailability() {
     }
 
     try {
-      // If the room is under maintenance, don't allow toggling availability unless superadmin
-      if (room.status === 'maintenance' && user.role !== 'superadmin') {
+      // FIXED: If the room is under maintenance, don't allow toggling availability
+      if (room.status === 'maintenance') {
         toast({
-          title: "Access Denied",
-          description: "Only SuperAdmin users can change rooms under maintenance.",
+          title: "Cannot Change Availability",
+          description: "Room is under maintenance. Only SuperAdmin users can change this status.",
           variant: "destructive"
         });
         return;
@@ -38,7 +38,7 @@ export function useRoomAvailability() {
       let newStatus: RoomStatus;
       if (room.status === 'available') {
         newStatus = 'occupied';
-      } else if (room.status === 'occupied' || room.status === 'maintenance') {
+      } else if (room.status === 'occupied') {
         newStatus = 'available';
       } else {
         newStatus = 'available'; // Default case

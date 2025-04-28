@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { BuildingWithFloors, Room, RoomStatus } from '@/lib/types';
 import { useToast } from "@/components/ui/use-toast";
@@ -52,10 +53,13 @@ export function useRooms() {
         if (availabilityData) {
           availabilityData.forEach(record => {
             if (!availabilityMap.has(record.room_id)) {
+              // Use type assertion with a fallback for missing status property
+              const status = (record as any).status as RoomStatus || 
+                            (record.is_available ? 'available' as RoomStatus : 'occupied' as RoomStatus);
+              
               const availStatus = {
                 isAvailable: record.is_available,
-                status: (record as any).status as RoomStatus || 
-                       (record.is_available ? 'available' as RoomStatus : 'occupied' as RoomStatus)
+                status: status
               };
               
               availabilityMap.set(record.room_id, availStatus);
@@ -66,9 +70,22 @@ export function useRooms() {
         const roomsWithAvailability: Room[] = roomsData.map(room => {
           const availabilityRecord = availabilityMap.get(room.id);
           
-          const status = room.status || 
-                       (availabilityRecord && availabilityRecord.status) ||
-                       (availabilityRecord && availabilityRecord.isAvailable ? 'available' : 'occupied');
+          // FIXED: Always prioritize maintenance status from rooms table
+          let status: RoomStatus;
+          
+          if (room.status === 'maintenance') {
+            // Maintenance status should always take precedence
+            status = 'maintenance';
+          } else if (availabilityRecord?.status) {
+            // If not maintenance, check availability record status
+            status = availabilityRecord.status;
+          } else if (availabilityRecord?.isAvailable !== undefined) {
+            // Fall back to boolean availability if no explicit status
+            status = availabilityRecord.isAvailable ? 'available' : 'occupied';
+          } else {
+            // Default case if no availability info exists
+            status = room.status || 'available';
+          }
           
           const isAvailable = status === 'available';
           
@@ -80,7 +97,7 @@ export function useRooms() {
             isAvailable: isAvailable,
             floor: room.floor,
             buildingId: room.building_id,
-            status: status as RoomStatus
+            status: status
           };
         });
         
@@ -110,16 +127,40 @@ export function useRooms() {
   const handleToggleRoomAvailability = useCallback((roomId: string) => {
     console.log("Toggle availability for room:", roomId);
     const roomToToggle = rooms.find(room => room.id === roomId);
+    
+    // FIXED: Block toggling availability for maintenance rooms
+    if (roomToToggle && roomToToggle.status === 'maintenance') {
+      toast({
+        title: "Cannot Toggle",
+        description: "Room is under maintenance. Only SuperAdmin can change this status.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     if (roomToToggle) {
       toggleAvailability(roomToToggle, rooms, setRooms);
     } else {
       refetchRooms();
     }
-  }, [rooms, toggleAvailability, refetchRooms]);
+  }, [rooms, toggleAvailability, refetchRooms, toast]);
 
   const updateRoomAvailability = useCallback(async (roomId: string, isAvailable: boolean) => {
     try {
       if (!user) return;
+      
+      // Get the current room to check if it's under maintenance
+      const { data: roomData } = await supabase
+        .from('rooms')
+        .select('status')
+        .eq('id', roomId)
+        .single();
+        
+      // FIXED: Don't update availability for maintenance rooms
+      if (roomData?.status === 'maintenance') {
+        console.log("Skipping availability update for maintenance room:", roomId);
+        return;
+      }
       
       const newStatus: RoomStatus = isAvailable ? 'available' : 'occupied';
       
@@ -133,6 +174,7 @@ export function useRooms() {
           updated_at: new Date().toISOString()
         });
       
+      // Only update room status if not in maintenance
       await supabase
         .from('rooms')
         .update({

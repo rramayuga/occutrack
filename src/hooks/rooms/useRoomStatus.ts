@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Room, RoomStatus } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
@@ -10,6 +9,9 @@ export const useRoomStatus = (room: Room, onToggleAvailability: (roomId: string)
   const { user } = useAuth();
 
   const getEffectiveStatus = (): RoomStatus => {
+    // Always prioritize maintenance status
+    if (room.status === 'maintenance') return 'maintenance';
+    // Otherwise use whatever status is set
     if (room.status) return room.status;
     return room.isAvailable ? 'available' : 'occupied';
   };
@@ -53,23 +55,26 @@ export const useRoomStatus = (room: Room, onToggleAvailability: (roomId: string)
         throw roomError;
       }
       
-      // Determine if the room is available - only 'available' status is considered available
-      const isAvailable = status === 'available';
-      
-      // Also create a room_availability record to reflect the status change
-      const { error: availError } = await supabase
-        .from('room_availability')
-        .insert({
-          room_id: room.id, 
-          is_available: isAvailable,
-          updated_by: user.id,
-          updated_at: new Date().toISOString(),
-          status: status // Store the exact status in the room_availability table
-        });
+      // FIXED: Only create room_availability record if NOT setting to maintenance
+      if (status !== 'maintenance') {
+        // Determine if the room is available - only 'available' status is considered available
+        const isAvailable = status === 'available';
         
-      if (availError) {
-        console.error("Error updating room availability:", availError);
-        throw availError;
+        // Create a room_availability record to reflect the status change
+        const { error: availError } = await supabase
+          .from('room_availability')
+          .insert({
+            room_id: room.id, 
+            is_available: isAvailable,
+            updated_by: user.id,
+            updated_at: new Date().toISOString(),
+            status: status // Store the exact status in the room_availability table
+          });
+          
+        if (availError) {
+          console.error("Error updating room availability:", availError);
+          throw availError;
+        }
       }
       
       // Create an announcement if room is under maintenance (status = 'maintenance')
