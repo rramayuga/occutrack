@@ -24,7 +24,7 @@ export function useRoomAvailability() {
     }
 
     try {
-      // If the room is under maintenance, don't allow toggling availability
+      // If the room is under maintenance, don't allow toggling availability unless superadmin
       if (room.status === 'maintenance' && user.role !== 'superadmin') {
         toast({
           title: "Access Denied",
@@ -34,23 +34,32 @@ export function useRoomAvailability() {
         return;
       }
 
+      // Determine the new status based on current status
+      let newStatus: RoomStatus;
+      if (room.status === 'available') {
+        newStatus = 'occupied';
+      } else if (room.status === 'occupied' || room.status === 'maintenance') {
+        newStatus = 'available';
+      } else {
+        newStatus = 'available'; // Default case
+      }
+      
+      // Determine if the room is available - only 'available' status is considered available
+      const isAvailable = newStatus === 'available';
+      
       // Create a custom room_availability record
-      const newAvailability = room.status === 'occupied' ? true : false;
       const { error } = await supabase
         .from('room_availability')
         .insert({
           room_id: room.id, 
-          is_available: newAvailability,
+          is_available: isAvailable,
+          status: newStatus, // Store the exact status
           updated_by: user.id,
           updated_at: new Date().toISOString()
         });
       
       if (error) throw error;
 
-      // For maintenance status, don't toggle availability
-      const newStatus: RoomStatus = room.status === 'maintenance' ? 'maintenance' : 
-                        newAvailability ? 'available' : 'occupied';
-      
       // Update the room status in the rooms table
       const { error: statusError } = await supabase
         .from('rooms')
@@ -62,10 +71,10 @@ export function useRoomAvailability() {
       // Update local state
       const updatedRooms = rooms.map(r => {
         if (r.id === room.id) {
-          // Toggle the availability and update status
+          // Update both status and isAvailable
           const updatedRoom: Room = { 
             ...r, 
-            isAvailable: newAvailability,
+            isAvailable: isAvailable,
             status: newStatus
           };
           

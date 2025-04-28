@@ -52,32 +52,41 @@ export function useRooms() {
           console.error("Error fetching room availability:", availabilityError);
         }
         
-        // Create a map of room IDs to their latest availability status
+        // Create a map of room IDs to their latest availability status and status
         const availabilityMap = new Map();
         if (availabilityData) {
           availabilityData.forEach(record => {
             if (!availabilityMap.has(record.room_id)) {
-              availabilityMap.set(record.room_id, record.is_available);
+              availabilityMap.set(record.room_id, {
+                isAvailable: record.is_available,
+                status: record.status // Get the status if available
+              });
             }
           });
         }
         
-        // Transform to Room format with availability from the map or default to true
+        // Transform to Room format with availability and status from the map or database
         const roomsWithAvailability: Room[] = roomsData.map(room => {
           // Check if we have an availability record for this room
-          const isAvailable = availabilityMap.has(room.id) 
-            ? availabilityMap.get(room.id) 
-            : (room.status === 'available'); // Default to status if no availability record
+          const availabilityRecord = availabilityMap.get(room.id);
+          
+          // Always prioritize the status field from rooms table
+          const status = room.status || 
+                       (availabilityRecord && availabilityRecord.status) ||
+                       (room.isAvailable ? 'available' : 'occupied');
+          
+          // Determine isAvailable based on status (only 'available' status means available)
+          const isAvailable = status === 'available';
           
           return {
             id: room.id,
             name: room.name,
             type: room.type,
             capacity: room.capacity,
-            isAvailable: room.status === 'maintenance' ? false : isAvailable,
+            isAvailable: isAvailable,
             floor: room.floor,
             buildingId: room.building_id,
-            status: room.status as any // Cast to satisfy TypeScript
+            status: status as any // Cast to satisfy TypeScript
           };
         });
         
@@ -122,11 +131,15 @@ export function useRooms() {
     try {
       if (!user) return;
       
+      // Determine the appropriate status
+      const newStatus: RoomStatus = isAvailable ? 'available' : 'occupied';
+      
       await supabase
         .from('room_availability')
         .insert({
           room_id: roomId,
           is_available: isAvailable,
+          status: newStatus,
           updated_by: user.id,
           updated_at: new Date().toISOString()
         });
@@ -135,7 +148,7 @@ export function useRooms() {
       await supabase
         .from('rooms')
         .update({
-          status: isAvailable ? 'available' : 'occupied'
+          status: newStatus
         })
         .eq('id', roomId);
       
@@ -145,7 +158,7 @@ export function useRooms() {
           room.id === roomId ? { 
             ...room, 
             isAvailable,
-            status: isAvailable ? 'available' : 'occupied'
+            status: newStatus
           } : room
         )
       );

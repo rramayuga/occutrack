@@ -53,16 +53,18 @@ export const useRoomStatus = (room: Room, onToggleAvailability: (roomId: string)
         throw roomError;
       }
       
-      // Also create a room_availability record to reflect the status change
+      // Determine if the room is available - only 'available' status is considered available
       const isAvailable = status === 'available';
       
+      // Also create a room_availability record to reflect the status change
       const { error: availError } = await supabase
         .from('room_availability')
         .insert({
           room_id: room.id, 
           is_available: isAvailable,
           updated_by: user.id,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          status: status // Store the exact status in the room_availability table
         });
         
       if (availError) {
