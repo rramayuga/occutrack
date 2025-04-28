@@ -59,8 +59,9 @@ export function useRooms() {
             if (!availabilityMap.has(record.room_id)) {
               availabilityMap.set(record.room_id, {
                 isAvailable: record.is_available,
-                // Since status may not be in the room_availability table yet, default to based on is_available
-                status: record.status || (record.is_available ? 'available' : 'occupied')
+                // Since status may not be in the room_availability table yet, default based on is_available
+                // TypeScript is complaining because 'status' is not defined in the type
+                status: record.status as RoomStatus || (record.is_available ? 'available' as RoomStatus : 'occupied' as RoomStatus)
               });
             }
           });
