@@ -1,8 +1,14 @@
 
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { Calendar, Lock, Unlock } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 import { RoomStatus, UserRole } from '@/lib/types';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface RoomActionsProps {
   canModifyRooms: boolean;
@@ -24,8 +30,6 @@ const RoomActions: React.FC<RoomActionsProps> = ({
   const isMaintenanceMode = status === 'maintenance';
   const isSuperAdmin = userRole === 'superadmin';
   
-  // On maintenance, only show actions to superadmin for status changes
-  // But everyone can still view the schedule
   return (
     <div className="flex gap-2 w-full">
       <Button 
@@ -42,44 +46,42 @@ const RoomActions: React.FC<RoomActionsProps> = ({
       </Button>
       
       {canModifyRooms && (
-        <div className="flex gap-2">
-          {status !== 'maintenance' && (
-            <Button
-              variant={status === 'available' ? 'outline' : 'secondary'}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button 
+              variant="outline" 
               size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                onStatusChange(status === 'available' ? 'occupied' : 'available');
-              }}
+              onClick={(e) => e.stopPropagation()}
             >
-              {status === 'available' ? (
-                <>
-                  <Lock className="h-4 w-4 mr-2" />
-                  Mark as Occupied
-                </>
-              ) : (
-                <>
-                  <Unlock className="h-4 w-4 mr-2" />
-                  Mark as Available
-                </>
-              )}
+              Change Status
             </Button>
-          )}
-          
-          {/* Only superadmins can set/unset maintenance mode */}
-          {isSuperAdmin && (
-            <Button
-              variant={status === 'maintenance' ? 'destructive' : 'outline'}
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                onStatusChange(status === 'maintenance' ? 'available' : 'maintenance');
-              }}
-            >
-              {status === 'maintenance' ? 'End Maintenance' : 'Set Maintenance'}
-            </Button>
-          )}
-        </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {status !== 'maintenance' && (
+              <DropdownMenuItem 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStatusChange(status === 'available' ? 'occupied' : 'available');
+                }}
+              >
+                {status === 'available' ? 'Mark as Occupied' : 'Mark as Available'}
+              </DropdownMenuItem>
+            )}
+            
+            {/* Only superadmins can set/unset maintenance mode */}
+            {isSuperAdmin && (
+              <DropdownMenuItem 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStatusChange(status === 'maintenance' ? 'available' : 'maintenance');
+                }}
+                className={status === 'maintenance' ? 'text-red-500' : ''}
+              >
+                {status === 'maintenance' ? 'End Maintenance' : 'Set Maintenance'}
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
     </div>
   );
