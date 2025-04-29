@@ -32,7 +32,10 @@ const RoomActions: React.FC<RoomActionsProps> = ({
         variant="outline" 
         size="sm"
         className="flex-1"
-        onClick={onToggleSchedules}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleSchedules();
+        }}
       >
         <Calendar className="h-4 w-4 mr-2" />
         {showSchedules ? 'Hide Schedule' : 'View Schedule'}
@@ -44,7 +47,10 @@ const RoomActions: React.FC<RoomActionsProps> = ({
             <Button
               variant={status === 'available' ? 'outline' : 'secondary'}
               size="sm"
-              onClick={() => onStatusChange(status === 'available' ? 'occupied' : 'available')}
+              onClick={(e) => {
+                e.stopPropagation();
+                onStatusChange(status === 'available' ? 'occupied' : 'available');
+              }}
             >
               {status === 'available' ? (
                 <>
@@ -65,7 +71,10 @@ const RoomActions: React.FC<RoomActionsProps> = ({
             <Button
               variant={status === 'maintenance' ? 'destructive' : 'outline'}
               size="sm"
-              onClick={() => onStatusChange(status === 'maintenance' ? 'available' : 'maintenance')}
+              onClick={(e) => {
+                e.stopPropagation();
+                onStatusChange(status === 'maintenance' ? 'available' : 'maintenance');
+              }}
             >
               {status === 'maintenance' ? 'End Maintenance' : 'Set Maintenance'}
             </Button>

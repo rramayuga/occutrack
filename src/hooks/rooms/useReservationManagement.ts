@@ -39,8 +39,8 @@ export const useReservationManagement = () => {
     }
   };
 
-  const handleCancelClick = (e: React.MouseEvent, reservation: Reservation) => {
-    e.stopPropagation();
+  // Update the function signature to match what we need
+  const handleCancelClick = (reservation: Reservation) => {
     setSelectedReservation(reservation);
     setIsCancelDialogOpen(true);
   };

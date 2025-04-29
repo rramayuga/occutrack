@@ -19,6 +19,12 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
 }) => {
   if (!showSchedules) return null;
   
+  // Handle click internally to manage the event
+  const handleCancelButtonClick = (e: React.MouseEvent, reservation: Reservation) => {
+    e.stopPropagation();
+    onCancelClick(reservation);
+  };
+  
   return (
     <div className="px-4 pb-4 text-sm">
       <h4 className="font-medium text-xs mb-2 text-muted-foreground">Upcoming Reservations:</h4>
@@ -36,7 +42,7 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
                   variant="ghost" 
                   size="sm"
                   className="h-6 w-6 p-0"
-                  onClick={() => onCancelClick(schedule)}
+                  onClick={(e) => handleCancelButtonClick(e, schedule)}
                 >
                   <X className="h-4 w-4 text-red-500" />
                 </Button>

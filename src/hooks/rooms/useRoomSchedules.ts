@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Reservation } from '@/lib/types';
 import { useAuth } from '@/lib/auth';
@@ -90,8 +89,7 @@ export const useRoomSchedules = (roomId: string, roomName: string) => {
     fetchRoomSchedules();
   }, [roomId]);
 
-  const handleToggleSchedules = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleToggleSchedules = () => {
     setShowSchedules(!showSchedules);
   };
 
