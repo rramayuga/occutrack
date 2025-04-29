@@ -18,7 +18,7 @@ export function useRoomUpdater(
   const updateInProgress = useRef<Record<string, boolean>>({});
 
   // Update room availability in the database
-  const updateRoomAvailability = useCallback(async (roomId: string, isAvailable: boolean) => {
+  const updateRoomAvailability = useCallback(async (roomId: string, isAvailable: boolean, explicitStatus?: RoomStatus) => {
     try {
       if (!user) return;
       
@@ -29,7 +29,7 @@ export function useRoomUpdater(
       }
       
       updateInProgress.current[roomId] = true;
-      console.log(`Updating availability for room ${roomId} to ${isAvailable}`);
+      console.log(`Updating availability for room ${roomId} to ${isAvailable}, status: ${explicitStatus || 'derived from isAvailable'}`);
       
       // Get the current room to check if it's under maintenance
       const { data: roomData, error: roomError } = await supabase
@@ -43,15 +43,21 @@ export function useRoomUpdater(
         updateInProgress.current[roomId] = false;
         return;
       }
-        
-      // Don't update availability for maintenance rooms
-      if (roomData?.status === 'maintenance') {
-        console.log("Skipping availability update for maintenance room:", roomId);
+      
+      // If room is under maintenance and user is not superadmin, don't allow updates
+      if (roomData?.status === 'maintenance' && user.role !== 'superadmin') {
+        console.log("Cannot update a maintenance room unless superadmin");
+        toast({
+          title: "Permission Denied",
+          description: "Only SuperAdmin users can change the status of rooms under maintenance",
+          variant: "destructive"
+        });
         updateInProgress.current[roomId] = false;
         return;
       }
       
-      const newStatus: RoomStatus = isAvailable ? 'available' : 'occupied';
+      // Use explicit status if provided, otherwise derive from isAvailable
+      const newStatus: RoomStatus = explicitStatus || (isAvailable ? 'available' : 'occupied');
       
       // Update the rooms table first with the new status - this is crucial
       const { error: updateError } = await supabase
@@ -127,8 +133,8 @@ export function useRoomUpdater(
     console.log("Toggle availability for room:", roomId);
     const roomToToggle = rooms.find(room => room.id === roomId);
     
-    // Block toggling availability for maintenance rooms
-    if (roomToToggle && roomToToggle.status === 'maintenance') {
+    // Block toggling availability for maintenance rooms by non-superadmins
+    if (roomToToggle && roomToToggle.status === 'maintenance' && user?.role !== 'superadmin') {
       toast({
         title: "Cannot Toggle",
         description: "Room is under maintenance. Only SuperAdmin can change this status.",
@@ -139,12 +145,13 @@ export function useRoomUpdater(
     
     if (roomToToggle) {
       const newIsAvailable = !roomToToggle.isAvailable;
-      updateRoomAvailability(roomId, newIsAvailable);
+      const newStatus = newIsAvailable ? 'available' : 'occupied';
+      updateRoomAvailability(roomId, newIsAvailable, newStatus);
     } else {
       console.log("Room not found in local state, refreshing data");
       refetchRooms();
     }
-  }, [rooms, updateRoomAvailability, refetchRooms, toast]);
+  }, [rooms, updateRoomAvailability, refetchRooms, toast, user]);
 
   return {
     updateRoomAvailability,

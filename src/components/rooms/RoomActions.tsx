@@ -1,22 +1,15 @@
 
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { Calendar, Settings, ShieldAlert, Wrench } from 'lucide-react';
+import { Calendar, Lock, Unlock } from 'lucide-react';
 import { RoomStatus, UserRole } from '@/lib/types';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select";
 
 interface RoomActionsProps {
   canModifyRooms: boolean;
   showSchedules: boolean;
   status: RoomStatus;
   userRole?: UserRole;
-  onToggleSchedules: (e: React.MouseEvent) => void;
+  onToggleSchedules: () => void;
   onStatusChange: (status: RoomStatus) => void;
 }
 
@@ -28,46 +21,73 @@ const RoomActions: React.FC<RoomActionsProps> = ({
   onToggleSchedules,
   onStatusChange
 }) => {
+  const isMaintenanceMode = status === 'maintenance';
   const isSuperAdmin = userRole === 'superadmin';
   
+  // On maintenance, only show actions to superadmin
+  if (isMaintenanceMode && !isSuperAdmin) {
+    return (
+      <div className="flex justify-center w-full">
+        <Button 
+          variant="outline" 
+          size="sm"
+          className="w-full"
+          onClick={onToggleSchedules}
+        >
+          <Calendar className="h-4 w-4 mr-2" />
+          {showSchedules ? 'Hide Schedule' : 'View Schedule'}
+        </Button>
+      </div>
+    );
+  }
+  
   return (
-    <>
-      {(canModifyRooms || isSuperAdmin) && (
-        <div className="w-full mb-2">
-          <Select
-            value={status}
-            onValueChange={(value) => onStatusChange(value as RoomStatus)}
-          >
-            <SelectTrigger className="w-full text-xs">
-              <Settings className="h-4 w-4 mr-1" />
-              <SelectValue placeholder="Change Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="available">Mark as Available</SelectItem>
-              <SelectItem value="occupied">Mark as Occupied</SelectItem>
-              {isSuperAdmin && (
-                <SelectItem value="maintenance">
-                  <div className="flex items-center">
-                    <Wrench className="h-4 w-4 mr-1 text-amber-500" />
-                    <span>Mark as Under Maintenance</span>
-                  </div>
-                </SelectItem>
-              )}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-      
-      <Button
-        variant="ghost"
+    <div className="flex gap-2 w-full">
+      <Button 
+        variant="outline" 
         size="sm"
-        className="w-full text-xs"
+        className="flex-1"
         onClick={onToggleSchedules}
       >
-        <Calendar className="h-3 w-3 mr-1" />
+        <Calendar className="h-4 w-4 mr-2" />
         {showSchedules ? 'Hide Schedule' : 'View Schedule'}
       </Button>
-    </>
+      
+      {canModifyRooms && (
+        <div className="flex gap-2">
+          {status !== 'maintenance' && (
+            <Button
+              variant={status === 'available' ? 'outline' : 'secondary'}
+              size="sm"
+              onClick={() => onStatusChange(status === 'available' ? 'occupied' : 'available')}
+            >
+              {status === 'available' ? (
+                <>
+                  <Lock className="h-4 w-4 mr-2" />
+                  Mark as Occupied
+                </>
+              ) : (
+                <>
+                  <Unlock className="h-4 w-4 mr-2" />
+                  Mark as Available
+                </>
+              )}
+            </Button>
+          )}
+          
+          {/* Only superadmins can set/unset maintenance mode */}
+          {isSuperAdmin && (
+            <Button
+              variant={status === 'maintenance' ? 'destructive' : 'outline'}
+              size="sm"
+              onClick={() => onStatusChange(status === 'maintenance' ? 'available' : 'maintenance')}
+            >
+              {status === 'maintenance' ? 'End Maintenance' : 'Set Maintenance'}
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
   );
 };
 

@@ -43,6 +43,17 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
         return;
       }
       
+      // If trying to change maintenance room status and not superadmin, block
+      if (room.status === 'maintenance' && user.role !== 'superadmin') {
+        console.error("Only superadmin can change status of maintenance rooms");
+        toast({
+          title: 'Permission Denied',
+          description: 'Only SuperAdmin users can change the status of rooms under maintenance',
+          variant: 'destructive'
+        });
+        return;
+      }
+      
       console.log("Current user ID:", user.id);
       
       const previousStatus = room.status;

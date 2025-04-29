@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/lib/auth';
 import { Reservation, ReservationFormValues } from '@/lib/types';
@@ -106,6 +106,24 @@ export function useReservations() {
     }
     
     try {
+      // First, check if the room is under maintenance
+      const { data: roomData, error: roomError } = await supabase
+        .from('rooms')
+        .select('status')
+        .eq('id', roomId)
+        .single();
+        
+      if (roomError) throw roomError;
+      
+      if (roomData?.status === 'maintenance') {
+        toast({
+          title: "Cannot Reserve Room",
+          description: "This room is currently under maintenance and cannot be reserved.",
+          variant: "destructive"
+        });
+        return null;
+      }
+      
       // Check for time conflicts
       const { data: conflicts, error: conflictError } = await supabase
         .from('room_reservations')

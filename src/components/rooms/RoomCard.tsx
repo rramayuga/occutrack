@@ -1,3 +1,4 @@
+
 import React, { memo } from 'react';
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Lock } from 'lucide-react';
@@ -41,6 +42,11 @@ const RoomCard: React.FC<RoomCardProps> = ({
   } = useRoomCardLogic(room, onToggleAvailability, refetchRooms);
 
   const handleCardClick = () => {
+    // Don't allow selection of maintenance rooms for non-superadmins
+    if (room.status === 'maintenance' && user?.role !== 'superadmin') {
+      return;
+    }
+    
     if (onSelectRoom) {
       onSelectRoom();
     }
@@ -48,16 +54,20 @@ const RoomCard: React.FC<RoomCardProps> = ({
 
   const status = getEffectiveStatus();
   const isSuperAdmin = user?.role === 'superadmin';
-  const userCanModifyRooms = canModifyRooms || isSuperAdmin;
+  
+  // User can modify rooms if:
+  // 1. They have general permission AND room is not in maintenance, OR
+  // 2. They are a superadmin (can modify any room)
+  const userCanModifyRooms = (canModifyRooms && status !== 'maintenance') || isSuperAdmin;
 
   return (
     <>
       <Card 
-        className={`hover:shadow-md transition-shadow ${onSelectRoom ? 'cursor-pointer' : ''} ${
-          status === 'maintenance' ? 'border-amber-200' : 
+        className={`hover:shadow-md transition-shadow ${onSelectRoom && (status !== 'maintenance' || isSuperAdmin) ? 'cursor-pointer' : ''} ${
+          status === 'maintenance' ? 'border-amber-200 bg-amber-50' : 
           status === 'occupied' ? 'border-red-200' : ''
         }`}
-        onClick={onSelectRoom ? handleCardClick : undefined}
+        onClick={handleCardClick}
       >
         <CardHeader className="pb-2">
           <RoomCardHeader 
@@ -76,7 +86,7 @@ const RoomCard: React.FC<RoomCardProps> = ({
           {!userCanModifyRooms && (
             <div className="text-xs text-muted-foreground flex items-center mb-2 w-full justify-center">
               <Lock className="h-3 w-3 mr-1" />
-              {status === 'maintenance' ? 'Under maintenance' : 
+              {status === 'maintenance' ? 'Under maintenance - SuperAdmin only' : 
                status === 'occupied' ? 'Currently in use' : 'Ready for use'}
             </div>
           )}
@@ -91,12 +101,15 @@ const RoomCard: React.FC<RoomCardProps> = ({
           />
         </CardFooter>
         
-        <RoomScheduleList 
-          roomSchedules={roomSchedules}
-          showSchedules={showSchedules}
-          isUserFaculty={isUserFaculty}
-          onCancelClick={handleCancelClick}
-        />
+        {/* Don't show schedules for maintenance rooms to non-superadmins */}
+        {(status !== 'maintenance' || isSuperAdmin) && (
+          <RoomScheduleList 
+            roomSchedules={roomSchedules}
+            showSchedules={showSchedules}
+            isUserFaculty={isUserFaculty}
+            onCancelClick={handleCancelClick}
+          />
+        )}
       </Card>
       
       <CancelReservationDialog
