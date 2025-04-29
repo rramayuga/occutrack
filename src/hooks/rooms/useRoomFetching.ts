@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useRef } from 'react';
 import { Room, RoomStatus } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
@@ -64,9 +63,15 @@ export function useRoomFetching() {
       if (availabilityData) {
         for (const record of availabilityData) {
           if (!availabilityMap.has(record.room_id)) {
-            // Use type assertion with a fallback for missing status property
-            let status = record.status as RoomStatus;
-            if (!status) {
+            // Handle case where status might not exist in older records
+            // Type assertion is now safer by checking if property exists first
+            let status: RoomStatus = 'available';
+            
+            if ('status' in record && record.status) {
+              // If status exists in the record, use it
+              status = record.status as RoomStatus;
+            } else {
+              // Otherwise derive it from is_available
               status = record.is_available ? 'available' : 'occupied';
             }
             

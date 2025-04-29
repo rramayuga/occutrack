@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Room, RoomStatus } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
@@ -85,21 +86,26 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
       console.log("Room status updated successfully in database:", updatedRoom);
       
       // Create a room_availability record to track the change
-      const { data: availData, error: availError } = await supabase
-        .from('room_availability')
-        .insert({
-          room_id: room.id, 
-          is_available: isAvailable,
-          updated_by: user.id,
-          updated_at: new Date().toISOString(),
-          status: status // Store the exact status in the room_availability table
-        })
-        .select();
-          
-      if (availError) {
-        console.error("Error updating room availability:", availError);
-      } else {
-        console.log("Room availability record created:", availData);
+      try {
+        const { data: availData, error: availError } = await supabase
+          .from('room_availability')
+          .insert({
+            room_id: room.id, 
+            is_available: isAvailable,
+            updated_by: user.id,
+            updated_at: new Date().toISOString(),
+            status: status // Store the exact status in the room_availability table
+          })
+          .select();
+            
+        if (availError) {
+          console.error("Error updating room availability:", availError);
+        } else {
+          console.log("Room availability record created:", availData);
+        }
+      } catch (availabilityError) {
+        console.error("Error with availability record:", availabilityError);
+        // Continue execution - don't block the main flow if availability record fails
       }
       
       // Handle announcement creation and removal based on status change
@@ -111,7 +117,8 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
         const { data: existingAnnouncement, error: checkError } = await supabase
           .from('announcements')
           .select('id')
-          .ilike('title', announcementTitle)
+          .ilike('title', `%${room.name}%`)
+          .ilike('title', '%Under Maintenance%')
           .maybeSingle();
         
         if (checkError) {
@@ -120,36 +127,41 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
         
         // Only create if no existing announcement found
         if (!existingAnnouncement) {
-          const { error: announcementError } = await supabase
+          console.log("No existing maintenance announcement found, creating new one");
+          
+          const { data, error: announcementError } = await supabase
             .from('announcements')
             .insert({
               title: announcementTitle,
               content: `Room ${room.name} in ${buildingName} is now under maintenance. Please note that this room will be temporarily unavailable for reservations.`,
               created_by: user.id
-            });
+            })
+            .select();
             
           if (announcementError) {
             console.error("Error creating maintenance announcement:", announcementError);
           } else {
+            console.log("Created maintenance announcement:", data);
             toast({
               title: "Announcement Created",
               description: `A system announcement about ${room.name} maintenance has been posted.`,
             });
           }
         } else {
-          console.log("Maintenance announcement already exists for this room");
+          console.log("Maintenance announcement already exists for this room:", existingAnnouncement);
         }
       } 
       // If the room was in maintenance before and is now available, remove maintenance announcements
       else if (previousStatus === 'maintenance' && status === 'available') {
         // Find and remove maintenance announcements for this room
-        const announcementTitle = `Room Under Maintenance: ${buildingName} - ${room.name}`;
+        const announcementTitle = `%${room.name}%`;
         console.log("Finding announcements to remove with title like:", announcementTitle);
         
         const { data: announcements, error: findError } = await supabase
           .from('announcements')
           .select('id')
-          .ilike('title', announcementTitle);
+          .ilike('title', `%${room.name}%`)
+          .ilike('title', '%Under Maintenance%');
         
         if (findError) {
           console.error("Error finding maintenance announcements:", findError);

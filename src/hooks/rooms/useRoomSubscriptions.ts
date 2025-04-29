@@ -89,7 +89,15 @@ export function useRoomSubscriptions(
           const isAvailable = payload.new.is_available;
           
           // Get the explicit status or derive from isAvailable
-          const status = (payload.new.status as RoomStatus) || (isAvailable ? 'available' : 'occupied');
+          let status: RoomStatus;
+          
+          // Check if status exists in the payload
+          if ('status' in payload.new && payload.new.status) {
+            status = payload.new.status as RoomStatus;
+          } else {
+            // Derive from is_available
+            status = isAvailable ? 'available' : 'occupied';
+          }
           
           console.log(`Updating room ${updatedRoomId} with isAvailable=${isAvailable}, status=${status}`);
           
