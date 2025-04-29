@@ -24,23 +24,8 @@ const RoomActions: React.FC<RoomActionsProps> = ({
   const isMaintenanceMode = status === 'maintenance';
   const isSuperAdmin = userRole === 'superadmin';
   
-  // On maintenance, only show actions to superadmin
-  if (isMaintenanceMode && !isSuperAdmin) {
-    return (
-      <div className="flex justify-center w-full">
-        <Button 
-          variant="outline" 
-          size="sm"
-          className="w-full"
-          onClick={onToggleSchedules}
-        >
-          <Calendar className="h-4 w-4 mr-2" />
-          {showSchedules ? 'Hide Schedule' : 'View Schedule'}
-        </Button>
-      </div>
-    );
-  }
-  
+  // On maintenance, only show actions to superadmin for status changes
+  // But everyone can still view the schedule
   return (
     <div className="flex gap-2 w-full">
       <Button 
