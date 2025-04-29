@@ -72,7 +72,7 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
         throw roomError;
       }
       
-      // FIXED: Only create room_availability record if NOT setting to maintenance
+      // Only create room_availability record if NOT setting to maintenance
       if (status !== 'maintenance') {
         // Determine if the room is available - only 'available' status is considered available
         const isAvailable = status === 'available';
@@ -97,33 +97,56 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
       // Handle announcement creation and removal based on status change
       if (status === 'maintenance') {
         // Create an announcement for the maintenance status
-        const { error: announcementError } = await supabase
+        const announcementTitle = `Room Under Maintenance: ${buildingName} - ${room.name}`;
+        console.log("Creating maintenance announcement:", announcementTitle);
+        
+        const { data: existingAnnouncement, error: checkError } = await supabase
           .from('announcements')
-          .insert({
-            title: `Room Under Maintenance: ${buildingName} - ${room.name}`,
-            content: `Room ${room.name} in ${buildingName} is now under maintenance. Please note that this room will be temporarily unavailable for reservations.`,
-            created_by: user.id
-          });
-          
-        if (announcementError) {
-          console.error("Error creating maintenance announcement:", announcementError);
-          // Don't throw error here, still allow status change to succeed
+          .select('id')
+          .ilike('title', announcementTitle)
+          .maybeSingle();
+        
+        // Only create if no existing announcement found
+        if (!existingAnnouncement) {
+          const { error: announcementError } = await supabase
+            .from('announcements')
+            .insert({
+              title: announcementTitle,
+              content: `Room ${room.name} in ${buildingName} is now under maintenance. Please note that this room will be temporarily unavailable for reservations.`,
+              created_by: user.id
+            });
+            
+          if (announcementError) {
+            console.error("Error creating maintenance announcement:", announcementError);
+            // Don't throw error here, still allow status change to succeed
+          } else {
+            toast({
+              title: "Announcement Created",
+              description: `A system announcement about ${room.name} maintenance has been posted.`,
+            });
+          }
         } else {
-          toast({
-            title: "Announcement Created",
-            description: `A system announcement about ${room.name} maintenance has been posted.`,
-          });
+          console.log("Maintenance announcement already exists for this room");
         }
       } 
       // If the room was in maintenance before and is now available, remove maintenance announcements
       else if (previousStatus === 'maintenance' && status === 'available') {
         // Find and remove maintenance announcements for this room
+        const announcementTitle = `Room Under Maintenance: ${buildingName} - ${room.name}`;
+        console.log("Finding announcements to remove with title like:", announcementTitle);
+        
         const { data: announcements, error: findError } = await supabase
           .from('announcements')
           .select('id')
-          .ilike('title', `%Room Under Maintenance: ${buildingName} - ${room.name}%`);
+          .ilike('title', announcementTitle);
         
-        if (!findError && announcements && announcements.length > 0) {
+        if (findError) {
+          console.error("Error finding maintenance announcements:", findError);
+        }
+        
+        if (announcements && announcements.length > 0) {
+          console.log("Found announcements to delete:", announcements.length);
+          
           // Delete found announcements
           const announcementIds = announcements.map(a => a.id);
           const { error: deleteError } = await supabase
@@ -139,6 +162,8 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
               description: `Room ${room.name} is now available and maintenance announcements have been removed.`,
             });
           }
+        } else {
+          console.log("No maintenance announcements found to remove");
         }
       }
       
