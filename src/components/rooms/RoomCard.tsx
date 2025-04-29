@@ -1,4 +1,3 @@
-
 import React, { memo } from 'react';
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Lock } from 'lucide-react';

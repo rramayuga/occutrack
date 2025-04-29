@@ -1,4 +1,3 @@
-
 import React, { useEffect, useCallback, memo } from 'react';
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { AlertCircle } from "lucide-react";
@@ -127,4 +126,4 @@ const Rooms = () => {
   );
 };
 
-export default Rooms;
+export default memo(Rooms);
