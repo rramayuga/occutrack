@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { memo } from 'react';
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Lock } from 'lucide-react';
 import { Room } from '@/lib/types';
@@ -111,4 +111,5 @@ const RoomCard: React.FC<RoomCardProps> = ({
   );
 };
 
-export default RoomCard;
+// Memoize the component to prevent unnecessary re-renders
+export default memo(RoomCard);

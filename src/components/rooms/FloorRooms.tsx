@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { memo } from 'react';
 import { Room } from '@/lib/types';
 import RoomCard from './RoomCard';
 
@@ -18,8 +18,11 @@ const FloorRooms: React.FC<FloorRoomsProps> = ({
   onToggleAvailability,
   refetchRooms
 }) => {
-  // Sort rooms by name
-  const sortedRooms = [...rooms].sort((a, b) => a.name.localeCompare(b.name));
+  // Sort rooms by name - memoize this calculation
+  const sortedRooms = React.useMemo(() => 
+    [...rooms].sort((a, b) => a.name.localeCompare(b.name)),
+    [rooms]
+  );
 
   return (
     <div>
@@ -32,7 +35,7 @@ const FloorRooms: React.FC<FloorRoomsProps> = ({
         ) : (
           sortedRooms.map(room => (
             <RoomCard
-              key={room.id}
+              key={`${room.id}-${room.status}`}
               room={room}
               canModifyRooms={canModifyRooms}
               onToggleAvailability={onToggleAvailability}
@@ -45,4 +48,5 @@ const FloorRooms: React.FC<FloorRoomsProps> = ({
   );
 };
 
-export default FloorRooms;
+// Memoize the component to prevent unnecessary re-renders
+export default memo(FloorRooms);

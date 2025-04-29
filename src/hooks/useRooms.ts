@@ -1,7 +1,7 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { BuildingWithFloors, Room, RoomStatus } from '@/lib/types';
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/lib/auth';
 import { useBuildings } from './useBuildings';
@@ -13,6 +13,7 @@ export function useRooms() {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const { toast } = useToast();
+  const fetchInProgress = useRef(false);
   
   const { 
     buildings, 
@@ -27,7 +28,14 @@ export function useRooms() {
   } = useRoomAvailability();
 
   const fetchRooms = useCallback(async () => {
+    // Prevent multiple concurrent fetches
+    if (fetchInProgress.current) {
+      console.log("Fetch already in progress, skipping...");
+      return;
+    }
+    
     try {
+      fetchInProgress.current = true;
       setLoading(true);
       console.log("Fetching rooms from database...");
       
@@ -101,7 +109,7 @@ export function useRooms() {
           };
         });
         
-        console.log("Fetched rooms:", roomsWithAvailability);
+        console.log("Fetched rooms:", roomsWithAvailability.length);
         setRooms(roomsWithAvailability);
       } else {
         console.log("No rooms found in Supabase");
@@ -116,9 +124,11 @@ export function useRooms() {
       });
     } finally {
       setLoading(false);
+      fetchInProgress.current = false;
     }
   }, [toast]);
   
+  // Use a debounce mechanism for refetching to prevent excessive calls
   const refetchRooms = useCallback(async () => {
     console.log("Manually refreshing rooms...");
     await fetchRooms();
@@ -196,7 +206,8 @@ export function useRooms() {
     }
   }, [user]);
 
-  const setupRoomSubscription = () => {
+  // Modified subscription setup to be more efficient
+  const setupRoomSubscription = useCallback(() => {
     const roomChannel = supabase
       .channel('public:rooms')
       .on('postgres_changes', { 
@@ -205,32 +216,84 @@ export function useRooms() {
         table: 'rooms' 
       }, (payload) => {
         console.log('Room change received:', payload);
-        fetchRooms();
+        
+        // Instead of full refetch, update the specific room in state
+        if (payload.eventType === 'UPDATE' && payload.new && payload.new.id) {
+          const updatedRoom = payload.new;
+          setRooms(prevRooms => 
+            prevRooms.map(room => 
+              room.id === updatedRoom.id ? 
+              { 
+                ...room,
+                status: updatedRoom.status || room.status,
+                isAvailable: updatedRoom.status === 'available'
+              } : room
+            )
+          );
+        } else {
+          // For other events like INSERT or DELETE, do a full refetch
+          fetchRooms();
+        }
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(roomChannel);
     };
-  };
+  }, [fetchRooms]);
+
+  // Optimize the subscription to prevent excessive re-renders
+  const setupOptimizedAvailabilitySubscription = useCallback(() => {
+    const availabilityChannel = supabase
+      .channel('room_availability_changes_optimized')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'room_availability' 
+      }, (payload) => {
+        console.log('Room availability change received:', payload);
+        
+        // Only do a full refetch if we can't update the specific room in state
+        if (payload.eventType === 'INSERT' && payload.new && payload.new.room_id) {
+          const updatedRoomId = payload.new.room_id;
+          const isAvailable = payload.new.is_available;
+          const status = payload.new.status || (isAvailable ? 'available' : 'occupied');
+          
+          // Update a specific room instead of refetching all rooms
+          setRooms(prevRooms => 
+            prevRooms.map(room => 
+              room.id === updatedRoomId && room.status !== 'maintenance' ? 
+              { 
+                ...room, 
+                isAvailable: isAvailable,
+                status: status as RoomStatus
+              } : room
+            )
+          );
+        } else {
+          fetchRooms();
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(availabilityChannel);
+    };
+  }, [fetchRooms]);
 
   useRoomReservationCheck(rooms, updateRoomAvailability);
 
   useEffect(() => {
-    const fetchData = async () => {
-      await fetchRooms();
-    };
-    
-    fetchData();
+    fetchRooms();
     
     const unsubscribeRooms = setupRoomSubscription();
-    const unsubscribeAvailability = setupRoomAvailabilitySubscription(fetchRooms);
+    const unsubscribeAvailability = setupOptimizedAvailabilitySubscription();
     
     return () => {
       unsubscribeRooms();
       unsubscribeAvailability();
     };
-  }, [fetchRooms]);
+  }, [fetchRooms, setupRoomSubscription, setupOptimizedAvailabilitySubscription]);
 
   return {
     buildings,

@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback, memo } from 'react';
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { AlertCircle } from "lucide-react";
 import Navbar from '@/components/layout/Navbar';
@@ -7,6 +7,9 @@ import { useAuth } from '@/lib/auth';
 import BuildingList from '@/components/rooms/BuildingList';
 import FloorRooms from '@/components/rooms/FloorRooms';
 import { useRooms } from '@/hooks/useRooms';
+
+// Memoized FloorRooms component to prevent unnecessary re-renders
+const MemoizedFloorRooms = memo(FloorRooms);
 
 const Rooms = () => {
   const { 
@@ -28,32 +31,34 @@ const Rooms = () => {
     }
   }, [buildings, selectedBuilding, setSelectedBuilding]);
 
-  // Filter rooms for the selected building
-  const buildingRooms = rooms.filter(room => room.buildingId === selectedBuilding);
+  // Memoize expensive calculations
+  const buildingRooms = React.useMemo(() => 
+    rooms.filter(room => room.buildingId === selectedBuilding),
+    [rooms, selectedBuilding]
+  );
   
-  // Group rooms by floor
-  const roomsByFloor = buildingRooms.reduce((acc, room) => {
-    if (!acc[room.floor]) {
-      acc[room.floor] = [];
-    }
-    acc[room.floor].push(room);
-    return acc;
-  }, {} as Record<number, typeof rooms>);
+  // Memoize room grouping by floor
+  const roomsByFloor = React.useMemo(() => {
+    return buildingRooms.reduce((acc, room) => {
+      if (!acc[room.floor]) {
+        acc[room.floor] = [];
+      }
+      acc[room.floor].push(room);
+      return acc;
+    }, {} as Record<number, typeof rooms>);
+  }, [buildingRooms]);
 
   // Get the floors for the selected building
-  const selectedBuildingData = buildings.find(b => b.id === selectedBuilding);
+  const selectedBuildingData = React.useMemo(() => 
+    buildings.find(b => b.id === selectedBuilding),
+    [buildings, selectedBuilding]
+  );
+  
   const floors = selectedBuildingData?.floors || [];
 
   // Determine if the current user can modify room availability
   const authorizedRoles = ['faculty', 'admin', 'superadmin'];
   const canModifyRooms = user && authorizedRoles.includes(user.role);
-
-  console.log("Rendering Rooms component with:", { 
-    buildingsCount: buildings.length, 
-    roomsCount: rooms.length,
-    selectedBuilding,
-    floors
-  });
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -100,8 +105,8 @@ const Rooms = () => {
                         // Use the floor.number to access the rooms for this floor
                         const floorRooms = roomsByFloor[floor.number] || [];
                         return (
-                          <FloorRooms 
-                            key={floor.id}
+                          <MemoizedFloorRooms 
+                            key={`${floor.id}-${floorRooms.length}`}
                             floor={floor.number}
                             rooms={floorRooms}
                             canModifyRooms={canModifyRooms}
