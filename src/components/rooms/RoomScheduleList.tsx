@@ -8,7 +8,7 @@ interface RoomScheduleListProps {
   roomSchedules: Reservation[];
   showSchedules: boolean;
   isUserFaculty: (reservation: Reservation) => boolean;
-  onCancelClick: (e: React.MouseEvent, reservation: Reservation) => void;
+  onCancelClick: (reservation: Reservation) => void;
 }
 
 const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
@@ -36,7 +36,7 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
                   variant="ghost" 
                   size="sm"
                   className="h-6 w-6 p-0"
-                  onClick={(e) => onCancelClick(e, schedule)}
+                  onClick={() => onCancelClick(schedule)}
                 >
                   <X className="h-4 w-4 text-red-500" />
                 </Button>
