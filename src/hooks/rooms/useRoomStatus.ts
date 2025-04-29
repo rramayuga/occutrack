@@ -58,6 +58,8 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
         
         if (!buildingError && buildingData) {
           buildingName = buildingData.name;
+        } else if (buildingError) {
+          console.error("Error fetching building name:", buildingError);
         }
       }
       
@@ -69,7 +71,12 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
       
       if (roomError) {
         console.error("Error updating room status:", roomError);
-        throw roomError;
+        toast({
+          title: "Error",
+          description: "Failed to update room status: " + roomError.message,
+          variant: "destructive"
+        });
+        return;  // Exit early on error
       }
       
       // Only create room_availability record if NOT setting to maintenance
@@ -90,7 +97,7 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
           
         if (availError) {
           console.error("Error updating room availability:", availError);
-          throw availError;
+          // Continue execution, don't return early
         }
       }
       
@@ -105,6 +112,10 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
           .select('id')
           .ilike('title', announcementTitle)
           .maybeSingle();
+        
+        if (checkError) {
+          console.error("Error checking for existing announcement:", checkError);
+        }
         
         // Only create if no existing announcement found
         if (!existingAnnouncement) {
@@ -167,6 +178,7 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
         }
       }
       
+      // Show success toast only after all operations succeed
       toast({
         title: "Room status updated",
         description: `Room status changed to ${status}`,
@@ -175,13 +187,20 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
       // Force a refresh of room data through refetchRooms
       await refetchRooms();
       
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating room status:", error);
       toast({
         title: "Error",
-        description: "Failed to update room status",
+        description: `Failed to update room status: ${error?.message || 'Unknown error'}`,
         variant: "destructive"
       });
+      
+      // Attempt to refresh the rooms data to ensure UI is in sync
+      try {
+        await refetchRooms();
+      } catch (refreshError) {
+        console.error("Failed to refresh rooms after error:", refreshError);
+      }
     }
   };
 
