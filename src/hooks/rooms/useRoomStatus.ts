@@ -45,6 +45,22 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
       
       console.log("Current user ID:", user.id);
       
+      const previousStatus = room.status;
+      
+      // Get the building name for the announcement
+      let buildingName = "Unknown Building";
+      if (room.buildingId) {
+        const { data: buildingData, error: buildingError } = await supabase
+          .from('buildings')
+          .select('name')
+          .eq('id', room.buildingId)
+          .single();
+        
+        if (!buildingError && buildingData) {
+          buildingName = buildingData.name;
+        }
+      }
+      
       // Update the room status in the database
       const { error: roomError } = await supabase
         .from('rooms')
@@ -78,19 +94,51 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
         }
       }
       
-      // Create an announcement if room is under maintenance (status = 'maintenance')
+      // Handle announcement creation and removal based on status change
       if (status === 'maintenance') {
+        // Create an announcement for the maintenance status
         const { error: announcementError } = await supabase
           .from('announcements')
           .insert({
-            title: "Room Under Maintenance",
-            content: `Room ${room.name} is now under maintenance. Please note that this room will be temporarily unavailable for reservations.`,
+            title: `Room Under Maintenance: ${buildingName} - ${room.name}`,
+            content: `Room ${room.name} in ${buildingName} is now under maintenance. Please note that this room will be temporarily unavailable for reservations.`,
             created_by: user.id
           });
           
         if (announcementError) {
           console.error("Error creating maintenance announcement:", announcementError);
           // Don't throw error here, still allow status change to succeed
+        } else {
+          toast({
+            title: "Announcement Created",
+            description: `A system announcement about ${room.name} maintenance has been posted.`,
+          });
+        }
+      } 
+      // If the room was in maintenance before and is now available, remove maintenance announcements
+      else if (previousStatus === 'maintenance' && status === 'available') {
+        // Find and remove maintenance announcements for this room
+        const { data: announcements, error: findError } = await supabase
+          .from('announcements')
+          .select('id')
+          .ilike('title', `%Room Under Maintenance: ${buildingName} - ${room.name}%`);
+        
+        if (!findError && announcements && announcements.length > 0) {
+          // Delete found announcements
+          const announcementIds = announcements.map(a => a.id);
+          const { error: deleteError } = await supabase
+            .from('announcements')
+            .delete()
+            .in('id', announcementIds);
+          
+          if (deleteError) {
+            console.error("Error removing maintenance announcements:", deleteError);
+          } else {
+            toast({
+              title: "Maintenance Ended",
+              description: `Room ${room.name} is now available and maintenance announcements have been removed.`,
+            });
+          }
         }
       }
       
@@ -99,7 +147,7 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
         description: `Room status changed to ${status}`,
       });
       
-      // FIXED: Force a refresh of room data through refetchRooms
+      // Force a refresh of room data through refetchRooms
       await refetchRooms();
       
     } catch (error) {
