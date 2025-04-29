@@ -21,12 +21,19 @@ export function useRoomUpdater(
     try {
       if (!user) return;
       
+      console.log(`Updating availability for room ${roomId} to ${isAvailable}`);
+      
       // Get the current room to check if it's under maintenance
-      const { data: roomData } = await supabase
+      const { data: roomData, error: roomError } = await supabase
         .from('rooms')
         .select('status')
         .eq('id', roomId)
         .single();
+      
+      if (roomError) {
+        console.error("Error checking room status:", roomError);
+        return;
+      }
         
       // Don't update availability for maintenance rooms
       if (roomData?.status === 'maintenance') {
@@ -36,7 +43,25 @@ export function useRoomUpdater(
       
       const newStatus: RoomStatus = isAvailable ? 'available' : 'occupied';
       
-      await supabase
+      // Update the rooms table first
+      const { data: updatedRoom, error: updateError } = await supabase
+        .from('rooms')
+        .update({
+          status: newStatus
+        })
+        .eq('id', roomId)
+        .select()
+        .single();
+      
+      if (updateError) {
+        console.error("Error updating room status:", updateError);
+        return;
+      }
+      
+      console.log("Room status updated:", updatedRoom);
+      
+      // Then create an availability record
+      const { data: availData, error: availError } = await supabase
         .from('room_availability')
         .insert({
           room_id: roomId,
@@ -44,16 +69,16 @@ export function useRoomUpdater(
           status: newStatus,
           updated_by: user.id,
           updated_at: new Date().toISOString()
-        });
-      
-      // Only update room status if not in maintenance
-      await supabase
-        .from('rooms')
-        .update({
-          status: newStatus
         })
-        .eq('id', roomId);
+        .select();
       
+      if (availError) {
+        console.error("Error creating availability record:", availError);
+      } else {
+        console.log("Room availability record created:", availData);
+      }
+      
+      // Update local state
       setRooms(prevRooms => 
         prevRooms.map(room => 
           room.id === roomId ? { 
@@ -63,10 +88,19 @@ export function useRoomUpdater(
           } : room
         )
       );
-    } catch (error) {
+      
+      // Force refresh to ensure consistency
+      await refetchRooms();
+      
+    } catch (error: any) {
       console.error("Error updating room availability:", error);
+      toast({
+        title: "Error",
+        description: `Failed to update room availability: ${error?.message || 'Unknown error'}`,
+        variant: "destructive"
+      });
     }
-  }, [user, setRooms]);
+  }, [user, setRooms, refetchRooms, toast]);
 
   // Handle toggling room availability
   const handleToggleRoomAvailability = useCallback((roomId: string) => {

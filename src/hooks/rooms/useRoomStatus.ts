@@ -19,7 +19,7 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
 
   const handleStatusChange = async (status: RoomStatus) => {
     try {
-      console.log("Updating room status to:", status);
+      console.log("Updating room status to:", status, "for room:", room.id, room.name);
       
       // Check if attempting to set maintenance status
       if (status === 'maintenance' && user?.role !== 'superadmin') {
@@ -63,11 +63,15 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
         }
       }
       
+      console.log(`Updating room ${room.id} status from ${previousStatus} to ${status}`);
+      
       // Update the room status in the database
-      const { error: roomError } = await supabase
+      const { data: updatedRoom, error: roomError } = await supabase
         .from('rooms')
         .update({ status: status })
-        .eq('id', room.id);
+        .eq('id', room.id)
+        .select()
+        .single();
       
       if (roomError) {
         console.error("Error updating room status:", roomError);
@@ -79,13 +83,17 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
         return;  // Exit early on error
       }
       
+      console.log("Room status updated successfully:", updatedRoom);
+      
       // Only create room_availability record if NOT setting to maintenance
       if (status !== 'maintenance') {
         // Determine if the room is available - only 'available' status is considered available
         const isAvailable = status === 'available';
         
+        console.log(`Creating room_availability record for room ${room.id} with isAvailable=${isAvailable}, status=${status}`);
+        
         // Create a room_availability record to reflect the status change
-        const { error: availError } = await supabase
+        const { data: availData, error: availError } = await supabase
           .from('room_availability')
           .insert({
             room_id: room.id, 
@@ -93,11 +101,14 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
             updated_by: user.id,
             updated_at: new Date().toISOString(),
             status: status // Store the exact status in the room_availability table
-          });
+          })
+          .select();
           
         if (availError) {
           console.error("Error updating room availability:", availError);
           // Continue execution, don't return early
+        } else {
+          console.log("Room availability record created:", availData);
         }
       }
       
@@ -185,6 +196,7 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
       });
       
       // Force a refresh of room data through refetchRooms
+      console.log("Forcing refresh of room data...");
       await refetchRooms();
       
     } catch (error: any) {
