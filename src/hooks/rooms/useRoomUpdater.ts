@@ -53,41 +53,46 @@ export function useRoomUpdater(
       
       const newStatus: RoomStatus = isAvailable ? 'available' : 'occupied';
       
-      // Update the rooms table first
-      const { data: updatedRoom, error: updateError } = await supabase
+      // Update the rooms table first with the new status - this is crucial
+      const { error: updateError } = await supabase
         .from('rooms')
         .update({
           status: newStatus
         })
-        .eq('id', roomId)
-        .select()
-        .single();
+        .eq('id', roomId);
       
       if (updateError) {
         console.error("Error updating room status:", updateError);
+        toast({
+          title: "Error",
+          description: `Failed to update room status: ${updateError.message}`,
+          variant: "destructive"
+        });
         updateInProgress.current[roomId] = false;
         return;
       }
       
-      console.log("Room status updated:", updatedRoom);
+      console.log(`Room status updated in database to ${newStatus}`);
       
-      // Then create an availability record
+      // Then create an availability record to track the change
       try {
         const { error: availError } = await supabase
           .from('room_availability')
           .insert({
             room_id: roomId,
             is_available: isAvailable,
+            status: newStatus, // Store the status explicitly
             updated_by: user.id,
             updated_at: new Date().toISOString()
           });
         
         if (availError) {
           console.error("Error creating availability record:", availError);
+        } else {
+          console.log("Room availability record created successfully");
         }
       } catch (availabilityError) {
         console.error("Error with availability record:", availabilityError);
-        // Continue execution, don't return early
       }
       
       // Update local state optimistically
@@ -101,7 +106,8 @@ export function useRoomUpdater(
         )
       );
       
-      // No need to force refresh immediately, the subscription will handle updates
+      // Force a refresh to ensure all components have the latest data
+      setTimeout(() => refetchRooms(), 300);
       
     } catch (error: any) {
       console.error("Error updating room availability:", error);
@@ -114,7 +120,7 @@ export function useRoomUpdater(
       // Clear update lock
       updateInProgress.current[roomId] = false;
     }
-  }, [user, setRooms, toast]);
+  }, [user, setRooms, toast, refetchRooms]);
 
   // Handle toggling room availability
   const handleToggleRoomAvailability = useCallback((roomId: string) => {

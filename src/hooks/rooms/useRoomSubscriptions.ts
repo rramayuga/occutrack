@@ -18,7 +18,7 @@ export function useRoomSubscriptions(
     console.log("Setting up room subscription");
     
     const roomChannel = supabase
-      .channel('public:rooms')
+      .channel('room_updates')
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
@@ -29,16 +29,20 @@ export function useRoomSubscriptions(
         // For update events, update the specific room in state
         if (payload.eventType === 'UPDATE' && payload.new && payload.new.id) {
           const updatedRoom = payload.new;
+          const updatedRoomId = updatedRoom.id;
+          const updatedStatus = updatedRoom.status as RoomStatus || 'available';
+          const isAvailable = updatedStatus === 'available';
           
           console.log("Updating specific room in state:", updatedRoom);
+          console.log(`Room ${updatedRoomId} status: ${updatedStatus}, isAvailable: ${isAvailable}`);
           
           setRooms(prevRooms => 
             prevRooms.map(room => 
-              room.id === updatedRoom.id ? 
+              room.id === updatedRoomId ? 
               { 
                 ...room,
-                status: updatedRoom.status || room.status,
-                isAvailable: updatedRoom.status === 'available'
+                status: updatedStatus,
+                isAvailable: isAvailable
               } : room
             )
           );
@@ -71,7 +75,7 @@ export function useRoomSubscriptions(
     console.log("Setting up room availability subscription");
     
     const availabilityChannel = supabase
-      .channel('room_availability_changes')
+      .channel('availability_updates')
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
@@ -83,7 +87,9 @@ export function useRoomSubscriptions(
         if (payload.eventType === 'INSERT' && payload.new && payload.new.room_id) {
           const updatedRoomId = payload.new.room_id;
           const isAvailable = payload.new.is_available;
-          const status = payload.new.status || (isAvailable ? 'available' : 'occupied');
+          
+          // Get the explicit status or derive from isAvailable
+          const status = (payload.new.status as RoomStatus) || (isAvailable ? 'available' : 'occupied');
           
           console.log(`Updating room ${updatedRoomId} with isAvailable=${isAvailable}, status=${status}`);
           
@@ -94,7 +100,7 @@ export function useRoomSubscriptions(
               { 
                 ...room, 
                 isAvailable: isAvailable,
-                status: status as RoomStatus
+                status: status
               } : room
             )
           );

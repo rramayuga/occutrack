@@ -32,6 +32,7 @@ export function useRoomFetching() {
       setLoading(true);
       console.log("Fetching rooms from database...");
       
+      // Get all rooms data - important to fetch this first for the most accurate status
       const { data: roomsData, error: roomsError } = await supabase
         .from('rooms')
         .select('*');
@@ -40,74 +41,86 @@ export function useRoomFetching() {
         throw roomsError;
       }
       
-      if (roomsData) {
-        const { data: availabilityData, error: availabilityError } = await supabase
-          .from('room_availability')
-          .select('*')
-          .order('updated_at', { ascending: false });
-        
-        if (availabilityError) {
-          console.error("Error fetching room availability:", availabilityError);
-        }
-        
-        const availabilityMap = new Map();
-        if (availabilityData) {
-          availabilityData.forEach(record => {
-            if (!availabilityMap.has(record.room_id)) {
-              // Use type assertion with a fallback for missing status property
-              const status = (record as any).status as RoomStatus || 
-                            (record.is_available ? 'available' as RoomStatus : 'occupied' as RoomStatus);
-              
-              const availStatus = {
-                isAvailable: record.is_available,
-                status: status
-              };
-              
-              availabilityMap.set(record.room_id, availStatus);
-            }
-          });
-        }
-        
-        const roomsWithAvailability: Room[] = roomsData.map(room => {
-          const availabilityRecord = availabilityMap.get(room.id);
-          
-          // Always prioritize maintenance status from rooms table
-          let status: RoomStatus;
-          
-          if (room.status === 'maintenance') {
-            // Maintenance status should always take precedence
-            status = 'maintenance';
-          } else if (availabilityRecord?.status) {
-            // If not maintenance, check availability record status
-            status = availabilityRecord.status;
-          } else if (availabilityRecord?.isAvailable !== undefined) {
-            // Fall back to boolean availability if no explicit status
-            status = availabilityRecord.isAvailable ? 'available' : 'occupied';
-          } else {
-            // Default case if no availability info exists
-            status = room.status || 'available';
-          }
-          
-          const isAvailable = status === 'available';
-          
-          return {
-            id: room.id,
-            name: room.name,
-            type: room.type,
-            capacity: room.capacity,
-            isAvailable: isAvailable,
-            floor: room.floor,
-            buildingId: room.building_id,
-            status: status
-          };
-        });
-        
-        console.log("Fetched rooms:", roomsWithAvailability.length);
-        setRooms(roomsWithAvailability);
-      } else {
-        console.log("No rooms found in Supabase");
+      if (!roomsData) {
+        console.log("No rooms found in database");
         setRooms([]);
+        return;
       }
+      
+      console.log("Fetched room data:", roomsData.length, "rooms");
+      
+      // Now get the availability data
+      const { data: availabilityData, error: availabilityError } = await supabase
+        .from('room_availability')
+        .select('*')
+        .order('updated_at', { ascending: false });
+      
+      if (availabilityError) {
+        console.error("Error fetching room availability:", availabilityError);
+      }
+      
+      // Create a map for quick lookup of the most recent availability record for each room
+      const availabilityMap = new Map();
+      if (availabilityData) {
+        for (const record of availabilityData) {
+          if (!availabilityMap.has(record.room_id)) {
+            // Use type assertion with a fallback for missing status property
+            let status = record.status as RoomStatus;
+            if (!status) {
+              status = record.is_available ? 'available' : 'occupied';
+            }
+            
+            availabilityMap.set(record.room_id, {
+              isAvailable: record.is_available,
+              status: status
+            });
+          }
+        }
+      }
+      
+      // Process room data with availability information
+      const roomsWithAvailability: Room[] = roomsData.map(room => {
+        const availabilityRecord = availabilityMap.get(room.id);
+        
+        // Determine the correct status - database room status takes precedence
+        let status: RoomStatus;
+        let isAvailable: boolean;
+        
+        // Room status from the rooms table is the source of truth
+        if (room.status) {
+          status = room.status as RoomStatus;
+          // Only "available" status is considered available
+          isAvailable = status === 'available';
+        } else if (availabilityRecord?.status) {
+          // If no explicit room status, use the availability record status
+          status = availabilityRecord.status;
+          isAvailable = status === 'available';
+        } else if (availabilityRecord?.isAvailable !== undefined) {
+          // Fall back to boolean availability if no explicit status
+          isAvailable = availabilityRecord.isAvailable;
+          status = isAvailable ? 'available' : 'occupied';
+        } else {
+          // Default case if no availability info exists
+          status = 'available';
+          isAvailable = true;
+        }
+        
+        return {
+          id: room.id,
+          name: room.name,
+          type: room.type,
+          capacity: room.capacity,
+          isAvailable: isAvailable,
+          floor: room.floor,
+          buildingId: room.building_id,
+          status: status
+        };
+      });
+      
+      console.log("Fetched rooms:", roomsWithAvailability.length);
+      console.log("Room statuses:", roomsWithAvailability.map(r => `${r.name}: ${r.status}`).join(', '));
+      
+      setRooms(roomsWithAvailability);
     } catch (error) {
       console.error("Error fetching rooms:", error);
       toast({
