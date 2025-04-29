@@ -1,5 +1,5 @@
 
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { Room, RoomStatus } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,12 +15,20 @@ export function useRoomUpdater(
 ) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const updateInProgress = useRef<Record<string, boolean>>({});
 
   // Update room availability in the database
   const updateRoomAvailability = useCallback(async (roomId: string, isAvailable: boolean) => {
     try {
       if (!user) return;
       
+      // Prevent concurrent updates to the same room
+      if (updateInProgress.current[roomId]) {
+        console.log(`Update already in progress for room ${roomId}, skipping duplicate request`);
+        return;
+      }
+      
+      updateInProgress.current[roomId] = true;
       console.log(`Updating availability for room ${roomId} to ${isAvailable}`);
       
       // Get the current room to check if it's under maintenance
@@ -32,12 +40,14 @@ export function useRoomUpdater(
       
       if (roomError) {
         console.error("Error checking room status:", roomError);
+        updateInProgress.current[roomId] = false;
         return;
       }
         
       // Don't update availability for maintenance rooms
       if (roomData?.status === 'maintenance') {
         console.log("Skipping availability update for maintenance room:", roomId);
+        updateInProgress.current[roomId] = false;
         return;
       }
       
@@ -55,30 +65,32 @@ export function useRoomUpdater(
       
       if (updateError) {
         console.error("Error updating room status:", updateError);
+        updateInProgress.current[roomId] = false;
         return;
       }
       
       console.log("Room status updated:", updatedRoom);
       
       // Then create an availability record
-      const { data: availData, error: availError } = await supabase
-        .from('room_availability')
-        .insert({
-          room_id: roomId,
-          is_available: isAvailable,
-          status: newStatus,
-          updated_by: user.id,
-          updated_at: new Date().toISOString()
-        })
-        .select();
-      
-      if (availError) {
-        console.error("Error creating availability record:", availError);
-      } else {
-        console.log("Room availability record created:", availData);
+      try {
+        const { error: availError } = await supabase
+          .from('room_availability')
+          .insert({
+            room_id: roomId,
+            is_available: isAvailable,
+            updated_by: user.id,
+            updated_at: new Date().toISOString()
+          });
+        
+        if (availError) {
+          console.error("Error creating availability record:", availError);
+        }
+      } catch (availabilityError) {
+        console.error("Error with availability record:", availabilityError);
+        // Continue execution, don't return early
       }
       
-      // Update local state
+      // Update local state optimistically
       setRooms(prevRooms => 
         prevRooms.map(room => 
           room.id === roomId ? { 
@@ -89,8 +101,7 @@ export function useRoomUpdater(
         )
       );
       
-      // Force refresh to ensure consistency
-      await refetchRooms();
+      // No need to force refresh immediately, the subscription will handle updates
       
     } catch (error: any) {
       console.error("Error updating room availability:", error);
@@ -99,8 +110,11 @@ export function useRoomUpdater(
         description: `Failed to update room availability: ${error?.message || 'Unknown error'}`,
         variant: "destructive"
       });
+    } finally {
+      // Clear update lock
+      updateInProgress.current[roomId] = false;
     }
-  }, [user, setRooms, refetchRooms, toast]);
+  }, [user, setRooms, toast]);
 
   // Handle toggling room availability
   const handleToggleRoomAvailability = useCallback((roomId: string) => {
@@ -121,6 +135,7 @@ export function useRoomUpdater(
       const newIsAvailable = !roomToToggle.isAvailable;
       updateRoomAvailability(roomId, newIsAvailable);
     } else {
+      console.log("Room not found in local state, refreshing data");
       refetchRooms();
     }
   }, [rooms, updateRoomAvailability, refetchRooms, toast]);

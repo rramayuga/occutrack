@@ -1,5 +1,5 @@
 
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { Room, RoomStatus } from '@/lib/types';
 
@@ -10,6 +10,9 @@ export function useRoomSubscriptions(
   fetchRooms: () => Promise<void>,
   setRooms: React.Dispatch<React.SetStateAction<Room[]>>
 ) {
+  // Track if a refresh is in progress to prevent duplicate refreshes
+  const refreshInProgress = useRef(false);
+  
   // Set up subscription for room table changes
   const setupRoomSubscription = useCallback(() => {
     console.log("Setting up room subscription");
@@ -41,8 +44,16 @@ export function useRoomSubscriptions(
           );
         } else {
           // For other events like INSERT or DELETE, do a full refetch
-          console.log("Performing full refetch due to non-update room change");
-          fetchRooms();
+          // Only if no refresh is currently in progress
+          if (!refreshInProgress.current) {
+            console.log("Performing full refetch due to non-update room change");
+            refreshInProgress.current = true;
+            fetchRooms().finally(() => {
+              refreshInProgress.current = false;
+            });
+          } else {
+            console.log("Skipping redundant refetch, one already in progress");
+          }
         }
       })
       .subscribe((status) => {
@@ -88,8 +99,16 @@ export function useRoomSubscriptions(
             )
           );
         } else {
-          console.log("Performing full refetch due to non-insert room availability change");
-          fetchRooms();
+          // Only if no refresh is currently in progress
+          if (!refreshInProgress.current) {
+            console.log("Performing full refetch due to non-insert room availability change");
+            refreshInProgress.current = true;
+            fetchRooms().finally(() => {
+              refreshInProgress.current = false;
+            });
+          } else {
+            console.log("Skipping redundant refetch, one already in progress");
+          }
         }
       })
       .subscribe((status) => {

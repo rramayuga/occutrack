@@ -12,12 +12,19 @@ export function useRoomFetching() {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const fetchInProgress = useRef(false);
+  const fetchTimeoutId = useRef<number | null>(null);
   
   const fetchRooms = useCallback(async () => {
     // Prevent multiple concurrent fetches
     if (fetchInProgress.current) {
       console.log("Fetch already in progress, skipping...");
       return;
+    }
+    
+    // Clear any pending fetch timeout
+    if (fetchTimeoutId.current !== null) {
+      window.clearTimeout(fetchTimeoutId.current);
+      fetchTimeoutId.current = null;
     }
     
     try {
@@ -117,7 +124,17 @@ export function useRoomFetching() {
   // Use a debounce mechanism for refetching to prevent excessive calls
   const refetchRooms = useCallback(async () => {
     console.log("Manually refreshing rooms...");
-    await fetchRooms();
+    
+    // Clear any pending timeout
+    if (fetchTimeoutId.current !== null) {
+      window.clearTimeout(fetchTimeoutId.current);
+    }
+    
+    // Set a timeout to debounce multiple rapid calls
+    fetchTimeoutId.current = window.setTimeout(() => {
+      fetchRooms();
+      fetchTimeoutId.current = null;
+    }, 300) as unknown as number;
   }, [fetchRooms]);
 
   return {
