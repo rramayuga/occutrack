@@ -141,7 +141,7 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
         if (!existingAnnouncement) {
           console.log("No existing maintenance announcement found, creating new one");
           
-          const { data, error: announcementError } = await supabase
+          const { error: announcementError } = await supabase
             .from('announcements')
             .insert({
               title: announcementTitle,
@@ -167,7 +167,8 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
           console.log("Maintenance announcement already exists for this room:", existingAnnouncement);
         }
       } 
-      // If the room was in maintenance before and is now available, remove maintenance announcements
+      // If the room was in maintenance before and is now NOT in maintenance
+      // Fixed TypeScript error by changing the condition
       else if (previousStatus === 'maintenance' && status !== 'maintenance') {
         // Find and remove maintenance announcements for this room
         console.log(`Looking for maintenance announcements to remove for room ${room.name}`);
