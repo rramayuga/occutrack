@@ -15,6 +15,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Create a reusable function to fetch user profile
   const fetchUserProfile = useCallback(async (userId: string, email?: string) => {
     try {
+      // Verify if the email is from @neu.edu.ph domain
+      if (email && !email.toLowerCase().endsWith('@neu.edu.ph')) {
+        // Not a NEU email, sign out the user
+        await supabase.auth.signOut();
+        toast({
+          title: 'Access Denied',
+          description: 'Only @neu.edu.ph email addresses are allowed to use this application.',
+          variant: 'destructive'
+        });
+        navigate('/login');
+        setUser(null);
+        setIsLoading(false);
+        return null;
+      }
+      
       // Check if this is a faculty member with a rejected request
       const { data: facultyRequest, error: facultyError } = await supabase
         .from('faculty_requests')
@@ -51,7 +66,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (error) {
         console.error('Error fetching profile:', error);
         
-        // If profile doesn't exist and we have an email, check if it's from neu.edu.ph domain
+        // If profile doesn't exist and we have an email, create a new profile
         if (email && error.code === 'PGRST116') {
           const isNeuEmail = email.toLowerCase().endsWith('@neu.edu.ph');
           

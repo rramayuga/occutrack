@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { User } from '@/lib/types';
 import { useRooms } from '@/hooks/useRooms';
@@ -30,7 +31,6 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
         />
       </div>
 
-      {/* Display only teaching schedule, no cards or room availability */}
       <div className="grid grid-cols-1 gap-6">
         <TeachingSchedule reservations={reservations} />
       </div>
