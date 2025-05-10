@@ -32,6 +32,7 @@ const RoomActions: React.FC<RoomActionsProps> = ({
   const isAdmin = userRole === 'admin';
   
   // Faculty members should not be able to change room status
+  // Fix: Using !== instead of === to correctly evaluate the condition
   const canChangeStatus = canModifyRooms && (isSuperAdmin || isAdmin) && userRole !== 'faculty';
   
   return (

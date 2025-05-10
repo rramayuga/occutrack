@@ -167,7 +167,6 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
         }
       } 
       // If the room was in maintenance before and is now NOT in maintenance
-      // Fixed TypeScript error by changing the condition
       else if (previousStatus === 'maintenance' && status !== 'maintenance') {
         // Find and remove maintenance announcements for this room
         console.log(`Looking for maintenance announcements to remove for room ${room.name}`);

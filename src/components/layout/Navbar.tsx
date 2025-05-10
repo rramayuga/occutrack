@@ -9,7 +9,7 @@ import { Menu } from 'lucide-react';
 import Logo from './navbar/Logo';
 import NavLinkList from './navbar/NavLinkList';
 import AdminDropdown from './navbar/AdminDropdown';
-import UserMenu from './navbar/UserMenu';
+import { UserMenu } from './navbar/UserMenu';  // Fix: Use named import instead of default import
 import MobileMenu from './navbar/MobileMenu';
 import { navLinks, adminLinks } from './navbar/navData';
 
