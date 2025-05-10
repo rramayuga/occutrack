@@ -30,10 +30,11 @@ const RoomActions: React.FC<RoomActionsProps> = ({
   const isMaintenanceMode = status === 'maintenance';
   const isSuperAdmin = userRole === 'superadmin';
   const isAdmin = userRole === 'admin';
+  const isFaculty = userRole === 'faculty';
   
   // Faculty members should not be able to change room status
-  // Fix: Use proper type checking to avoid TypeScript error
-  const canChangeStatus = canModifyRooms && (isSuperAdmin || isAdmin) && userRole !== 'faculty';
+  // Fix: Change the comparison to use isFaculty variable for proper type checking
+  const canChangeStatus = canModifyRooms && (isSuperAdmin || isAdmin) && !isFaculty;
   
   return (
     <div className="flex gap-2 w-full">
