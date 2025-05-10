@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Room, RoomStatus } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
@@ -166,8 +167,8 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
           console.log("Maintenance announcement already exists for this room:", existingAnnouncement);
         }
       } 
-      // If the room was in maintenance before and is now NOT in maintenance
-      else if (previousStatus === 'maintenance' && status !== 'maintenance') {
+      // Fix: Use type guard to fix the type comparison error
+      else if (previousStatus === 'maintenance' && (status === 'available' || status === 'occupied')) {
         // Find and remove maintenance announcements for this room
         console.log(`Looking for maintenance announcements to remove for room ${room.name}`);
         

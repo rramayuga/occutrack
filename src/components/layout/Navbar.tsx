@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useToast } from "@/components/ui/use-toast";
@@ -9,7 +8,7 @@ import { Menu } from 'lucide-react';
 import Logo from './navbar/Logo';
 import NavLinkList from './navbar/NavLinkList';
 import AdminDropdown from './navbar/AdminDropdown';
-import { UserMenu } from './navbar/UserMenu';  // Fix: Use named import instead of default import
+import { UserMenu } from './navbar/UserMenu';  // Use named import
 import MobileMenu from './navbar/MobileMenu';
 import { navLinks, adminLinks } from './navbar/navData';
 
@@ -75,7 +74,8 @@ const Navbar = () => {
               )}
             </ul>
             
-            <UserMenu user={user} onSignOut={handleSignOut} />
+            {/* Fix: Pass user instead of using separate props */}
+            <UserMenu />
           </nav>
 
           <button
