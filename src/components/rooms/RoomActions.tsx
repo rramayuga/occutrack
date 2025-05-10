@@ -29,6 +29,10 @@ const RoomActions: React.FC<RoomActionsProps> = ({
 }) => {
   const isMaintenanceMode = status === 'maintenance';
   const isSuperAdmin = userRole === 'superadmin';
+  const isAdmin = userRole === 'admin';
+  
+  // Faculty members should not be able to change room status
+  const canChangeStatus = canModifyRooms && (isSuperAdmin || isAdmin) && userRole !== 'faculty';
   
   return (
     <div className="flex gap-2 w-full">
@@ -45,7 +49,7 @@ const RoomActions: React.FC<RoomActionsProps> = ({
         {showSchedules ? 'Hide Schedule' : 'View Schedule'}
       </Button>
       
-      {canModifyRooms && (
+      {canChangeStatus && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button 

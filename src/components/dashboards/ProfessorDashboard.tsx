@@ -1,12 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { User } from '@/lib/types';
 import { useRooms } from '@/hooks/useRooms';
 import { useReservations } from '@/hooks/useReservations';
-import { ProfessorOverviewCards } from './professor/ProfessorOverviewCards';
 import { RoomBookingDialog } from './professor/RoomBookingDialog';
 import { TeachingSchedule } from './professor/TeachingSchedule';
-import { AvailableRooms } from './professor/AvailableRooms';
 
 interface ProfessorDashboardProps {
   user: User;
@@ -25,13 +23,6 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
            bookingDate.getMonth() === today.getMonth() && 
            bookingDate.getFullYear() === today.getFullYear();
   });
-
-  // Handler for when a user clicks "Reserve" on an available room
-  const handleReserveClick = (buildingId: string, roomId: string, buildingName: string, roomName: string) => {
-    setIsDialogOpen(true);
-    // We'll need to pre-populate the form in the RoomBookingDialog component
-    // This will be passed down to the component
-  };
   
   return (
     <div className="container mx-auto px-4 py-8">
@@ -49,20 +40,9 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
         />
       </div>
 
-      {/* Overview Cards */}
-      <ProfessorOverviewCards 
-        todaySchedule={todaySchedule} 
-        reservations={reservations} 
-      />
-
-      {/* Teaching Schedule & Room Management */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Display only teaching schedule, no cards or room availability */}
+      <div className="grid grid-cols-1 gap-6">
         <TeachingSchedule reservations={reservations} />
-        <AvailableRooms 
-          rooms={rooms} 
-          buildings={buildings} 
-          onReserveClick={handleReserveClick} 
-        />
       </div>
     </div>
   );

@@ -84,12 +84,26 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
       }
     };
 
-    // Update room status on load and every minute
+    // Update room status on load and every 30 seconds for more real-time updates
     updateRoomStatusBasedOnBookings();
-    const intervalId = setInterval(updateRoomStatusBasedOnBookings, 60000);
+    const intervalId = setInterval(updateRoomStatusBasedOnBookings, 30000); // Check every 30 seconds
     
-    return () => clearInterval(intervalId);
+    // Also set up a subscription to reservation changes
+    const reservationChannel = supabase
+      .channel('room_reservation_changes')
+      .on('postgres_changes', 
+          { event: '*', schema: 'public', table: 'room_reservations' }, 
+          () => {
+            console.log('Reservation changes detected, updating room statuses');
+            updateRoomStatusBasedOnBookings();
+          })
+      .subscribe();
+    
+    return () => {
+      clearInterval(intervalId);
+      supabase.removeChannel(reservationChannel);
+    };
   }, [rooms, user, updateRoomAvailability, toast]);
 
-  return null; // This hook doesn't need to return anything
+  return null;
 }
