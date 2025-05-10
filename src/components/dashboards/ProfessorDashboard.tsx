@@ -4,6 +4,7 @@ import { User } from '@/lib/types';
 import { useRooms } from '@/hooks/useRooms';
 import { useReservations } from '@/hooks/useReservations';
 import { TeachingSchedule } from './professor/TeachingSchedule';
+import { AvailableRooms } from './professor/AvailableRooms';
 
 interface ProfessorDashboardProps {
   user: User;
@@ -22,8 +23,13 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6">
-        <TeachingSchedule reservations={reservations} />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="col-span-2">
+          <TeachingSchedule reservations={reservations} />
+        </div>
+        <div className="col-span-1">
+          <AvailableRooms rooms={rooms} buildings={buildings} />
+        </div>
       </div>
     </div>
   );

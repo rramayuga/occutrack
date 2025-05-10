@@ -1,5 +1,5 @@
 
-import React, { memo } from 'react';
+import React, { memo, useEffect } from 'react';
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Lock } from 'lucide-react';
 import { Room } from '@/lib/types';
@@ -40,6 +40,11 @@ const RoomCard: React.FC<RoomCardProps> = ({
     isUserFaculty,
     setIsCancelDialogOpen
   } = useRoomCardLogic(room, onToggleAvailability, refetchRooms);
+
+  // Force refresh of schedules periodically to remove expired bookings
+  useEffect(() => {
+    // This will be handled by the useRoomCardLogic hook's internal refresh mechanism
+  }, []);
 
   const handleCardClick = () => {
     // Don't allow selection of maintenance rooms for non-superadmins

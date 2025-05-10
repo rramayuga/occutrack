@@ -84,9 +84,9 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
       }
     };
 
-    // Update room status on load and every 15 seconds for more real-time updates (decreased from 30 to 15)
+    // Update room status on load and every 10 seconds for more real-time updates
     updateRoomStatusBasedOnBookings();
-    const intervalId = setInterval(updateRoomStatusBasedOnBookings, 15000); // Check every 15 seconds
+    const intervalId = setInterval(updateRoomStatusBasedOnBookings, 10000); // Check every 10 seconds
     
     // Also set up a subscription to reservation changes
     const reservationChannel = supabase
