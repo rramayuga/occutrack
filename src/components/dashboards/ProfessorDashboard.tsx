@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { User } from '@/lib/types';
 import { useRooms } from '@/hooks/useRooms';
@@ -14,15 +13,6 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { buildings, rooms } = useRooms();
   const { reservations, createReservation } = useReservations();
-  
-  // Get today's schedule from reservations
-  const todaySchedule = reservations.filter(booking => {
-    const bookingDate = new Date(booking.date);
-    const today = new Date();
-    return bookingDate.getDate() === today.getDate() && 
-           bookingDate.getMonth() === today.getMonth() && 
-           bookingDate.getFullYear() === today.getFullYear();
-  });
   
   return (
     <div className="container mx-auto px-4 py-8">
