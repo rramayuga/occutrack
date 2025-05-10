@@ -6,13 +6,11 @@ import { BuildingWithFloors, Room } from '@/lib/types';
 interface AvailableRoomsProps {
   rooms: Room[];
   buildings: BuildingWithFloors[];
-  onReserveClick: (buildingId: string, roomId: string, buildingName: string, roomName: string) => void;
 }
 
 export const AvailableRooms: React.FC<AvailableRoomsProps> = ({ 
   rooms, 
-  buildings, 
-  onReserveClick 
+  buildings
 }) => {
   return (
     <Card>
@@ -31,20 +29,6 @@ export const AvailableRooms: React.FC<AvailableRoomsProps> = ({
                   <p className="text-xs text-muted-foreground mt-1">
                     {building?.name || 'Unknown Building'} • Type: {room.type}
                   </p>
-                  <div className="mt-2">
-                    <a 
-                      href="#reserve" 
-                      className="text-xs text-primary hover:underline"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        if (building) {
-                          onReserveClick(building.id, room.id, building.name, room.name);
-                        }
-                      }}
-                    >
-                      Reserve
-                    </a>
-                  </div>
                 </div>
               );
             })

@@ -167,7 +167,7 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
           console.log("Maintenance announcement already exists for this room:", existingAnnouncement);
         }
       } 
-      // Fix: Using proper type comparison for maintenance status
+      // Fixed: Simplified condition to properly handle maintenance status transitions
       else if (previousStatus === 'maintenance') {
         // Find and remove maintenance announcements for this room
         console.log(`Looking for maintenance announcements to remove for room ${room.name}`);
