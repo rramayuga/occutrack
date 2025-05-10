@@ -167,8 +167,8 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
           console.log("Maintenance announcement already exists for this room:", existingAnnouncement);
         }
       } 
-      // Fix: Using type-safe comparison for maintenance status
-      else if (previousStatus === 'maintenance' && status !== 'maintenance') {
+      // Fix: Using proper type comparison for maintenance status
+      else if (previousStatus === 'maintenance') {
         // Find and remove maintenance announcements for this room
         console.log(`Looking for maintenance announcements to remove for room ${room.name}`);
         
@@ -218,7 +218,7 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
       });
       
       // Force a refresh of room data after completed DB operations
-      await refetchRooms();
+      setTimeout(() => refetchRooms(), 300);
       
     } catch (error: any) {
       console.error("Error updating room status:", error);
