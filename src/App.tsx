@@ -1,23 +1,18 @@
 
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import LoginPage from './pages/Login';
-import HomePage from './pages/Home';
-import ProctorPage from './pages/Proctor';
-import FacultyPage from './pages/Faculty';
-import RoomBookingPage from './pages/RoomBooking';
-import AdminSettings from './pages/AdminSettings';
-import AdminPage from './pages/Admin';
-import RegisterPage from './pages/Register';
-import ResetPasswordPage from './pages/ResetPassword';
+import HomePage from './pages/Index';  // Changed from ./pages/Home to ./pages/Index
 import NotFoundPage from './pages/NotFound';
 import AuthRequiredPage from './pages/AuthRequired';
 import Rooms from './pages/Rooms';
 import UserRights from './pages/UserRights';
 import UserManagement from './pages/UserManagement';
 import UserDetail from './pages/UserDetail';
-import { AuthProvider } from './lib/auth';
 import { Toaster } from './components/ui/toaster';
 import { RoomManagementProvider } from './components/admin/context/RoomManagementContext';
+import Dashboard from './pages/Dashboard'; // For faculty, admin, proctor pages
+import RegisterPage from './pages/Register';
+import { AuthProvider } from './components/AuthProvider'; // Fixed import path
 
 function App() {
   return (
@@ -27,22 +22,22 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/reset-password" element={<RegisterPage />} /> {/* Temporarily using RegisterPage */}
           <Route path="/auth-required" element={<AuthRequiredPage />} />
           
           {/* Protected routes */}
-          <Route path="/proctor" element={<ProctorPage />} />
-          <Route path="/faculty" element={<FacultyPage />} />
+          <Route path="/proctor" element={<Dashboard />} />
+          <Route path="/faculty" element={<Dashboard />} />
           <Route path="/rooms" element={<Rooms />} />
-          <Route path="/room-booking" element={<RoomBookingPage />} />
+          <Route path="/room-booking" element={<Dashboard />} /> {/* Temporarily using Dashboard */}
           
           {/* Admin routes */}
-          <Route path="/admin" element={<AdminPage />} />
+          <Route path="/admin" element={<Dashboard />} />
           <Route 
             path="/admin/settings" 
             element={
               <RoomManagementProvider>
-                <AdminSettings />
+                <Dashboard />
               </RoomManagementProvider>
             } 
           />

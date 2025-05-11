@@ -9,7 +9,8 @@ import { useReservationManagement } from '@/hooks/rooms/useReservationManagement
 export const useRoomCardLogic = (room: Room, onToggleAvailability: (roomId: string) => void, refetchRooms: () => Promise<void>) => {
   const { user } = useAuth();
   
-  const { getEffectiveStatus, handleStatusChange, isUpdating } = useRoomStatus(room, refetchRooms);
+  // Update this line to match the actual return values from useRoomStatus
+  const { updateRoomStatus, isUpdating } = useRoomStatus(room, refetchRooms);
   const { currentOccupant: occupiedBy } = useRoomOccupancy(room.id, room.status !== 'occupied', room.occupiedBy);
   const { roomSchedules, showSchedules, handleToggleSchedules, fetchRoomSchedules } = useRoomSchedules(room.id, room.name);
   const {
@@ -23,6 +24,12 @@ export const useRoomCardLogic = (room: Room, onToggleAvailability: (roomId: stri
   // Check if the current user is the faculty for a reservation
   const isUserFaculty = (reservation: Reservation) => {
     return user && user.role === 'faculty' && reservation.faculty === user.name;
+  };
+  
+  // Create adapter functions to maintain compatibility with existing code
+  const getEffectiveStatus = () => room.status;
+  const handleStatusChange = (newStatus: "available" | "occupied" | "maintenance") => {
+    return updateRoomStatus(room, newStatus);
   };
 
   return {

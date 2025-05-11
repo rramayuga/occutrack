@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { User } from '@/lib/types';
+import { User, Building } from '@/lib/types';
 import { useRooms } from '@/hooks/useRooms';
 import { useReservations } from '@/hooks/useReservations';
 import { TeachingSchedule } from './professor/TeachingSchedule';
@@ -14,9 +14,18 @@ interface ProfessorDashboardProps {
 }
 
 export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) => {
+  // Extract buildings and rooms from useRooms
   const { buildings, rooms } = useRooms();
   const { reservations, createReservation } = useReservations();
   const [isBookingDialogOpen, setIsBookingDialogOpen] = useState(false);
+  
+  // Convert BuildingWithFloors[] to Building[] if needed
+  const simplifiedBuildings: Building[] = buildings.map(building => ({
+    id: building.id,
+    name: building.name,
+    location: building.location,
+    floors: building.floors.length // Convert floors array to number
+  }));
   
   return (
     <div className="container mx-auto px-4 py-8">
@@ -35,7 +44,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
           <TeachingSchedule reservations={reservations} />
         </div>
         <div className="col-span-1">
-          <AvailableRooms rooms={rooms} buildings={buildings} />
+          <AvailableRooms rooms={rooms} buildings={simplifiedBuildings} />
         </div>
       </div>
 
@@ -45,10 +54,15 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
             <DialogTitle>Book a Classroom</DialogTitle>
           </DialogHeader>
           <BookRoomForm 
-            buildings={buildings} 
+            buildings={simplifiedBuildings} 
             onSubmit={async (values) => {
-              await createReservation(values, values.roomId);
-              setIsBookingDialogOpen(false);
+              if (values.roomId) {
+                await createReservation({
+                  ...values,
+                  date: values.date instanceof Date ? values.date.toISOString() : values.date || ''
+                }, values.roomId);
+                setIsBookingDialogOpen(false);
+              }
             }}
             onCancel={() => setIsBookingDialogOpen(false)}
             excludeMaintenanceRooms={true}
