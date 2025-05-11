@@ -1,3 +1,4 @@
+
 export type UserRole = 'student' | 'faculty' | 'admin' | 'superadmin';
 
 export interface User {
@@ -66,8 +67,8 @@ export interface Reservation {
   date: string;
   startTime: string;
   endTime: string;
-  displayStartTime?: string; // Added for AM/PM display format
-  displayEndTime?: string; // Added for AM/PM display format
+  displayStartTime?: string; // For AM/PM display format
+  displayEndTime?: string;   // For AM/PM display format
   purpose: string;
   status: string;
   faculty: string;

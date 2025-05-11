@@ -5,7 +5,6 @@ import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, 
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
 import { RoomUsageData } from '@/components/admin/types/room';
-import { ChartContainer } from '@/components/ui/chart';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
@@ -132,7 +131,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ roomUsageData }) => {
             <CardDescription>Rooms with highest utilization rates</CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer className="aspect-auto h-64">
+            <div className="aspect-auto h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={topRooms}
@@ -161,7 +160,7 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ roomUsageData }) => {
                   <Bar dataKey="utilization" fill="#8884d8" />
                 </BarChart>
               </ResponsiveContainer>
-            </ChartContainer>
+            </div>
           </CardContent>
         </Card>
       </div>

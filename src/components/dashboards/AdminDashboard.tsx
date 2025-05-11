@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BuildingWithFloors, User } from '@/lib/types';
@@ -15,6 +14,7 @@ import { useEnhancedRoomsManagement } from '@/hooks/useEnhancedRoomsManagement';
 import { useFacultyManagement } from '@/hooks/useFacultyManagement';
 import { useRoomUtilization } from '@/hooks/useRoomUtilization';
 import { useToast } from "@/hooks/use-toast";
+import { useRoomUsageData } from '@/hooks/useRoomUsageData';
 
 interface AdminDashboardProps {
   user: User;
@@ -34,6 +34,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const utilizationRate = useRoomUtilization();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Get room usage data for analytics
+  const { roomUsageData } = useRoomUsageData();
 
   const onBuildingSubmit = async (data: any) => {
     const result = await addBuilding(data.name, data.floorCount, data.location);
@@ -170,7 +173,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
         </TabsContent>
         
         <TabsContent value="analytics">
-          <AnalyticsTab />
+          <AnalyticsTab roomUsageData={roomUsageData} />
         </TabsContent>
       </Tabs>
 
