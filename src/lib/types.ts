@@ -49,6 +49,8 @@ export interface Reservation {
   purpose: string;
   status: string;
   faculty: string;
+  displayStartTime?: string;  // Added to match usage in code
+  displayEndTime?: string;    // Added to match usage in code
 }
 
 export interface ReservationFormValues {
