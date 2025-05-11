@@ -78,7 +78,28 @@ export function useRoomUsageData(
           }
         ];
         
-        setRoomUsageData(sampleData);
+        // Apply filters if provided
+        let filteredData = [...sampleData];
+        
+        if (selectedBuilding && selectedBuilding !== 'all') {
+          filteredData = filteredData.filter(room => 
+            room.buildingName.toLowerCase().includes(selectedBuilding.toLowerCase())
+          );
+        }
+        
+        if (selectedFloor && selectedFloor !== 'all') {
+          filteredData = filteredData.filter(room => 
+            room.floor === parseInt(selectedFloor)
+          );
+        }
+        
+        if (statusFilter && statusFilter !== 'all') {
+          filteredData = filteredData.filter(room => 
+            room.status === statusFilter
+          );
+        }
+        
+        setRoomUsageData(filteredData);
       } catch (error) {
         console.error("Error fetching room usage data:", error);
       } finally {
@@ -87,7 +108,7 @@ export function useRoomUsageData(
     };
 
     fetchRoomUsageData();
-  }, [startDate, endDate, selectedBuilding, selectedFloor, statusFilter]); // Added dependencies for the parameters
+  }, [startDate, endDate, selectedBuilding, selectedFloor, statusFilter]); 
 
   return { roomUsageData, loading };
 }

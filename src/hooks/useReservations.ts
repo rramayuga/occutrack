@@ -11,6 +11,18 @@ export function useReservations() {
   const { user } = useAuth();
   const { toast } = useToast();
 
+  // Format times to 12-hour format (AM/PM)
+  const formatTimeTo12Hour = (time: string): string => {
+    if (!time) return '';
+    if (time.includes('AM') || time.includes('PM')) return time;
+    
+    const [hoursStr, minutes] = time.split(':').map(String);
+    const hours = parseInt(hoursStr, 10);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const hour12 = hours % 12 || 12; // Convert 0 to 12
+    return `${hour12}:${minutes} ${period}`;
+  };
+
   // Fetch user's reservations
   const fetchReservations = async () => {
     if (!user) return;
@@ -53,14 +65,6 @@ export function useReservations() {
             buildingNames[building.id] = building.name;
           });
         }
-        
-        // Format times to 12-hour format (AM/PM)
-        const formatTimeTo12Hour = (time: string): string => {
-          const [hours, minutes] = time.split(':').map(Number);
-          const period = hours >= 12 ? 'PM' : 'AM';
-          const hour12 = hours % 12 || 12; // Convert 0 to 12
-          return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
-        };
         
         // Transform the data
         const transformedReservations: Reservation[] = data.map(item => ({
@@ -106,7 +110,7 @@ export function useReservations() {
       return null;
     }
     
-    if (user.role !== 'faculty') {
+    if (user.role !== 'faculty' && user.role !== 'admin' && user.role !== 'superadmin') {
       toast({
         title: "Access denied",
         description: "Only faculty members can make reservations.",
@@ -116,17 +120,29 @@ export function useReservations() {
     }
     
     try {
-      // Check for overlapping reservations
+      // Check for overlapping reservations - don't count the current reservation
       const { data: existingReservations, error: checkError } = await supabase
         .from('room_reservations')
         .select('*')
         .eq('room_id', roomId)
         .eq('date', values.date)
-        .or(`start_time.lte.${values.endTime},end_time.gte.${values.startTime}`);
+        .or(`start_time.lt.${values.endTime},end_time.gt.${values.startTime}`);
       
       if (checkError) throw checkError;
       
-      if (existingReservations && existingReservations.length > 0) {
+      // More precise overlap check - exclude reservations that end at our start time or start at our end time
+      const hasOverlap = existingReservations?.some(res => {
+        // Convert all times to minutes for easier comparison
+        const existingStart = timeToMinutes(res.start_time);
+        const existingEnd = timeToMinutes(res.end_time);
+        const newStart = timeToMinutes(values.startTime);
+        const newEnd = timeToMinutes(values.endTime);
+        
+        // Check if there's an actual overlap
+        return (newStart < existingEnd && newEnd > existingStart);
+      });
+      
+      if (hasOverlap) {
         toast({
           title: "Time slot unavailable",
           description: "The selected time slot overlaps with an existing reservation.",
@@ -156,13 +172,13 @@ export function useReservations() {
       const newReservation: Reservation = {
         id: data.id,
         roomId: roomId,
-        roomNumber: values.roomNumber,
-        building: values.building,
+        roomNumber: values.roomNumber || '',
+        building: values.building || '',
         date: values.date,
         startTime: values.startTime,
         endTime: values.endTime,
-        displayStartTime: values.startTime, // Will be formatted in fetchReservations
-        displayEndTime: values.endTime, // Will be formatted in fetchReservations
+        displayStartTime: formatTimeTo12Hour(values.startTime),
+        displayEndTime: formatTimeTo12Hour(values.endTime),
         purpose: values.purpose,
         status: 'confirmed',
         faculty: user.name
@@ -172,7 +188,7 @@ export function useReservations() {
       
       toast({
         title: "Room booked",
-        description: `${values.roomNumber} has been booked successfully.`
+        description: `${values.roomNumber || 'Room'} has been booked successfully.`
       });
       
       // Refresh reservations to get the formatted times
@@ -188,6 +204,12 @@ export function useReservations() {
       });
       return null;
     }
+  };
+  
+  // Helper function to convert time string to minutes for easier comparison
+  const timeToMinutes = (timeStr: string): number => {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return hours * 60 + minutes;
   };
   
   // Cancel a reservation

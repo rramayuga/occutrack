@@ -1,7 +1,7 @@
 
 // Add or update the RoomUsageData type for the analytics
 export interface RoomUsageData {
-  roomId?: string;  // Added to match usage in code
+  roomId: string;  // Changed from optional to required
   roomName: string;
   roomType?: string;
   status?: string;

@@ -69,6 +69,7 @@ const RoomUsageStats = () => {
                 onSelect={(date) => date && setStartDate(date)}
                 disabled={(date) => date > endDate || date > new Date()}
                 initialFocus
+                className="p-3 pointer-events-auto"
               />
             </PopoverContent>
           </Popover>
@@ -94,6 +95,7 @@ const RoomUsageStats = () => {
                 onSelect={(date) => date && setEndDate(date)}
                 disabled={(date) => date < startDate || date > new Date()}
                 initialFocus
+                className="p-3 pointer-events-auto"
               />
             </PopoverContent>
           </Popover>
