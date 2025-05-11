@@ -1,54 +1,45 @@
 
-import React, { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Room, Building } from '@/lib/types';
-import { useRoomAvailability } from '@/hooks/useRoomAvailability';
+import React from 'react';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { BuildingWithFloors, Room } from '@/lib/types';
 
 interface AvailableRoomsProps {
   rooms: Room[];
-  buildings: Building[];
+  buildings: BuildingWithFloors[];
 }
 
-export const AvailableRooms: React.FC<AvailableRoomsProps> = ({ rooms, buildings }) => {
-  const [availableRooms, setAvailableRooms] = useState<Room[]>([]);
-  const { handleToggleRoomAvailability, setupRoomAvailabilitySubscription } = useRoomAvailability();
-  
-  // Implement the getAvailableRooms function that was missing
-  const getAvailableRooms = () => {
-    return rooms.filter(room => room.isAvailable && room.status !== 'maintenance');
-  };
-
-  useEffect(() => {
-    setAvailableRooms(getAvailableRooms());
-  }, [rooms]);
-
+export const AvailableRooms: React.FC<AvailableRoomsProps> = ({ 
+  rooms, 
+  buildings
+}) => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Available Rooms</CardTitle>
+        <CardTitle>Room Availability</CardTitle>
+        <CardDescription>Currently available rooms</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {availableRooms.length > 0 ? (
-            availableRooms.map(room => {
+          {rooms.filter(room => room.isAvailable).slice(0, 3).length > 0 ? (
+            rooms.filter(room => room.isAvailable).slice(0, 3).map((room) => {
               const building = buildings.find(b => b.id === room.buildingId);
               return (
-                <div key={room.id} className="p-3 border rounded-md">
-                  <div className="font-medium">{room.name}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {building?.name}, Floor {room.floor}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    Capacity: {room.capacity || 'N/A'}
-                  </div>
+                <div key={room.id} className="pb-4 border-b last:border-0">
+                  <h4 className="text-sm font-medium">{room.name}</h4>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {building?.name || 'Unknown Building'} • Type: {room.type}
+                  </p>
                 </div>
               );
             })
           ) : (
-            <p className="text-muted-foreground">No available rooms at the moment</p>
+            <p className="text-center text-muted-foreground py-4">No available rooms found.</p>
           )}
         </div>
       </CardContent>
+      <CardFooter>
+        <a href="/rooms" className="text-sm text-primary hover:underline">View all rooms</a>
+      </CardFooter>
     </Card>
   );
 };

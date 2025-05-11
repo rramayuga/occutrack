@@ -9,10 +9,9 @@ import { useReservationManagement } from '@/hooks/rooms/useReservationManagement
 export const useRoomCardLogic = (room: Room, onToggleAvailability: (roomId: string) => void, refetchRooms: () => Promise<void>) => {
   const { user } = useAuth();
   
-  // Update this line to match the actual return values from useRoomStatus
-  const { updateRoomStatus, isUpdating } = useRoomStatus(room, refetchRooms);
+  const { getEffectiveStatus, handleStatusChange } = useRoomStatus(room, refetchRooms);
   const { currentOccupant: occupiedBy } = useRoomOccupancy(room.id, room.status !== 'occupied', room.occupiedBy);
-  const { roomSchedules, showSchedules, handleToggleSchedules, fetchRoomSchedules } = useRoomSchedules(room.id, room.name);
+  const { roomSchedules, showSchedules, handleToggleSchedules } = useRoomSchedules(room.id, room.name);
   const {
     isCancelDialogOpen,
     selectedReservation,
@@ -25,12 +24,6 @@ export const useRoomCardLogic = (room: Room, onToggleAvailability: (roomId: stri
   const isUserFaculty = (reservation: Reservation) => {
     return user && user.role === 'faculty' && reservation.faculty === user.name;
   };
-  
-  // Create adapter functions to maintain compatibility with existing code
-  const getEffectiveStatus = () => room.status;
-  const handleStatusChange = (newStatus: "available" | "occupied" | "maintenance") => {
-    return updateRoomStatus(room, newStatus);
-  };
 
   return {
     occupiedBy,
@@ -38,14 +31,12 @@ export const useRoomCardLogic = (room: Room, onToggleAvailability: (roomId: stri
     showSchedules,
     isCancelDialogOpen,
     selectedReservation,
-    isUpdating,
     getEffectiveStatus,
     handleStatusChange,
     handleCancelReservation,
     handleToggleSchedules,
     handleCancelClick,
     isUserFaculty,
-    setIsCancelDialogOpen,
-    fetchRoomSchedules
+    setIsCancelDialogOpen
   };
 };

@@ -33,14 +33,7 @@ const UserRightsManagement: React.FC<UserRightsManagementDialogProps> = ({ open,
     setSearchTerm,
     roleFilter,
     setRoleFilter,
-    viewFilter,
-    setViewFilter,
-    editFilter,
-    setEditFilter,
-    deleteFilter,
-    setDeleteFilter,
     handleRoleChange,
-    handleDeleteUser,
     filteredUsers
   } = useUserRightsManagement(open && hasAccess);
   
@@ -60,12 +53,6 @@ const UserRightsManagement: React.FC<UserRightsManagementDialogProps> = ({ open,
           setSearchTerm={setSearchTerm}
           roleFilter={roleFilter}
           setRoleFilter={setRoleFilter}
-          viewFilter={viewFilter}
-          setViewFilter={setViewFilter}
-          editFilter={editFilter}
-          setEditFilter={setEditFilter}
-          deleteFilter={deleteFilter}
-          setDeleteFilter={setDeleteFilter}
         />
         
         <UsersList
@@ -73,10 +60,6 @@ const UserRightsManagement: React.FC<UserRightsManagementDialogProps> = ({ open,
           loading={loading}
           filteredUsers={filteredUsers}
           handleRoleChange={handleRoleChange}
-          handleDeleteUser={handleDeleteUser}
-          viewFilter={viewFilter}
-          editFilter={editFilter}
-          deleteFilter={deleteFilter}
         />
         
         <div className="flex justify-end mt-4">

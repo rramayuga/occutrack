@@ -8,7 +8,6 @@ import { useAuth } from '@/lib/auth';
 export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => {
   const { toast } = useToast();
   const { user } = useAuth();
-  const [isUpdating, setIsUpdating] = useState(false);
 
   const getEffectiveStatus = (): RoomStatus => {
     // Always prioritize maintenance status
@@ -20,7 +19,6 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
 
   const handleStatusChange = async (status: RoomStatus) => {
     try {
-      setIsUpdating(true);
       console.log("Updating room status to:", status, "for room:", room.id, room.name);
       
       // Check if attempting to set maintenance status
@@ -31,7 +29,7 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
           description: 'Only SuperAdmin users can mark rooms for maintenance',
           variant: 'destructive'
         });
-        return false;
+        return;
       }
       
       // If not authenticated, don't proceed
@@ -42,7 +40,7 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
           description: 'You must be logged in to change room status',
           variant: 'destructive'
         });
-        return false;
+        return;
       }
       
       // If trying to change maintenance room status and not superadmin, block
@@ -53,7 +51,7 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
           description: 'Only SuperAdmin users can change the status of rooms under maintenance',
           variant: 'destructive'
         });
-        return false;
+        return;
       }
       
       console.log("Current user ID:", user.id);
@@ -79,7 +77,7 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
       
       console.log(`Updating room ${room.id} status from ${previousStatus} to ${status}`);
       
-      // Update the room status in the database first
+      // CRUCIAL FIX: Update the room status in the database first
       const { data: updatedRoom, error: roomError } = await supabase
         .from('rooms')
         .update({ status: status })
@@ -93,7 +91,7 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
           description: "Failed to update room status: " + roomError.message,
           variant: "destructive"
         });
-        return false;
+        return;  // Exit early on error
       }
       
       console.log("Room status updated successfully in database:", updatedRoom);
@@ -118,6 +116,7 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
         }
       } catch (availabilityError) {
         console.error("Error with availability record:", availabilityError);
+        // Continue execution - don't block the main flow if availability record fails
       }
       
       // Handle announcement creation and removal based on status change
@@ -126,7 +125,7 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
         const announcementTitle = `Room Under Maintenance: ${buildingName} - ${room.name}`;
         console.log("Creating maintenance announcement:", announcementTitle);
         
-        // Use better query to check for existing maintenance announcement for this room
+        // Fix: Use better query to check for existing maintenance announcement for this room
         const { data: existingAnnouncement, error: checkError } = await supabase
           .from('announcements')
           .select('id')
@@ -168,7 +167,7 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
           console.log("Maintenance announcement already exists for this room:", existingAnnouncement);
         }
       } 
-      // Handle maintenance status transitions
+      // Fixed: Simplified condition to properly handle maintenance status transitions
       else if (previousStatus === 'maintenance') {
         // Find and remove maintenance announcements for this room
         console.log(`Looking for maintenance announcements to remove for room ${room.name}`);
@@ -220,7 +219,6 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
       
       // Force a refresh of room data after completed DB operations
       setTimeout(() => refetchRooms(), 300);
-      return true;
       
     } catch (error: any) {
       console.error("Error updating room status:", error);
@@ -229,15 +227,11 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
         description: `Failed to update room status: ${error?.message || 'Unknown error'}`,
         variant: "destructive"
       });
-      return false;
-    } finally {
-      setIsUpdating(false);
     }
   };
 
   return {
     getEffectiveStatus,
-    handleStatusChange,
-    isUpdating
+    handleStatusChange
   };
 };
