@@ -1,170 +1,236 @@
 
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { Room, RoomStatus } from '@/lib/types';
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/lib/auth';
 
-export const useRoomStatus = (room?: Room, refetchRooms?: () => Promise<void>) => {
-  const [isUpdating, setIsUpdating] = useState(false);
+export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => {
   const { toast } = useToast();
   const { user } = useAuth();
 
-  const updateRoomStatus = useCallback(async (room: Room, newStatus: 'available' | 'occupied' | 'maintenance') => {
+  const getEffectiveStatus = (): RoomStatus => {
+    // Always prioritize maintenance status
+    if (room.status === 'maintenance') return 'maintenance';
+    // Otherwise use whatever status is set
+    if (room.status) return room.status;
+    return room.isAvailable ? 'available' : 'occupied';
+  };
+
+  const handleStatusChange = async (status: RoomStatus) => {
     try {
-      setIsUpdating(true);
-      const prevStatus = room.status;
+      console.log("Updating room status to:", status, "for room:", room.id, room.name);
       
-      console.log(`Updating room status: ${room.name} from ${prevStatus} to ${newStatus}`);
-      
-      // Update the room status
-      const { error } = await supabase
-        .from('rooms')
-        .update({ status: newStatus })
-        .eq('id', room.id);
-
-      if (error) {
-        console.error("Error updating room status:", error);
+      // Check if attempting to set maintenance status
+      if (status === 'maintenance' && user?.role !== 'superadmin') {
+        console.error("Only superadmin can set rooms to maintenance status");
         toast({
-          title: "Error",
-          description: `Failed to update status for ${room.name}. ${error.message}`,
-          variant: "destructive",
+          title: 'Permission Denied',
+          description: 'Only SuperAdmin users can mark rooms for maintenance',
+          variant: 'destructive'
         });
-        return false;
-      }
-
-      // Create an announcement if room is being set to maintenance
-      if (newStatus === 'maintenance' && user && (user.role === 'admin' || user.role === 'superadmin')) {
-        await createMaintenanceAnnouncement(room);
-      }
-
-      // Handle no refetch function
-      if (!refetchRooms) {
-        toast({
-          title: "Status Updated",
-          description: `${room.name} is now set to ${newStatus}.`,
-        });
-        return true;
-      }
-
-      // Get data about the room including its building info for better notifications
-      const { data: roomData, error: roomError } = await supabase
-        .from('rooms')
-        .select(`
-          name,
-          floor,
-          buildings (name)
-        `)
-        .eq('id', room.id)
-        .single();
-
-      if (roomError) {
-        console.error("Error fetching room details:", roomError);
-      }
-
-      // Mark a room available after maintenance
-      if (prevStatus === 'maintenance' && newStatus !== 'maintenance') {
-        toast({
-          title: "Room Restored",
-          description: `${room.name} is no longer under maintenance.`,
-        });
-      }
-      
-      // Mark a room as occupied
-      if (newStatus === 'occupied' && prevStatus !== 'occupied') {
-        toast({
-          title: "Room Occupied",
-          description: `${room.name} is now marked as occupied.`,
-        });
-      }
-      
-      // Mark a room as available
-      if (newStatus === 'available' && prevStatus !== 'available') {
-        toast({
-          title: "Room Available",
-          description: `${room.name} is now available for use.`,
-        });
-      }
-      
-      // Mark a room as under maintenance
-      if (newStatus === 'maintenance' && prevStatus !== 'maintenance') {
-        const building = roomData?.buildings?.name || 'Unknown Building';
-        
-        toast({
-          title: "Room Under Maintenance",
-          description: `${room.name} (${building}, Floor ${roomData?.floor || 'Unknown'}) is now under maintenance.`,
-        });
-      }
-      
-      // Refresh the room list to show updated status
-      await refetchRooms();
-      return true;
-    } catch (error) {
-      console.error("Error in updateRoomStatus:", error);
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred while updating room status.",
-        variant: "destructive",
-      });
-      return false;
-    } finally {
-      setIsUpdating(false);
-    }
-  }, [refetchRooms, toast, user]);
-
-  const createMaintenanceAnnouncement = async (room: Room) => {
-    try {
-      // First get building name
-      const { data: roomData, error: roomError } = await supabase
-        .from('rooms')
-        .select(`
-          name,
-          floor,
-          buildings (name)
-        `)
-        .eq('id', room.id)
-        .single();
-      
-      if (roomError) {
-        console.error("Error fetching room details for announcement:", roomError);
         return;
       }
       
-      const buildingName = roomData?.buildings?.name || 'Unknown Building';
-      const title = `Room Maintenance: ${room.name}`;
-      const content = `Room ${room.name} in ${buildingName} (Floor ${room.floor}) has been placed under maintenance. This room will be unavailable until further notice.`;
-      
-      // Create the announcement
-      const { error: announcementError } = await supabase
-        .from('announcements')
-        .insert({
-          title,
-          content,
-          created_by: user?.id
+      // If not authenticated, don't proceed
+      if (!user) {
+        console.error("No active session found");
+        toast({
+          title: 'Authentication Required',
+          description: 'You must be logged in to change room status',
+          variant: 'destructive'
         });
-      
-      if (announcementError) {
-        console.error("Error creating maintenance announcement:", announcementError);
+        return;
       }
-    } catch (error) {
-      console.error("Error creating maintenance announcement:", error);
+      
+      // If trying to change maintenance room status and not superadmin, block
+      if (room.status === 'maintenance' && user.role !== 'superadmin') {
+        console.error("Only superadmin can change status of maintenance rooms");
+        toast({
+          title: 'Permission Denied',
+          description: 'Only SuperAdmin users can change the status of rooms under maintenance',
+          variant: 'destructive'
+        });
+        return;
+      }
+      
+      console.log("Current user ID:", user.id);
+      
+      const previousStatus = room.status;
+      const isAvailable = status === 'available';
+      
+      // Get the building name for the announcement
+      let buildingName = "Unknown Building";
+      if (room.buildingId) {
+        const { data: buildingData, error: buildingError } = await supabase
+          .from('buildings')
+          .select('name')
+          .eq('id', room.buildingId)
+          .single();
+        
+        if (!buildingError && buildingData) {
+          buildingName = buildingData.name;
+        } else if (buildingError) {
+          console.error("Error fetching building name:", buildingError);
+        }
+      }
+      
+      console.log(`Updating room ${room.id} status from ${previousStatus} to ${status}`);
+      
+      // CRUCIAL FIX: Update the room status in the database first
+      const { data: updatedRoom, error: roomError } = await supabase
+        .from('rooms')
+        .update({ status: status })
+        .eq('id', room.id)
+        .select();
+      
+      if (roomError) {
+        console.error("Error updating room status:", roomError);
+        toast({
+          title: "Error",
+          description: "Failed to update room status: " + roomError.message,
+          variant: "destructive"
+        });
+        return;  // Exit early on error
+      }
+      
+      console.log("Room status updated successfully in database:", updatedRoom);
+      
+      // Create a room_availability record to track the change
+      try {
+        const { data: availData, error: availError } = await supabase
+          .from('room_availability')
+          .insert({
+            room_id: room.id, 
+            is_available: isAvailable,
+            updated_by: user.id,
+            updated_at: new Date().toISOString(),
+            status: status // Store the exact status in the room_availability table
+          })
+          .select();
+            
+        if (availError) {
+          console.error("Error updating room availability:", availError);
+        } else {
+          console.log("Room availability record created:", availData);
+        }
+      } catch (availabilityError) {
+        console.error("Error with availability record:", availabilityError);
+        // Continue execution - don't block the main flow if availability record fails
+      }
+      
+      // Handle announcement creation and removal based on status change
+      if (status === 'maintenance') {
+        // Create an announcement for the maintenance status
+        const announcementTitle = `Room Under Maintenance: ${buildingName} - ${room.name}`;
+        console.log("Creating maintenance announcement:", announcementTitle);
+        
+        // Fix: Use better query to check for existing maintenance announcement for this room
+        const { data: existingAnnouncement, error: checkError } = await supabase
+          .from('announcements')
+          .select('id')
+          .ilike('title', `%${room.name}%`)
+          .ilike('title', '%Under Maintenance%')
+          .maybeSingle();
+        
+        if (checkError) {
+          console.error("Error checking for existing announcement:", checkError);
+        }
+        
+        // Only create if no existing announcement found
+        if (!existingAnnouncement) {
+          console.log("No existing maintenance announcement found, creating new one");
+          
+          const { error: announcementError } = await supabase
+            .from('announcements')
+            .insert({
+              title: announcementTitle,
+              content: `Room ${room.name} in ${buildingName} is now under maintenance. Please note that this room will be temporarily unavailable for reservations.`,
+              created_by: user.id
+            });
+            
+          if (announcementError) {
+            console.error("Error creating maintenance announcement:", announcementError);
+            toast({
+              title: "Error",
+              description: "Failed to create maintenance announcement: " + announcementError.message,
+              variant: "destructive"
+            });
+          } else {
+            console.log("Created maintenance announcement successfully");
+            toast({
+              title: "Announcement Created",
+              description: `A system announcement about ${room.name} maintenance has been posted.`,
+            });
+          }
+        } else {
+          console.log("Maintenance announcement already exists for this room:", existingAnnouncement);
+        }
+      } 
+      // Fixed: Simplified condition to properly handle maintenance status transitions
+      else if (previousStatus === 'maintenance') {
+        // Find and remove maintenance announcements for this room
+        console.log(`Looking for maintenance announcements to remove for room ${room.name}`);
+        
+        const { data: announcements, error: findError } = await supabase
+          .from('announcements')
+          .select('id, title')
+          .ilike('title', `%${room.name}%`)
+          .ilike('title', '%Under Maintenance%');
+        
+        if (findError) {
+          console.error("Error finding maintenance announcements:", findError);
+        }
+        
+        if (announcements && announcements.length > 0) {
+          console.log(`Found ${announcements.length} announcements to delete:`, announcements);
+          
+          // Delete found announcements
+          const announcementIds = announcements.map(a => a.id);
+          const { error: deleteError } = await supabase
+            .from('announcements')
+            .delete()
+            .in('id', announcementIds);
+          
+          if (deleteError) {
+            console.error("Error removing maintenance announcements:", deleteError);
+            toast({
+              title: "Error",
+              description: "Failed to remove maintenance announcements: " + deleteError.message,
+              variant: "destructive"
+            });
+          } else {
+            console.log("Successfully removed maintenance announcements");
+            toast({
+              title: "Maintenance Ended",
+              description: `Room ${room.name} is now available and maintenance announcements have been removed.`,
+            });
+          }
+        } else {
+          console.log("No maintenance announcements found to remove");
+        }
+      }
+      
+      // Show success toast only after all operations succeed
+      toast({
+        title: "Room status updated",
+        description: `Room status changed to ${status}`,
+      });
+      
+      // Force a refresh of room data after completed DB operations
+      setTimeout(() => refetchRooms(), 300);
+      
+    } catch (error: any) {
+      console.error("Error updating room status:", error);
+      toast({
+        title: "Error",
+        description: `Failed to update room status: ${error?.message || 'Unknown error'}`,
+        variant: "destructive"
+      });
     }
   };
 
-  // Add these two functions to fix the useRoomCardLogic errors
-  const getEffectiveStatus = useCallback(() => {
-    if (!room) return 'available' as RoomStatus;
-    return room.status || 'available';
-  }, [room]);
-
-  const handleStatusChange = useCallback((newStatus: RoomStatus) => {
-    if (!room) return;
-    updateRoomStatus(room, newStatus);
-  }, [room, updateRoomStatus]);
-
   return {
-    updateRoomStatus,
-    isUpdating,
     getEffectiveStatus,
     handleStatusChange
   };

@@ -7,12 +7,11 @@ import { RoomUsageData } from '../types/room';
 interface RoomUsageChartProps {
   data: RoomUsageData[];
   currentPage: number;
-  onExportData?: () => void;
 }
 
-const RoomUsageChart: React.FC<RoomUsageChartProps> = ({ data, currentPage, onExportData }) => {
+const RoomUsageChart: React.FC<RoomUsageChartProps> = ({ data, currentPage }) => {
   return (
-    <div className="h-[300px] w-full">
+    <div className="h-[400px] w-full">
       <ChartContainer config={{
         utilizationHours: { label: "Hours", color: "#22c55e" },
         reservations: { label: "Reservations", color: "#ef4444" }
@@ -20,28 +19,26 @@ const RoomUsageChart: React.FC<RoomUsageChartProps> = ({ data, currentPage, onEx
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={data}
-            margin={{ top: 10, right: 20, left: 10, bottom: 60 }}
+            margin={{ top: 20, right: 30, left: 20, bottom: 70 }}
           >
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis 
               dataKey="roomName" 
               angle={-45} 
               textAnchor="end" 
-              tick={{ fontSize: 10 }}
-              height={60}
+              tick={{ fontSize: 12 }}
+              height={70}
             />
             <YAxis 
               yAxisId="left" 
               orientation="left" 
               stroke="#22c55e"
               ticks={[0, 2, 4, 6, 8]} 
-              width={30}
             />
             <YAxis 
               yAxisId="right" 
               orientation="right" 
-              stroke="#ef4444"
-              width={30}
+              stroke="#ef4444" 
             />
             <ChartTooltip content={<ChartTooltipContent />} />
             <Legend />

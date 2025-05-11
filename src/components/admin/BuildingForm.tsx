@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Save } from 'lucide-react';
+import { useBuildings } from '@/hooks/useBuildings';
 
 // Define schema for the building form
 const buildingFormSchema = z.object({
@@ -29,14 +30,12 @@ interface BuildingFormProps {
   defaultValues?: BuildingFormValues;
   onSubmit: (data: BuildingFormValues) => void;
   onCancel: () => void;
-  isEditing?: boolean;
 }
 
 const BuildingForm: React.FC<BuildingFormProps> = ({
   defaultValues,
   onSubmit,
-  onCancel,
-  isEditing = false
+  onCancel
 }) => {
   const form = useForm<BuildingFormValues>({
     resolver: zodResolver(buildingFormSchema),
@@ -47,14 +46,9 @@ const BuildingForm: React.FC<BuildingFormProps> = ({
     }
   });
 
-  const handleFormSubmit = (data: BuildingFormValues) => {
-    // Call the parent component's onSubmit handler with the form data
-    onSubmit(data);
-  };
-
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <FormField
           control={form.control}
           name="name"
@@ -101,9 +95,7 @@ const BuildingForm: React.FC<BuildingFormProps> = ({
                 />
               </FormControl>
               <FormDescription>
-                {isEditing ? 
-                  "Note: Increasing floor count will add new floors to this building" : 
-                  "Enter the number of floors in this building (max 20)"}
+                Enter the number of floors in this building (max 20)
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -120,7 +112,7 @@ const BuildingForm: React.FC<BuildingFormProps> = ({
           </Button>
           <Button type="submit">
             <Save className="mr-2 h-4 w-4" />
-            {isEditing ? 'Update Building' : 'Save Building'}
+            Save Building
           </Button>
         </div>
       </form>

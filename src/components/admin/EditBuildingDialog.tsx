@@ -33,7 +33,6 @@ const EditBuildingDialog: React.FC<EditBuildingDialogProps> = ({
           }}
           onSubmit={onSubmit}
           onCancel={onClose}
-          isEditing={true}
         />
       </DialogContent>
     </Dialog>
