@@ -1,5 +1,4 @@
-
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Room, RoomStatus } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,6 +7,34 @@ import { useAuth } from '@/lib/auth';
 export function useRoomAvailability() {
   const { user } = useAuth();
   const { toast } = useToast();
+
+  // Add the getAvailableRooms function
+  const getAvailableRooms = useCallback(async () => {
+    try {
+      // Fetch rooms that are currently available
+      const { data: roomsData, error: roomsError } = await supabase
+        .from('rooms')
+        .select('*, buildings(name)')
+        .eq('status', 'available');
+      
+      if (roomsError) throw roomsError;
+      
+      // Transform to match Room type
+      return roomsData ? roomsData.map(room => ({
+        id: room.id,
+        name: room.name,
+        type: room.type,
+        capacity: room.capacity,
+        isAvailable: true,
+        floor: room.floor,
+        buildingId: room.building_id,
+        status: 'available' as RoomStatus
+      })) : [];
+    } catch (error) {
+      console.error("Error fetching available rooms:", error);
+      return [];
+    }
+  }, []);
 
   const handleToggleRoomAvailability = async (room: Room, rooms: Room[], setRooms: React.Dispatch<React.SetStateAction<Room[]>>) => {
     // Allow faculty, admin, and superadmin users to toggle room availability
@@ -124,6 +151,7 @@ export function useRoomAvailability() {
 
   return {
     handleToggleRoomAvailability,
-    setupRoomAvailabilitySubscription
+    setupRoomAvailabilitySubscription,
+    getAvailableRooms // Add this to the returned object
   };
 }

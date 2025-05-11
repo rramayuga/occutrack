@@ -1,11 +1,11 @@
 
 import { useState, useCallback } from 'react';
-import { Room } from '@/lib/types';
+import { Room, RoomStatus } from '@/lib/types';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/lib/auth';
 
-export const useRoomStatus = (refetchRooms?: () => Promise<void>) => {
+export const useRoomStatus = (room?: Room, refetchRooms?: () => Promise<void>) => {
   const [isUpdating, setIsUpdating] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -151,8 +151,21 @@ export const useRoomStatus = (refetchRooms?: () => Promise<void>) => {
     }
   };
 
+  // Add these two functions to fix the useRoomCardLogic errors
+  const getEffectiveStatus = useCallback(() => {
+    if (!room) return 'available' as RoomStatus;
+    return room.status || 'available';
+  }, [room]);
+
+  const handleStatusChange = useCallback((newStatus: RoomStatus) => {
+    if (!room) return;
+    updateRoomStatus(room, newStatus);
+  }, [room, updateRoomStatus]);
+
   return {
     updateRoomStatus,
-    isUpdating
+    isUpdating,
+    getEffectiveStatus,
+    handleStatusChange
   };
 };

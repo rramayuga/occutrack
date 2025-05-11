@@ -41,7 +41,20 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
           <TeachingSchedule reservations={reservations} />
         </div>
         <div className="col-span-1">
-          <AvailableRooms rooms={rooms} buildings={buildings} />
+          {/* Convert BuildingWithFloors[] to Building[] for the AvailableRooms component */}
+          <AvailableRooms 
+            rooms={rooms} 
+            buildings={buildings.map(b => ({
+              id: b.id,
+              name: b.name,
+              location: b.location,
+              floors: b.floors.length, // Convert Floor[] to number
+              roomCount: b.roomCount,
+              utilization: b.utilization,
+              createdAt: b.createdAt,
+              updatedAt: b.updatedAt
+            }))}
+          />
         </div>
       </div>
     </div>
