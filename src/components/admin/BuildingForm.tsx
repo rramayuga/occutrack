@@ -1,54 +1,60 @@
 
 import React from 'react';
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
-  FormMessage
+  FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Save } from 'lucide-react';
-import { useBuildings } from '@/hooks/useBuildings';
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 
-// Define schema for the building form
-const buildingFormSchema = z.object({
-  name: z.string().min(2, { message: "Building name must be at least 2 characters." }),
-  floorCount: z.coerce.number().min(1, { message: "Building must have at least 1 floor" }).max(20, { message: "Building can have at most 20 floors" }),
-  location: z.string().optional(),
-});
-
-export type BuildingFormValues = z.infer<typeof buildingFormSchema>;
+export interface BuildingFormValues {
+  name: string;
+  floorCount: number;
+  location?: string;
+}
 
 interface BuildingFormProps {
   defaultValues?: BuildingFormValues;
-  onSubmit: (data: BuildingFormValues) => void;
+  onSubmit: (values: BuildingFormValues) => void;
   onCancel: () => void;
+  isSubmitting?: boolean;
 }
+
+const formSchema = z.object({
+  name: z.string().min(1, "Building name is required"),
+  floorCount: z.coerce
+    .number()
+    .int()
+    .positive("Must have at least one floor")
+    .max(100, "Too many floors"),
+  location: z.string().optional(),
+});
 
 const BuildingForm: React.FC<BuildingFormProps> = ({
   defaultValues,
   onSubmit,
-  onCancel
+  onCancel,
+  isSubmitting = false
 }) => {
-  const form = useForm<BuildingFormValues>({
-    resolver: zodResolver(buildingFormSchema),
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
     defaultValues: defaultValues || {
-      name: '',
+      name: "",
       floorCount: 1,
-      location: ''
-    }
+      location: "",
+    },
   });
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-2">
         <FormField
           control={form.control}
           name="name"
@@ -62,24 +68,7 @@ const BuildingForm: React.FC<BuildingFormProps> = ({
             </FormItem>
           )}
         />
-        
-        <FormField
-          control={form.control}
-          name="location"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Location (Optional)</FormLabel>
-              <FormControl>
-                <Input placeholder="North Campus" {...field} />
-              </FormControl>
-              <FormDescription>
-                Specify the location of this building on campus
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        
+
         <FormField
           control={form.control}
           name="floorCount"
@@ -87,32 +76,42 @@ const BuildingForm: React.FC<BuildingFormProps> = ({
             <FormItem>
               <FormLabel>Number of Floors</FormLabel>
               <FormControl>
-                <Input 
-                  type="number" 
-                  min="1" 
-                  max="20"
+                <Input
+                  type="number"
+                  min={1}
+                  step={1}
                   {...field}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value);
+                    field.onChange(isNaN(value) ? 1 : value);
+                  }}
                 />
               </FormControl>
-              <FormDescription>
-                Enter the number of floors in this building (max 20)
-              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
         />
-        
-        <div className="flex justify-end gap-2 pt-2">
-          <Button 
-            variant="outline" 
-            type="button" 
-            onClick={onCancel}
-          >
+
+        <FormField
+          control={form.control}
+          name="location"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Location (Optional)</FormLabel>
+              <FormControl>
+                <Input placeholder="Campus North" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="flex justify-end space-x-2 pt-4">
+          <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit">
-            <Save className="mr-2 h-4 w-4" />
-            Save Building
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Saving...' : 'Save Building'}
           </Button>
         </div>
       </form>

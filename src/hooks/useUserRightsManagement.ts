@@ -10,6 +10,9 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
+  const [viewFilter, setViewFilter] = useState<boolean>(false);
+  const [editFilter, setEditFilter] = useState<boolean>(false);
+  const [deleteFilter, setDeleteFilter] = useState<boolean>(false);
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
   
@@ -128,6 +131,55 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
       fetchUsers();
     }
   };
+
+  const handleDeleteUser = async (userId: string) => {
+    try {
+      // Only superadmins can delete users
+      if (currentUser?.role !== 'superadmin') {
+        toast({
+          title: 'Permission Denied',
+          description: 'Only SuperAdmin users can delete accounts',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      // Check if trying to delete a superadmin account
+      const userToDelete = users.find(u => u.id === userId);
+      if (userToDelete?.role === 'superadmin') {
+        toast({
+          title: 'Permission Denied',
+          description: 'SuperAdmin accounts cannot be deleted through this interface',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      // Delete the user from the auth.users table
+      const { error } = await supabase.auth.admin.deleteUser(userId);
+      
+      if (error) {
+        console.error('Error deleting user account:', error);
+        throw error;
+      }
+      
+      // Update local state to remove the deleted user
+      setUsers(prevUsers => prevUsers.filter(user => user.id !== userId));
+      
+      toast({
+        title: 'User Deleted',
+        description: 'User account has been permanently deleted',
+      });
+      
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete user account',
+        variant: 'destructive'
+      });
+    }
+  };
   
   const filteredUsers = users.filter(user => {
     const matchesSearch = 
@@ -172,7 +224,14 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
     roleFilter,
     setRoleFilter,
     handleRoleChange,
+    handleDeleteUser,
     filteredUsers,
-    fetchUsers
+    fetchUsers,
+    viewFilter,
+    setViewFilter,
+    editFilter,
+    setEditFilter,
+    deleteFilter,
+    setDeleteFilter
   };
 };

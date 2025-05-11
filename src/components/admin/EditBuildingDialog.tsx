@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import BuildingForm, { BuildingFormValues } from './BuildingForm';
 import { BuildingWithFloors } from '@/lib/types';
@@ -17,7 +17,19 @@ const EditBuildingDialog: React.FC<EditBuildingDialogProps> = ({
   onClose,
   onSubmit
 }) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   if (!building) return null;
+
+  const handleSubmit = async (data: BuildingFormValues) => {
+    setIsSubmitting(true);
+    try {
+      await onSubmit(data);
+      onClose();
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -31,8 +43,9 @@ const EditBuildingDialog: React.FC<EditBuildingDialogProps> = ({
             floorCount: building.floors.length,
             location: building.location || ''
           }}
-          onSubmit={onSubmit}
+          onSubmit={handleSubmit}
           onCancel={onClose}
+          isSubmitting={isSubmitting}
         />
       </DialogContent>
     </Dialog>

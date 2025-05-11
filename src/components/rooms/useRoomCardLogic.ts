@@ -9,9 +9,9 @@ import { useReservationManagement } from '@/hooks/rooms/useReservationManagement
 export const useRoomCardLogic = (room: Room, onToggleAvailability: (roomId: string) => void, refetchRooms: () => Promise<void>) => {
   const { user } = useAuth();
   
-  const { getEffectiveStatus, handleStatusChange } = useRoomStatus(room, refetchRooms);
+  const { getEffectiveStatus, handleStatusChange, isUpdating } = useRoomStatus(room, refetchRooms);
   const { currentOccupant: occupiedBy } = useRoomOccupancy(room.id, room.status !== 'occupied', room.occupiedBy);
-  const { roomSchedules, showSchedules, handleToggleSchedules } = useRoomSchedules(room.id, room.name);
+  const { roomSchedules, showSchedules, handleToggleSchedules, fetchRoomSchedules } = useRoomSchedules(room.id, room.name);
   const {
     isCancelDialogOpen,
     selectedReservation,
@@ -31,12 +31,14 @@ export const useRoomCardLogic = (room: Room, onToggleAvailability: (roomId: stri
     showSchedules,
     isCancelDialogOpen,
     selectedReservation,
+    isUpdating,
     getEffectiveStatus,
     handleStatusChange,
     handleCancelReservation,
     handleToggleSchedules,
     handleCancelClick,
     isUserFaculty,
-    setIsCancelDialogOpen
+    setIsCancelDialogOpen,
+    fetchRoomSchedules
   };
 };

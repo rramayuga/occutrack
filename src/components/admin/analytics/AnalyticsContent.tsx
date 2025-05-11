@@ -1,18 +1,32 @@
 
 import React from 'react';
-import { Card, CardContent } from "@/components/ui/card";
-import { format } from "date-fns";
-import { RoomUsageData } from '../types/room';
-import RoomUsageChart from './RoomUsageChart';
-import RoomUsageCards from './RoomUsageCards';
-import { Pagination, PaginationContent, PaginationItem, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+} from 'recharts';
+import { RoomAnalyticsData } from '@/lib/types';
 
 interface AnalyticsContentProps {
   isLoading: boolean;
-  roomUsageData: RoomUsageData[];
+  roomUsageData: RoomAnalyticsData[];
   currentPage: number;
   totalPages: number;
-  currentPageData: RoomUsageData[];
+  currentPageData: RoomAnalyticsData[];
   handlePreviousPage: () => void;
   handleNextPage: () => void;
 }
@@ -24,70 +38,130 @@ const AnalyticsContent: React.FC<AnalyticsContentProps> = ({
   totalPages,
   currentPageData,
   handlePreviousPage,
-  handleNextPage
+  handleNextPage,
 }) => {
   if (isLoading) {
-    return (
-      <div className="h-[400px] flex items-center justify-center">
-        <div className="animate-pulse text-center">
-          <div className="h-6 w-32 bg-muted rounded mx-auto mb-2"></div>
-          <p className="text-muted-foreground">Loading data...</p>
-        </div>
-      </div>
-    );
+    return <div className="text-center py-10">Loading analytics data...</div>;
   }
 
-  if (!roomUsageData.length) {
-    return (
-      <div className="h-[400px] flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-muted-foreground mb-2">No room usage data available for the selected filters.</p>
-          <p className="text-sm text-muted-foreground">Try adjusting your filters or selecting a different date range.</p>
-        </div>
-      </div>
-    );
+  if (roomUsageData.length === 0) {
+    return <div className="text-center py-10">No data available for the selected criteria.</div>;
   }
+
+  // Prepare chart data - limit to top 10 most booked rooms
+  const chartData = [...roomUsageData]
+    .sort((a, b) => (b.bookingsCount || 0) - (a.bookingsCount || 0))
+    .slice(0, 10)
+    .map(room => ({
+      name: `${room.name}`,
+      bookings: room.bookingsCount || 0,
+      hours: parseFloat((room.hoursUtilized || 0).toFixed(1)),
+    }));
 
   return (
-    <div className="space-y-8">
-      <div className="h-[400px] w-full">
-        <RoomUsageChart data={currentPageData} currentPage={currentPage} />
-      </div>
-      
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-sm text-muted-foreground">
-          Showing {Math.min((currentPage - 1) * 10 + 1, roomUsageData.length)} - {Math.min(currentPage * 10, roomUsageData.length)} of {roomUsageData.length} rooms
-        </p>
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious 
-                onClick={handlePreviousPage} 
-                className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-              />
-            </PaginationItem>
-            <PaginationItem>
-              <PaginationNext 
-                onClick={handleNextPage} 
-                className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
-      </div>
-      
-      <div className="mb-8">
-        <RoomUsageCards data={currentPageData} />
+    <div className="space-y-6">
+      <div className="h-64 w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={chartData}
+            margin={{ top: 20, right: 30, left: 20, bottom: 40 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis 
+              dataKey="name" 
+              angle={-45} 
+              textAnchor="end" 
+              tick={{ fontSize: 10 }}
+              height={60} 
+            />
+            <YAxis yAxisId="left" orientation="left" stroke="#8884d8" />
+            <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" />
+            <Tooltip />
+            <Legend />
+            <Bar
+              yAxisId="left"
+              dataKey="bookings"
+              name="Total Bookings"
+              fill="#8884d8"
+            />
+            <Bar
+              yAxisId="right"
+              dataKey="hours"
+              name="Hours Utilized"
+              fill="#82ca9d"
+            />
+          </BarChart>
+        </ResponsiveContainer>
       </div>
 
-      <Card>
-        <CardContent className="p-4">
-          <div className="text-xs text-muted-foreground">
-            <p className="mb-1">Last updated: {format(new Date(), 'MMM dd, yyyy HH:mm:ss')}</p>
-            <p>Data is updated in real-time as reservations change.</p>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Room</TableHead>
+              <TableHead>Building</TableHead>
+              <TableHead>Floor</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead className="text-right">Bookings</TableHead>
+              <TableHead className="text-right">Hours Used</TableHead>
+              <TableHead>Status</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {currentPageData.map((room) => (
+              <TableRow key={room.id}>
+                <TableCell className="font-medium">{room.name}</TableCell>
+                <TableCell>{room.buildingName}</TableCell>
+                <TableCell>{room.floor}</TableCell>
+                <TableCell>{room.type}</TableCell>
+                <TableCell className="text-right">{room.bookingsCount || 0}</TableCell>
+                <TableCell className="text-right">
+                  {room.hoursUtilized ? room.hoursUtilized.toFixed(1) : '0'}
+                </TableCell>
+                <TableCell>
+                  <span
+                    className={`px-2 py-1 text-xs rounded-full ${
+                      room.status === 'available'
+                        ? 'bg-green-100 text-green-800'
+                        : room.status === 'occupied'
+                        ? 'bg-red-100 text-red-800'
+                        : 'bg-amber-100 text-amber-800'
+                    }`}
+                  >
+                    {room.status || 'unknown'}
+                  </span>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      <div className="flex justify-between items-center">
+        <div className="text-sm text-muted-foreground">
+          Showing {(currentPage - 1) * 10 + 1} to{' '}
+          {Math.min(currentPage * 10, roomUsageData.length)} of{' '}
+          {roomUsageData.length} rooms
+        </div>
+        <div className="space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handlePreviousPage}
+            disabled={currentPage === 1}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleNextPage}
+            disabled={currentPage === totalPages}
+          >
+            Next
+          </Button>
+        </div>
+      </div>
     </div>
   );
 };

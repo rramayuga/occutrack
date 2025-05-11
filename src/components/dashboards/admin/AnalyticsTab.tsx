@@ -10,7 +10,7 @@ const AnalyticsTab: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card className="overflow-hidden">
         <CardHeader>
           <CardTitle>Room Usage Analysis</CardTitle>
         </CardHeader>

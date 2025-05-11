@@ -1,52 +1,64 @@
 
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/components/AuthProvider";
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
-import Dashboard from "./pages/Dashboard";
-import Roles from "./pages/Roles";
-import Rooms from "./pages/Rooms";
-import RoomManagement from "./pages/RoomManagement";
-import FacultyManagement from "./pages/FacultyManagement";
-import UserManagement from "./pages/UserManagement";
-import UserRightsManagementPage from "./pages/UserRightsManagementPage";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import FacultyConfirmation from "./pages/FacultyConfirmation";
-import Announcements from "./pages/Announcements";
-import AnnouncementsManager from "./pages/admin/AnnouncementsManager";
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import LoginPage from './pages/Login';
+import HomePage from './pages/Home';
+import ProctorPage from './pages/Proctor';
+import FacultyPage from './pages/Faculty';
+import RoomBookingPage from './pages/RoomBooking';
+import AdminSettings from './pages/AdminSettings';
+import AdminPage from './pages/Admin';
+import RegisterPage from './pages/Register';
+import ResetPasswordPage from './pages/ResetPassword';
+import NotFoundPage from './pages/NotFound';
+import AuthRequiredPage from './pages/AuthRequired';
+import Rooms from './pages/Rooms';
+import UserRights from './pages/UserRights';
+import UserManagement from './pages/UserManagement';
+import UserDetail from './pages/UserDetail';
+import { AuthProvider } from './lib/auth';
+import { Toaster } from './components/ui/toaster';
+import { RoomManagementProvider } from './components/admin/context/RoomManagementContext';
 
-const queryClient = new QueryClient();
-
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <AuthProvider>
-        <Toaster />
-        <Sonner />
+function App() {
+  return (
+    <AuthProvider>
+      <Router>
         <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/roles" element={<Roles />} />
+          <Route path="/" element={<HomePage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/auth-required" element={<AuthRequiredPage />} />
+          
+          {/* Protected routes */}
+          <Route path="/proctor" element={<ProctorPage />} />
+          <Route path="/faculty" element={<FacultyPage />} />
           <Route path="/rooms" element={<Rooms />} />
-          <Route path="/room-management" element={<RoomManagement />} />
-          <Route path="/faculty-management" element={<FacultyManagement />} />
-          <Route path="/user-management" element={<UserManagement />} />
-          <Route path="/user-rights" element={<UserRightsManagementPage />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/faculty-confirmation" element={<FacultyConfirmation />} />
-          <Route path="/announcements" element={<Announcements />} />
-          <Route path="/admin/announcements" element={<AnnouncementsManager />} />
-          <Route path="*" element={<NotFound />} />
+          <Route path="/room-booking" element={<RoomBookingPage />} />
+          
+          {/* Admin routes */}
+          <Route path="/admin" element={<AdminPage />} />
+          <Route 
+            path="/admin/settings" 
+            element={
+              <RoomManagementProvider>
+                <AdminSettings />
+              </RoomManagementProvider>
+            } 
+          />
+          
+          {/* User Management routes */}
+          <Route path="/user-rights" element={<UserRights />} />
+          <Route path="/users" element={<UserManagement />} />
+          <Route path="/users/:id" element={<UserDetail />} />
+          
+          {/* Catch all */}
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
-      </AuthProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+        <Toaster />
+      </Router>
+    </AuthProvider>
+  );
+}
 
 export default App;

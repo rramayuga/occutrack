@@ -12,6 +12,12 @@ export const AvailableRooms: React.FC<AvailableRoomsProps> = ({
   rooms, 
   buildings
 }) => {
+  // Filter for available rooms and sort by name for consistent display
+  const availableRooms = rooms
+    .filter(room => room.isAvailable && room.status !== 'maintenance')
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .slice(0, 3);
+
   return (
     <Card>
       <CardHeader>
@@ -20,8 +26,8 @@ export const AvailableRooms: React.FC<AvailableRoomsProps> = ({
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {rooms.filter(room => room.isAvailable).slice(0, 3).length > 0 ? (
-            rooms.filter(room => room.isAvailable).slice(0, 3).map((room) => {
+          {availableRooms.length > 0 ? (
+            availableRooms.map((room) => {
               const building = buildings.find(b => b.id === room.buildingId);
               return (
                 <div key={room.id} className="pb-4 border-b last:border-0">

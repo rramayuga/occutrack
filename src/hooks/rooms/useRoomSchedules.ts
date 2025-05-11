@@ -110,6 +110,29 @@ export const useRoomSchedules = (roomId: string, roomName: string) => {
     return () => clearInterval(intervalId);
   }, [roomId]);
 
+  // Set up a subscription to room_reservations changes
+  useEffect(() => {
+    const reservationsChannel = supabase
+      .channel('room-reservations-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'room_reservations',
+          filter: `room_id=eq.${roomId}`
+        },
+        () => {
+          fetchRoomSchedules();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(reservationsChannel);
+    };
+  }, [roomId]);
+
   const handleToggleSchedules = () => {
     setShowSchedules(!showSchedules);
   };
@@ -117,6 +140,7 @@ export const useRoomSchedules = (roomId: string, roomName: string) => {
   return {
     roomSchedules,
     showSchedules,
-    handleToggleSchedules
+    handleToggleSchedules,
+    fetchRoomSchedules
   };
 };
