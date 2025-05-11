@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import UserRightsFilters from './users/UserRightsFilters';
@@ -34,7 +34,8 @@ const UserRightsManagement: React.FC<UserRightsManagementDialogProps> = ({ open,
     roleFilter,
     setRoleFilter,
     handleRoleChange,
-    filteredUsers
+    filteredUsers,
+    handleDeleteUser
   } = useUserRightsManagement(open && hasAccess);
   
   if (!hasAccess) {
@@ -56,10 +57,10 @@ const UserRightsManagement: React.FC<UserRightsManagementDialogProps> = ({ open,
         />
         
         <UsersList
-          users={[]} // This is not used directly in the component
           loading={loading}
           filteredUsers={filteredUsers}
           handleRoleChange={handleRoleChange}
+          handleDeleteUser={handleDeleteUser}
         />
         
         <div className="flex justify-end mt-4">

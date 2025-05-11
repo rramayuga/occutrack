@@ -1,17 +1,19 @@
 
 import React from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { BuildingWithFloors, Room } from '@/lib/types';
+import { Building, Room } from '@/lib/types';
 
 interface AvailableRoomsProps {
   rooms: Room[];
-  buildings: BuildingWithFloors[];
+  buildings: Building[];
 }
 
 export const AvailableRooms: React.FC<AvailableRoomsProps> = ({ 
   rooms, 
   buildings
 }) => {
+  const availableRooms = rooms.filter(room => room.isAvailable && room.status !== 'maintenance');
+  
   return (
     <Card>
       <CardHeader>
@@ -20,8 +22,8 @@ export const AvailableRooms: React.FC<AvailableRoomsProps> = ({
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {rooms.filter(room => room.isAvailable).slice(0, 3).length > 0 ? (
-            rooms.filter(room => room.isAvailable).slice(0, 3).map((room) => {
+          {availableRooms.slice(0, 3).length > 0 ? (
+            availableRooms.slice(0, 3).map((room) => {
               const building = buildings.find(b => b.id === room.buildingId);
               return (
                 <div key={room.id} className="pb-4 border-b last:border-0">

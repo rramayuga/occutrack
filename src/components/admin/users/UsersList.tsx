@@ -1,62 +1,199 @@
 
-import React from 'react';
-import { User, UserRole } from '@/lib/types';
-import { ScrollArea } from "@/components/ui/scroll-area";
+import React, { useState } from 'react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Button } from '@/components/ui/button';
+import { Eye, Edit2, Trash2, Loader2 } from 'lucide-react';
+import { User } from '@/lib/types';
 import UserRoleSelector from './UserRoleSelector';
-import { useAuth } from '@/lib/auth';
+import { useNavigate } from 'react-router-dom';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface UsersListProps {
-  users: User[];
   loading: boolean;
   filteredUsers: User[];
-  handleRoleChange: (userId: string, newRole: UserRole) => void;
+  handleRoleChange: (userId: string, newRole: User['role']) => void;
+  handleDeleteUser: (userId: string) => Promise<boolean>;
 }
 
 const UsersList: React.FC<UsersListProps> = ({ 
-  users,
-  loading,
-  filteredUsers,
-  handleRoleChange
+  loading, 
+  filteredUsers, 
+  handleRoleChange,
+  handleDeleteUser
 }) => {
-  const { user: currentUser } = useAuth();
-  const isSuperAdmin = currentUser?.role === 'superadmin';
+  const navigate = useNavigate();
+  const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleSelectUser = (userId: string, checked: boolean) => {
+    const newSelected = new Set(selectedUsers);
+    if (checked) {
+      newSelected.add(userId);
+    } else {
+      newSelected.delete(userId);
+    }
+    setSelectedUsers(newSelected);
+  };
+
+  const handleSelectAllUsers = (checked: boolean) => {
+    if (checked) {
+      const allUserIds = filteredUsers.map(user => user.id);
+      setSelectedUsers(new Set(allUserIds));
+    } else {
+      setSelectedUsers(new Set());
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!userToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      const success = await handleDeleteUser(userToDelete.id);
+      if (success) {
+        // Remove from selected users if it was selected
+        if (selectedUsers.has(userToDelete.id)) {
+          const newSelected = new Set(selectedUsers);
+          newSelected.delete(userToDelete.id);
+          setSelectedUsers(newSelected);
+        }
+      }
+    } catch (error) {
+      console.error("Error deleting user:", error);
+    } finally {
+      setIsDeleting(false);
+      setUserToDelete(null);
+    }
+  };
 
   return (
-    <ScrollArea className="flex-1 border rounded-md">
-      {loading ? (
-        <div className="p-4 text-center text-muted-foreground">
-          Loading users...
-        </div>
-      ) : filteredUsers.length === 0 ? (
-        <div className="p-4 text-center text-muted-foreground">
-          No users found.
-        </div>
-      ) : (
-        <div className="min-w-full">
-          <div className="grid grid-cols-3 font-medium p-3 border-b">
-            <div>User</div>
-            <div>Email</div>
-            <div>Role</div>
-          </div>
-          {filteredUsers.map((user) => (
-            <div key={user.id} className="grid grid-cols-3 p-3 border-b items-center">
-              <div>{user.name}</div>
-              <div className="text-sm text-muted-foreground">{user.email}</div>
-              <div>
-                <UserRoleSelector 
-                  key={`${user.id}-${user.role}`} 
-                  currentRole={user.role} 
-                  onRoleChange={(newRole) => {
-                    console.log(`Changing role for user ${user.id} from ${user.role} to ${newRole}`);
-                    handleRoleChange(user.id, newRole);
-                  }} 
+    <>
+      <div className="rounded-md border overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[50px]">
+                <Checkbox 
+                  checked={filteredUsers.length > 0 && selectedUsers.size === filteredUsers.length} 
+                  onCheckedChange={handleSelectAllUsers} 
                 />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </ScrollArea>
+              </TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Role</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-6">
+                  <div className="flex items-center justify-center">
+                    <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                    <span>Loading users...</span>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : filteredUsers.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-6">
+                  No users found
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredUsers.map((user) => (
+                <TableRow key={user.id} className="hover:bg-muted/50">
+                  <TableCell>
+                    <Checkbox 
+                      checked={selectedUsers.has(user.id)}
+                      onCheckedChange={(checked) => 
+                        handleSelectUser(user.id, checked === true)
+                      }
+                    />
+                  </TableCell>
+                  <TableCell>{user.name}</TableCell>
+                  <TableCell>{user.email}</TableCell>
+                  <TableCell>
+                    <UserRoleSelector 
+                      currentRole={user.role}
+                      onRoleChange={(newRole) => handleRoleChange(user.id, newRole)}
+                    />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => navigate(`/users/${user.id}`)}
+                        title="View user details"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => navigate(`/users/${user.id}?edit=true`)}
+                        title="Edit user"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setUserToDelete(user)}
+                        title="Delete user"
+                      >
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Delete User Confirmation Dialog */}
+      <AlertDialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the user '{userToDelete?.name}'? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDelete} 
+              disabled={isDeleting} 
+              className="bg-red-500 hover:bg-red-600"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
 

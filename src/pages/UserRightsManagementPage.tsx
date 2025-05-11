@@ -28,7 +28,8 @@ const UserRightsManagementPage = () => {
     setRoleFilter,
     handleRoleChange,
     filteredUsers,
-    fetchUsers
+    fetchUsers,
+    handleDeleteUser
   } = useUserRightsManagement(isAuthorized);  // Only fetch users when component mounts and user is authorized
   
   // Re-fetch users when component mounts to ensure we have the latest data
@@ -66,10 +67,10 @@ const UserRightsManagementPage = () => {
             />
             
             <UsersList
-              users={[]}  // This is not used directly in the component
               loading={loading}
               filteredUsers={filteredUsers}
               handleRoleChange={handleRoleChange}
+              handleDeleteUser={handleDeleteUser}
             />
           </CardContent>
         </Card>

@@ -129,6 +129,109 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
     }
   };
   
+  const handleDeleteUser = async (userId: string): Promise<boolean> => {
+    try {
+      // First check if we can delete this user (can't delete ourselves or superadmins if we're just admin)
+      if (userId === currentUser?.id) {
+        toast({
+          title: 'Cannot Delete',
+          description: 'You cannot delete your own account',
+          variant: 'destructive'
+        });
+        return false;
+      }
+      
+      const userToDelete = users.find(u => u.id === userId);
+      
+      // Check admin permissions - admin cannot delete other admins or superadmins
+      if (currentUser?.role === 'admin' && userToDelete && 
+         (userToDelete.role === 'admin' || userToDelete.role === 'superadmin')) {
+        toast({
+          title: 'Permission Denied',
+          description: 'Admin users cannot delete admin or superadmin accounts',
+          variant: 'destructive'
+        });
+        return false;
+      }
+      
+      // Delete all related records first (reservations, faculty requests, etc)
+      // This prevents foreign key constraint issues
+      
+      // 1. Delete room reservations made by this user
+      const { error: reservationError } = await supabase
+        .from('room_reservations')
+        .delete()
+        .eq('faculty_id', userId);
+        
+      if (reservationError) {
+        console.error("Error deleting user's reservations:", reservationError);
+        // Continue anyway - we'll try to delete the profile
+      }
+      
+      // 2. Delete faculty requests made by this user
+      const { error: facultyError } = await supabase
+        .from('faculty_requests')
+        .delete()
+        .eq('user_id', userId);
+        
+      if (facultyError) {
+        console.error("Error deleting user's faculty requests:", facultyError);
+        // Continue anyway
+      }
+      
+      // 3. Delete room_availability records made by this user
+      const { error: availabilityError } = await supabase
+        .from('room_availability')
+        .delete()
+        .eq('updated_by', userId);
+        
+      if (availabilityError) {
+        console.error("Error deleting user's room availability records:", availabilityError);
+        // Continue anyway
+      }
+      
+      // 4. Delete announcements made by this user
+      const { error: announcementError } = await supabase
+        .from('announcements')
+        .delete()
+        .eq('created_by', userId);
+        
+      if (announcementError) {
+        console.error("Error deleting user's announcements:", announcementError);
+        // Continue anyway
+      }
+      
+      // Finally delete the user profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userId);
+        
+      if (profileError) {
+        console.error("Error deleting user profile:", profileError);
+        throw profileError;
+      }
+      
+      // Update our local state to remove the deleted user
+      setUsers(prevUsers => prevUsers.filter(user => user.id !== userId));
+      
+      toast({
+        title: 'User Deleted',
+        description: 'User account has been successfully deleted',
+      });
+      
+      return true;
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete user account',
+        variant: 'destructive'
+      });
+      return false;
+    }
+  };
+  
   const filteredUsers = users.filter(user => {
     const matchesSearch = 
       user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -173,6 +276,7 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
     setRoleFilter,
     handleRoleChange,
     filteredUsers,
-    fetchUsers
+    fetchUsers,
+    handleDeleteUser
   };
 };
