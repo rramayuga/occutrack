@@ -71,6 +71,7 @@ const UserRightsManagementPage = () => {
               filteredUsers={filteredUsers}
               handleRoleChange={handleRoleChange}
               handleDeleteUser={handleDeleteUser}
+              showFullDetails={true} // Show all user rights by default
             />
           </CardContent>
         </Card>

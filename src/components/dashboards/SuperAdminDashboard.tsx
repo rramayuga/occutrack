@@ -2,11 +2,7 @@
 import React from 'react';
 import { User } from '@/lib/types';
 import OverviewCards from './superadmin/OverviewCards';
-import SystemOverview from './superadmin/SystemOverview';
 import AdminTools from './superadmin/AdminTools';
-import StaffOverview from './superadmin/StaffOverview';
-import CampusNetwork from './superadmin/CampusNetwork';
-import { useSuperAdminData } from './superadmin/useSuperAdminData';
 import { Button } from '@/components/ui/button';
 import { Shield, MessageSquare } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -16,7 +12,6 @@ interface SuperAdminDashboardProps {
 }
 
 export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user }) => {
-  const { facultyMembers, adminUsers, isLoading } = useSuperAdminData();
   const navigate = useNavigate();
 
   return (
@@ -43,18 +38,9 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user }
 
       <OverviewCards />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <SystemOverview />
+      <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
         <AdminTools />
       </div>
-
-      <StaffOverview 
-        adminUsers={adminUsers}
-        facultyMembers={facultyMembers}
-        isLoading={isLoading}
-      />
-
-      <CampusNetwork />
     </div>
   );
 };

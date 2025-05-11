@@ -6,13 +6,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 interface UserRoleSelectorProps {
   currentRole: UserRole;
   onRoleChange: (newRole: UserRole) => void;
-  disabled?: boolean; // Add the missing prop
+  disabled?: boolean;
 }
 
 const UserRoleSelector: React.FC<UserRoleSelectorProps> = ({ 
   currentRole, 
   onRoleChange,
-  disabled = false // Default to false
+  disabled = false
 }) => {
   console.log('Rendering UserRoleSelector with role:', currentRole);
 

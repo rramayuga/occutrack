@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { CalendarIcon, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -63,10 +63,36 @@ const bookingFormSchema = z.object({
 
 type FormValues = z.infer<typeof bookingFormSchema>;
 
+// Updated time slots with hour and minute formats in AM/PM
 const AVAILABLE_TIMES = [
-  "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", 
-  "14:00", "15:00", "16:00", "17:00", "18:00", "19:00"
+  "8:00 AM", "8:30 AM", 
+  "9:00 AM", "9:30 AM", 
+  "10:00 AM", "10:30 AM", 
+  "11:00 AM", "11:30 AM", 
+  "12:00 PM", "12:30 PM", 
+  "1:00 PM", "1:30 PM", 
+  "2:00 PM", "2:30 PM", 
+  "3:00 PM", "3:30 PM", 
+  "4:00 PM", "4:30 PM", 
+  "5:00 PM", "5:30 PM", 
+  "6:00 PM", "6:30 PM", 
+  "7:00 PM", "7:30 PM"
 ];
+
+// Helper function to convert AM/PM time to 24-hour format for database storage
+const convertTo24HourFormat = (timeStr: string): string => {
+  const [timePart, ampm] = timeStr.split(' ');
+  let [hours, minutes] = timePart.split(':').map(Number);
+  
+  if (ampm === 'PM' && hours < 12) {
+    hours += 12;
+  }
+  if (ampm === 'AM' && hours === 12) {
+    hours = 0;
+  }
+  
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+};
 
 const BookRoomForm: React.FC<BookRoomFormProps> = ({ onSuccess }) => {
   const { buildings, rooms, refetchRooms } = useRooms();
@@ -82,7 +108,8 @@ const BookRoomForm: React.FC<BookRoomFormProps> = ({ onSuccess }) => {
   const form = useForm<FormValues>({
     resolver: zodResolver(bookingFormSchema),
     defaultValues: {
-      purpose: ''
+      purpose: '',
+      date: new Date() // Default to today's date
     }
   });
 
@@ -104,13 +131,17 @@ const BookRoomForm: React.FC<BookRoomFormProps> = ({ onSuccess }) => {
       
       const formattedDate = format(values.date, 'yyyy-MM-dd');
       
+      // Convert times to 24-hour format for database
+      const startTime24 = convertTo24HourFormat(values.startTime);
+      const endTime24 = convertTo24HourFormat(values.endTime);
+      
       const bookingData = {
         roomId: values.roomId,
         roomNumber: selectedRoom.name,
         building: selectedBuilding.name,
         date: formattedDate,
-        startTime: values.startTime,
-        endTime: values.endTime,
+        startTime: startTime24,
+        endTime: endTime24,
         purpose: values.purpose
       };
       
@@ -205,11 +236,38 @@ const BookRoomForm: React.FC<BookRoomFormProps> = ({ onSuccess }) => {
                   </FormControl>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
+                  <div className="p-2 border-b flex justify-between items-center">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => {
+                        const today = new Date();
+                        field.onChange(today);
+                      }}
+                    >
+                      Today
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => {
+                        const tomorrow = addDays(new Date(), 1);
+                        field.onChange(tomorrow);
+                      }}
+                    >
+                      Tomorrow
+                    </Button>
+                  </div>
                   <Calendar
                     mode="single"
                     selected={field.value}
                     onSelect={field.onChange}
-                    disabled={(date) => date < new Date()}
+                    disabled={(date) => {
+                      // Allow today and future dates
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      return date < today;
+                    }}
                     initialFocus
                     className="p-3 pointer-events-auto"
                   />
