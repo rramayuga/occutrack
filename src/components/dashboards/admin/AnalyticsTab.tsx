@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
@@ -10,23 +10,32 @@ import { useRoomUsageData } from '@/hooks/useRoomUsageData';
 const AnalyticsTab: React.FC = () => {
   const [startDate] = useState<Date>(startOfMonth(new Date()));
   const [endDate] = useState<Date>(endOfMonth(new Date()));
+  const [selectedBuilding] = useState<string>("all");
+  const [selectedFloor] = useState<string>("all");
+  const [statusFilter] = useState<string>("all");
   
-  const { roomUsageData, isLoading } = useRoomUsageData();
+  const { roomUsageData, isLoading } = useRoomUsageData(
+    startDate, 
+    endDate, 
+    selectedBuilding, 
+    selectedFloor, 
+    statusFilter
+  );
   
   const exportToCSV = () => {
     if (!roomUsageData || roomUsageData.length === 0) return;
     
     // Prepare CSV content
-    const headers = ['Room', 'Type', 'Capacity', 'Total Bookings', 'Hours Utilized', 'Utilization Rate'];
+    const headers = ['Room', 'Type', 'Building', 'Floor', 'Reservations', 'Hours Utilized'];
     
     const csvContent = roomUsageData.map(room => 
       [
         room.roomName || 'N/A',
-        room.roomType || 'N/A',
-        room.capacity || '0',
-        room.totalBookings || '0',
-        room.hoursBooked || '0',
-        `${room.utilizationRate || '0'}%`
+        room.status || 'N/A',
+        room.buildingName || 'N/A',
+        room.floor || '0',
+        room.reservations || '0',
+        room.utilizationHours || '0'
       ].join(',')
     );
     

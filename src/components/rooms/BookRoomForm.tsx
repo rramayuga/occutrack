@@ -51,12 +51,14 @@ const bookingFormSchema = z.object({
   }),
   endTime: z.string({
     required_error: "Please select an end time",
-  }).refine((endTime, ctx) => {
-    const startTime = ctx.data.startTime;
-    if (!startTime) return true;
-    return endTime > startTime;
-  }, "End time must be after start time"),
+  }),
   purpose: z.string().min(5, "Please provide a purpose for booking the room"),
+}).refine((data) => {
+  // Ensure end time is after start time
+  return data.endTime > data.startTime;
+}, {
+  message: "End time must be after start time",
+  path: ["endTime"]
 });
 
 type FormValues = z.infer<typeof bookingFormSchema>;

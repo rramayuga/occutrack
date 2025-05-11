@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { User } from '@/lib/types';
+import { User, Building } from '@/lib/types';
 import { useRooms } from '@/hooks/useRooms';
 import { useReservations } from '@/hooks/useReservations';
 import { TeachingSchedule } from './professor/TeachingSchedule';
@@ -20,6 +20,18 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
   
   // Get available rooms (not under maintenance)
   const availableRooms = rooms.filter(room => room.status !== 'maintenance');
+  
+  // Convert BuildingWithFloors to Building[] to match the AvailableRooms prop type
+  const simpleBuildings: Building[] = buildings.map(building => ({
+    id: building.id,
+    name: building.name,
+    location: building.location,
+    floors: building.floors.length,
+    createdAt: building.createdAt,
+    updatedAt: building.updatedAt,
+    roomCount: building.roomCount,
+    utilization: building.utilization
+  }));
   
   return (
     <div className="container mx-auto px-4 py-8">
@@ -43,7 +55,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
           <TeachingSchedule reservations={reservations} />
         </div>
         <div className="col-span-1">
-          <AvailableRooms rooms={availableRooms} buildings={buildings} />
+          <AvailableRooms rooms={availableRooms} buildings={simpleBuildings} />
         </div>
       </div>
       
