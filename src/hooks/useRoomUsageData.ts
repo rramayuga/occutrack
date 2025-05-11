@@ -3,7 +3,13 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { RoomUsageData } from '@/components/admin/types/room';
 
-export function useRoomUsageData() {
+export function useRoomUsageData(
+  startDate?: Date,
+  endDate?: Date,
+  selectedBuilding?: string,
+  selectedFloor?: string,
+  statusFilter?: string
+) {
   const [roomUsageData, setRoomUsageData] = useState<RoomUsageData[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -81,7 +87,7 @@ export function useRoomUsageData() {
     };
 
     fetchRoomUsageData();
-  }, []);
+  }, [startDate, endDate, selectedBuilding, selectedFloor, statusFilter]); // Added dependencies for the parameters
 
   return { roomUsageData, loading };
 }

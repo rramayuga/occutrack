@@ -45,8 +45,8 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
               <div>
                 <p className="font-medium">
                   {new Date(schedule.date).toLocaleDateString()} 
-                  ({formatTimeToAMPM(schedule.startTime)}-
-                  {formatTimeToAMPM(schedule.endTime)})
+                  ({schedule.displayStartTime || formatTimeToAMPM(schedule.startTime)}-
+                  {schedule.displayEndTime || formatTimeToAMPM(schedule.endTime)})
                 </p>
                 <p className="text-muted-foreground">{schedule.faculty}</p>
                 <p className="text-muted-foreground">{schedule.purpose}</p>

@@ -32,7 +32,7 @@ const RoomUsageStats = () => {
     fetchBuildings();
   }, []);
 
-  const { roomUsageData, isLoading } = useRoomUsageData(
+  const { roomUsageData, loading } = useRoomUsageData(
     startDate,
     endDate,
     selectedBuilding,
@@ -114,7 +114,7 @@ const RoomUsageStats = () => {
       </div>
 
       <RoomAnalyticsLayout
-        isLoading={isLoading}
+        isLoading={loading}
         roomUsageData={roomUsageData}
       />
     </div>
