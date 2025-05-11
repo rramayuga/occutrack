@@ -10,6 +10,7 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
   
@@ -128,6 +129,145 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
       fetchUsers();
     }
   };
+
+  const exportUsers = () => {
+    // Create CSV content
+    const headers = ['Name', 'Email', 'Role'];
+    const csvRows = [headers.join(',')];
+    
+    filteredUsers.forEach((user) => {
+      const row = [
+        user.name,
+        user.email,
+        user.role
+      ].join(',');
+      csvRows.push(row);
+    });
+    
+    const csvContent = csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.setAttribute('href', url);
+    a.setAttribute('download', `user-roles-${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+
+    toast({
+      title: 'Export complete',
+      description: 'User roles have been exported to CSV',
+    });
+  };
+
+  const handleBulkRoleChange = async (newRole: UserRole) => {
+    if (selectedUsers.length === 0) {
+      toast({
+        title: 'No users selected',
+        description: 'Please select users to update their roles',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    try {
+      // Check permissions for admins
+      if (currentUser?.role === 'admin' && 
+          newRole !== 'faculty' && newRole !== 'student') {
+        toast({
+          title: 'Permission Denied',
+          description: 'Admin users can only assign faculty or student roles',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      // Update roles in the database
+      const { error } = await supabase
+        .from('profiles')
+        .update({ role: newRole })
+        .in('id', selectedUsers);
+        
+      if (error) throw error;
+      
+      // Update local state
+      setUsers(prevUsers => 
+        prevUsers.map(user => 
+          selectedUsers.includes(user.id) ? { ...user, role: newRole } : user
+        )
+      );
+      
+      toast({
+        title: 'Roles updated',
+        description: `Updated ${selectedUsers.length} user(s) to ${newRole} role`,
+      });
+      
+      // Clear selection
+      setSelectedUsers([]);
+      
+      // Refetch users
+      setTimeout(fetchUsers, 1000);
+      
+    } catch (error) {
+      console.error('Error updating user roles:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update user roles',
+        variant: 'destructive'
+      });
+      fetchUsers();
+    }
+  };
+
+  const handleDeleteRoles = async () => {
+    if (selectedUsers.length === 0) {
+      toast({
+        title: 'No users selected',
+        description: 'Please select users to delete their roles',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    try {
+      // For demonstration, we'll set them to 'student' as a default role
+      // In a real app, you might want to handle this differently
+      const { error } = await supabase
+        .from('profiles')
+        .update({ role: 'student' })
+        .in('id', selectedUsers);
+        
+      if (error) throw error;
+      
+      // Update local state
+      setUsers(prevUsers => 
+        prevUsers.map(user => 
+          selectedUsers.includes(user.id) ? { ...user, role: 'student' } : user
+        )
+      );
+      
+      toast({
+        title: 'Roles reset',
+        description: `Reset ${selectedUsers.length} user(s) to student role`,
+      });
+      
+      // Clear selection
+      setSelectedUsers([]);
+      
+      // Refetch users
+      setTimeout(fetchUsers, 1000);
+      
+    } catch (error) {
+      console.error('Error resetting user roles:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to reset user roles',
+        variant: 'destructive'
+      });
+      fetchUsers();
+    }
+  };
   
   const filteredUsers = users.filter(user => {
     const matchesSearch = 
@@ -138,6 +278,22 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
     
     return matchesSearch && matchesRole;
   });
+
+  const toggleUserSelection = (userId: string) => {
+    setSelectedUsers(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
+  const selectAllVisible = () => {
+    setSelectedUsers(filteredUsers.map(user => user.id));
+  };
+
+  const clearSelection = () => {
+    setSelectedUsers([]);
+  };
 
   useEffect(() => {
     if (shouldFetch) {
@@ -173,6 +329,13 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
     setRoleFilter,
     handleRoleChange,
     filteredUsers,
-    fetchUsers
+    fetchUsers,
+    exportUsers,
+    handleBulkRoleChange,
+    handleDeleteRoles,
+    selectedUsers,
+    toggleUserSelection,
+    selectAllVisible,
+    clearSelection
   };
 };
