@@ -3,10 +3,9 @@ import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from '@/lib/auth';
-import { Menu } from 'lucide-react';
+import { Menu, Building } from 'lucide-react';
 
 // Import our components
-import Logo from './navbar/Logo';
 import NavLinkList from './navbar/NavLinkList';
 import AdminDropdown from './navbar/AdminDropdown';
 import UserMenu from './navbar/UserMenu';
@@ -64,7 +63,10 @@ const Navbar = () => {
     >
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          <Logo />
+          <div className="flex items-center">
+            <Building className="h-6 w-6 mr-2 text-primary" />
+            <span className="font-bold text-lg">NEU OccuTrack</span>
+          </div>
 
           <nav className="hidden md:flex items-center space-x-8">
             <ul className="flex items-center space-x-4">

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { UserRole } from '@/lib/types';
@@ -73,7 +74,7 @@ const Register = () => {
         if (authData.user) {
           toast({
             title: "Registration Successful",
-            description: "Welcome to OccuTrack!",
+            description: "Welcome to NEU OccuTrack!",
           });
           navigate('/dashboard');
         }
@@ -116,7 +117,7 @@ const Register = () => {
           </div>
           <CardTitle className="text-2xl">Create an account</CardTitle>
           <CardDescription>
-            Enter your details to register for OccuTrack
+            Enter your details to register for NEU OccuTrack
           </CardDescription>
         </CardHeader>
         

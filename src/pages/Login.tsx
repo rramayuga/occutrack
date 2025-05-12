@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
@@ -25,7 +26,7 @@ const Login = () => {
   // Redirect to dashboard if already logged in
   useEffect(() => {
     if (user) {
-      navigate('/dashboard');
+      navigate('/dashboard', { replace: true });
     }
   }, [user, navigate]);
 
@@ -45,11 +46,10 @@ const Login = () => {
       
       toast({
         title: "Login successful",
-        description: "Welcome back!",
+        description: "Welcome to NEU OccuTrack!",
       });
       
-      // Let the auth state update automatically via onAuthStateChange
-      // instead of manually calling refreshUser
+      // Navigate to dashboard handled by the AuthProvider monitoring auth status
     } catch (error: any) {
       console.error('Login error:', error);
       setError(error.message || 'Invalid email or password. Please try again.');
@@ -86,7 +86,7 @@ const Login = () => {
               <Building className="h-6 w-6 text-primary-foreground" />
             </div>
           </div>
-          <CardTitle className="text-2xl">Sign in to Facility Tracker</CardTitle>
+          <CardTitle className="text-2xl">Sign in to NEU OccuTrack</CardTitle>
           <CardDescription>
             Enter your email and password to access your account
           </CardDescription>
@@ -107,7 +107,7 @@ const Login = () => {
                 <Input 
                   id="email" 
                   type="email" 
-                  placeholder="m.example@university.edu" 
+                  placeholder="m.example@neu.edu.ph" 
                   className="pl-10"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
