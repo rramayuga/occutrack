@@ -13,10 +13,10 @@ export interface Building {
   id: string;
   name: string;
   location: string;
-  floors: number;
+  floors: number | Floor[];
   createdAt: string;
   updatedAt: string;
-  roomCount: number;
+  roomCount?: number;
   utilization: number;
 }
 
@@ -50,7 +50,7 @@ export interface Announcement {
 }
 
 export interface ReservationFormValues {
-  roomId: string;
+  roomId?: string;
   roomNumber: string;
   building: string;
   date: string;

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart3, ClipboardList, Building2, Users } from "lucide-react";
@@ -7,6 +8,9 @@ import BuildingsTab from './admin/BuildingsTab';
 import FacultyTab from './admin/FacultyTab';
 import AnalyticsTab from './admin/AnalyticsTab';
 import { useRoomUsageData } from '@/hooks/useRoomUsageData';
+import { useBuildings } from '@/hooks/useBuildings';
+import { BuildingWithFloors } from '@/lib/types';
+import { useFacultyManagement } from '@/hooks/useFacultyManagement';
 
 interface AdminDashboardProps {
   user: User;
@@ -15,13 +19,55 @@ interface AdminDashboardProps {
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const [activeTab, setActiveTab] = useState("overview");
   const { roomUsageData } = useRoomUsageData();
+  const { buildings, loading } = useBuildings();
+  const { facultyCount, facultyMembers, isLoadingFaculty } = useFacultyManagement();
+  
+  // States and handlers for BuildingsTab
+  const [searchTerm, setSearchTerm] = useState("");
+  const filteredBuildings = buildings.filter(building => 
+    building.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  
+  // Mock room count for AdminDashboardCards
+  const roomCount = buildings.reduce((total, building) => total + (building.roomCount || 0), 0);
+  
+  // Mock handlers for faculty management
+  const handleViewFaculty = (facultyId: string) => {
+    console.log("View faculty", facultyId);
+  };
+  
+  const handleEditFaculty = (facultyId: string) => {
+    console.log("Edit faculty", facultyId);
+  };
+  
+  // Mock handlers for building management
+  const handleViewBuilding = (id: string) => {
+    console.log("View building", id);
+  };
+  
+  const handleEditBuilding = (building: BuildingWithFloors) => {
+    console.log("Edit building", building);
+  };
+  
+  const handleDeleteBuilding = (building: BuildingWithFloors) => {
+    console.log("Delete building", building);
+  };
+  
+  const onAddBuilding = () => {
+    console.log("Add building");
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-2">Admin Dashboard</h1>
       <p className="text-muted-foreground mb-8">Welcome back, {user.name}!</p>
 
-      <AdminDashboardCards />
+      <AdminDashboardCards 
+        buildings={buildings.length}
+        rooms={roomCount}
+        facultyCount={facultyCount}
+        utilizationRate="65%"
+      />
 
       <div className="mt-8">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -54,11 +100,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
           </TabsContent>
 
           <TabsContent value="buildings">
-            <BuildingsTab />
+            <BuildingsTab 
+              buildings={buildings}
+              loading={loading}
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
+              onAddBuilding={onAddBuilding}
+              filteredBuildings={filteredBuildings}
+              handleViewBuilding={handleViewBuilding}
+              handleEditBuilding={handleEditBuilding}
+              handleDeleteBuilding={handleDeleteBuilding}
+            />
           </TabsContent>
           
           <TabsContent value="faculty">
-            <FacultyTab />
+            <FacultyTab 
+              isLoadingFaculty={isLoadingFaculty}
+              facultyMembers={facultyMembers}
+              handleViewFaculty={handleViewFaculty}
+              handleEditFaculty={handleEditFaculty}
+            />
           </TabsContent>
 
           <TabsContent value="analytics">

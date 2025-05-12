@@ -1,4 +1,3 @@
-
 import * as React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -124,13 +123,15 @@ export function BookRoomForm({ rooms, buildings, onSubmit, isSubmitting }: BookR
       return `${hour.toString().padStart(2, "0")}:${minutes}`;
     };
 
-    // Create reservation object for submission
+    // Create reservation object for submission - ensure all required fields are present
     const reservationData: ReservationFormValues = {
-      ...values,
+      roomId: values.roomId,
       startTime: formatTimeFor24Hour(values.startTime),
       endTime: formatTimeFor24Hour(values.endTime),
       roomNumber: selectedRoom.name,
       building: building.name,
+      date: values.date,
+      purpose: values.purpose,
     };
 
     try {

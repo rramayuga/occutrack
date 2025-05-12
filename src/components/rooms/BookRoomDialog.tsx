@@ -43,7 +43,13 @@ const BookRoomDialog: React.FC<BookRoomDialogProps> = ({
     
     setIsSubmitting(true);
     try {
-      await createReservation(values, values.roomId || '');
+      // We need to ensure roomId is available for the createReservation function
+      if (!values.roomId) {
+        console.error("Room ID is required");
+        return;
+      }
+      
+      await createReservation(values, values.roomId);
       onOpenChange(false);
       if (onBookingComplete) {
         onBookingComplete();
