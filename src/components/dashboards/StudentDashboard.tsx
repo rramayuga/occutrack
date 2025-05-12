@@ -23,7 +23,17 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ user }) => {
           .limit(5);
         
         if (error) throw error;
-        setAnnouncements(data || []);
+        
+        // Transform the data to match the Announcement type
+        const formattedAnnouncements: Announcement[] = (data || []).map(item => ({
+          id: item.id,
+          title: item.title,
+          content: item.content,
+          createdAt: item.created_at,
+          createdBy: item.created_by
+        }));
+        
+        setAnnouncements(formattedAnnouncements);
       } catch (error) {
         console.error('Error fetching announcements:', error);
       } finally {
