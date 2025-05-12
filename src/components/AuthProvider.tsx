@@ -13,23 +13,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const { toast } = useToast();
 
   // Create a reusable function to fetch user profile
-  const fetchUserProfile = useCallback(async (userId: string, email?: string) => {
+  const fetchUserProfile = useCallback(async (userId: string) => {
     try {
-      // Verify if the email is from @neu.edu.ph domain
-      if (email && !email.toLowerCase().endsWith('@neu.edu.ph')) {
-        // Not a NEU email, sign out the user
-        await supabase.auth.signOut();
-        toast({
-          title: 'Access Denied',
-          description: 'Only @neu.edu.ph email addresses are allowed to use this application.',
-          variant: 'destructive'
-        });
-        navigate('/login');
-        setUser(null);
-        setIsLoading(false);
-        return null;
-      }
-      
       // Check if this is a faculty member with a rejected request
       const { data: facultyRequest, error: facultyError } = await supabase
         .from('faculty_requests')
@@ -56,7 +41,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return null;
       }
 
-      // Get the profile or create one if it doesn't exist (could be a new sign-up)
+      // Continue with normal profile fetching
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
@@ -65,75 +50,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (error) {
         console.error('Error fetching profile:', error);
-        
-        // If profile doesn't exist and we have an email, create a new profile
-        if (email && error.code === 'PGRST116') {
-          const isNeuEmail = email.toLowerCase().endsWith('@neu.edu.ph');
-          
-          if (!isNeuEmail) {
-            // Not a NEU email, sign out the user
-            await supabase.auth.signOut();
-            toast({
-              title: 'Access Denied',
-              description: 'Only @neu.edu.ph email addresses are allowed to use this application.',
-              variant: 'destructive'
-            });
-            navigate('/login');
-            setUser(null);
-            setIsLoading(false);
-            return null;
-          }
-          
-          // Create a new profile with student role for NEU users
-          const { data: newProfile, error: createError } = await supabase
-            .from('profiles')
-            .insert({
-              id: userId,
-              email: email,
-              name: email.split('@')[0] || 'New User',
-              role: 'student'  // Default role for NEU users
-            })
-            .select()
-            .single();
-            
-          if (createError) {
-            console.error('Error creating profile:', createError);
-            return null;
-          }
-          
-          const userData = {
-            id: newProfile.id,
-            name: newProfile.name,
-            email: newProfile.email,
-            role: newProfile.role as UserRole,
-            avatarUrl: newProfile.avatar
-          };
-          
-          setUser(userData);
-          return userData;
-        }
-        
         return null;
       }
 
       if (profile) {
-        // Verify if the user has an @neu.edu.ph email
-        const isNeuEmail = profile.email.toLowerCase().endsWith('@neu.edu.ph');
-        
-        if (!isNeuEmail) {
-          // Not a NEU email, sign out the user
-          await supabase.auth.signOut();
-          toast({
-            title: 'Access Denied',
-            description: 'Only @neu.edu.ph email addresses are allowed to use this application.',
-            variant: 'destructive'
-          });
-          navigate('/login');
-          setUser(null);
-          setIsLoading(false);
-          return null;
-        }
-        
         const userData = {
           id: profile.id,
           name: profile.name,
@@ -160,7 +80,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { data } = await supabase.auth.getSession();
       
       if (data.session?.user) {
-        await fetchUserProfile(data.session.user.id, data.session.user.email);
+        await fetchUserProfile(data.session.user.id);
       } else {
         setUser(null);
       }
@@ -183,7 +103,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const { data: sessionData } = await supabase.auth.getSession();
         
         if (sessionData.session?.user && mounted) {
-          await fetchUserProfile(sessionData.session.user.id, sessionData.session.user.email);
+          await fetchUserProfile(sessionData.session.user.id);
         }
       } catch (error) {
         console.error('Error during initial auth check:', error);
@@ -205,7 +125,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           // Use setTimeout to avoid potential deadlocks with Supabase auth
           setTimeout(async () => {
             if (mounted) {
-              await fetchUserProfile(session.user.id, session.user.email);
+              await fetchUserProfile(session.user.id);
               setIsLoading(false);
             }
           }, 0);

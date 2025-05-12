@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export const handleStudentRegistration = async (
@@ -6,11 +5,6 @@ export const handleStudentRegistration = async (
   password: string,
   name: string
 ) => {
-  // Verify the email domain
-  if (!email.toLowerCase().endsWith('@neu.edu.ph')) {
-    throw new Error('Only @neu.edu.ph email addresses are allowed to register');
-  }
-  
   const { data, error: signUpError } = await supabase.auth.signUp({
     email,
     password,
@@ -32,11 +26,6 @@ export const handleFacultyRegistration = async (
   name: string,
   department: string
 ) => {
-  // Verify the email domain
-  if (!email.toLowerCase().endsWith('@neu.edu.ph')) {
-    throw new Error('Only @neu.edu.ph email addresses are allowed to register');
-  }
-  
   const { data, error: signUpError } = await supabase.auth.signUp({
     email,
     password,
@@ -75,7 +64,6 @@ export const handleGoogleSignIn = async () => {
       queryParams: {
         access_type: 'offline',
         prompt: 'consent',
-        hd: 'neu.edu.ph' // This restricts Google sign-in to the neu.edu.ph domain
       }
     }
   });
@@ -86,11 +74,6 @@ export const handleGoogleSignIn = async () => {
 
 export const handleLogin = async (email: string, password: string) => {
   try {
-    // Verify the email domain
-    if (!email.toLowerCase().endsWith('@neu.edu.ph')) {
-      throw new Error('Only @neu.edu.ph email addresses are allowed to login');
-    }
-    
     // First check if the user has been rejected
     const { data: facultyRequest } = await supabase
       .from('faculty_requests')

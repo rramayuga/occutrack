@@ -125,7 +125,6 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
         const announcementTitle = `Room Under Maintenance: ${buildingName} - ${room.name}`;
         console.log("Creating maintenance announcement:", announcementTitle);
         
-        // Fix: Use better query to check for existing maintenance announcement for this room
         const { data: existingAnnouncement, error: checkError } = await supabase
           .from('announcements')
           .select('id')
@@ -141,23 +140,19 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
         if (!existingAnnouncement) {
           console.log("No existing maintenance announcement found, creating new one");
           
-          const { error: announcementError } = await supabase
+          const { data, error: announcementError } = await supabase
             .from('announcements')
             .insert({
               title: announcementTitle,
               content: `Room ${room.name} in ${buildingName} is now under maintenance. Please note that this room will be temporarily unavailable for reservations.`,
               created_by: user.id
-            });
+            })
+            .select();
             
           if (announcementError) {
             console.error("Error creating maintenance announcement:", announcementError);
-            toast({
-              title: "Error",
-              description: "Failed to create maintenance announcement: " + announcementError.message,
-              variant: "destructive"
-            });
           } else {
-            console.log("Created maintenance announcement successfully");
+            console.log("Created maintenance announcement:", data);
             toast({
               title: "Announcement Created",
               description: `A system announcement about ${room.name} maintenance has been posted.`,
@@ -167,14 +162,15 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
           console.log("Maintenance announcement already exists for this room:", existingAnnouncement);
         }
       } 
-      // Fix: Using proper type comparison for maintenance status
-      else if (previousStatus === 'maintenance') {
+      // If the room was in maintenance before and is now available, remove maintenance announcements
+      else if (previousStatus === 'maintenance' && status === 'available') {
         // Find and remove maintenance announcements for this room
-        console.log(`Looking for maintenance announcements to remove for room ${room.name}`);
+        const announcementTitle = `%${room.name}%`;
+        console.log("Finding announcements to remove with title like:", announcementTitle);
         
         const { data: announcements, error: findError } = await supabase
           .from('announcements')
-          .select('id, title')
+          .select('id')
           .ilike('title', `%${room.name}%`)
           .ilike('title', '%Under Maintenance%');
         
@@ -183,7 +179,7 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
         }
         
         if (announcements && announcements.length > 0) {
-          console.log(`Found ${announcements.length} announcements to delete:`, announcements);
+          console.log("Found announcements to delete:", announcements.length);
           
           // Delete found announcements
           const announcementIds = announcements.map(a => a.id);
@@ -194,13 +190,7 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
           
           if (deleteError) {
             console.error("Error removing maintenance announcements:", deleteError);
-            toast({
-              title: "Error",
-              description: "Failed to remove maintenance announcements: " + deleteError.message,
-              variant: "destructive"
-            });
           } else {
-            console.log("Successfully removed maintenance announcements");
             toast({
               title: "Maintenance Ended",
               description: `Room ${room.name} is now available and maintenance announcements have been removed.`,
@@ -218,7 +208,7 @@ export const useRoomStatus = (room: Room, refetchRooms: () => Promise<void>) => 
       });
       
       // Force a refresh of room data after completed DB operations
-      setTimeout(() => refetchRooms(), 300);
+      await refetchRooms();
       
     } catch (error: any) {
       console.error("Error updating room status:", error);

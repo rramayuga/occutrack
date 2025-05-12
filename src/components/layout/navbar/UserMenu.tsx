@@ -1,68 +1,97 @@
 
-import React from 'react';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from "@/components/ui/dropdown-menu";
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { ChevronDown, LogOut, Settings, User } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { LogOut } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/lib/auth';
-import { User } from '@/lib/types';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { User as UserType } from '@/lib/types';
+import FacultyRegistrationNotifier from '@/components/admin/FacultyRegistrationNotifier';
 
-// Add proper props interface to fix the TypeScript error
 interface UserMenuProps {
-  user?: User | null;
-  onSignOut?: () => Promise<void>;
+  user: UserType | null;
+  onSignOut: () => void;
 }
 
-export const UserMenu: React.FC<UserMenuProps> = ({ user, onSignOut }) => {
-  const auth = useAuth();
-  const navigate = useNavigate();
+const UserMenu: React.FC<UserMenuProps> = ({ user, onSignOut }) => {
+  const [open, setOpen] = useState(false);
   
-  // Use the props if provided, otherwise use context
-  const currentUser = user || auth.user;
-  const handleSignOut = onSignOut || auth.signOut;
-  
-  if (!currentUser) {
-    return null;
+  // Return login/register buttons if no user
+  if (!user) {
+    return (
+      <div className="flex items-center space-x-4">
+        <Link to="/login">
+          <Button variant="outline" size="sm">Log in</Button>
+        </Link>
+        <Link to="/register">
+          <Button size="sm">Register</Button>
+        </Link>
+      </div>
+    );
   }
   
-  const initials = currentUser.name
-    ?.split(' ')
-    .map(n => n[0])
-    .join('')
-    .toUpperCase() || 'U';
-    
-  const isFaculty = currentUser.role === 'faculty';
+  // Get first letter of name for avatar fallback
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(word => word[0])
+      .join('')
+      .toUpperCase()
+      .substring(0, 2);
+  };
   
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-2 outline-none">
-          <div className="hidden md:block text-right">
-            <p className="text-sm font-medium">{currentUser.name}</p>
-            <p className="text-xs text-muted-foreground">{currentUser.email}</p>
-          </div>
-          <Avatar className="h-8 w-8 md:h-9 md:w-9">
-            <AvatarImage src={currentUser.avatarUrl} />
-            <AvatarFallback>{initials}</AvatarFallback>
-          </Avatar>
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-60">
-        <div className="flex flex-col p-2">
-          <p className="text-sm font-medium">{currentUser.email}</p>
-          <p className="text-xs text-muted-foreground">Role: {currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1)}</p>
-        </div>
-        
-        <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
-          <LogOut className="mr-2 h-4 w-4" />
-          Sign out
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <div className="flex items-center gap-2">
+      <FacultyRegistrationNotifier />
+      
+      <DropdownMenu open={open} onOpenChange={setOpen}>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="relative h-8 flex items-center rounded-full">
+            <Avatar className="h-8 w-8">
+              <AvatarImage src={user.avatarUrl || undefined} alt={user.name} />
+              <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+            </Avatar>
+            <span className="ms-2 text-sm font-medium hidden md:inline">
+              {user.name}
+            </span>
+            <ChevronDown className="h-4 w-4 ml-1" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-56" align="end">
+          <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+            {user.email}
+          </DropdownMenuLabel>
+          <DropdownMenuLabel className="font-normal pt-0">
+            Role: <span className="font-medium capitalize">{user.role}</span>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuItem>
+              <User className="h-4 w-4 mr-2" />
+              <span>Profile</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem>
+              <Settings className="h-4 w-4 mr-2" />
+              <span>Settings</span>
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={onSignOut}>
+            <LogOut className="h-4 w-4 mr-2" />
+            <span>Sign out</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 };
+
+export default UserMenu;
