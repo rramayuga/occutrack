@@ -19,15 +19,15 @@ const RoomUsageChart: React.FC<RoomUsageChartProps> = ({ data, currentPage }) =>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={data}
-            margin={{ top: 20, right: 30, left: 20, bottom: 70 }}
+            margin={{ top: 5, right: 20, left: 10, bottom: 50 }}
           >
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis 
               dataKey="roomName" 
               angle={-45} 
               textAnchor="end" 
-              tick={{ fontSize: 12 }}
-              height={70}
+              tick={{ fontSize: 10 }}
+              height={60}
               interval={0}
             />
             <YAxis 
@@ -35,14 +35,16 @@ const RoomUsageChart: React.FC<RoomUsageChartProps> = ({ data, currentPage }) =>
               orientation="left" 
               stroke="#22c55e"
               ticks={[0, 2, 4, 6, 8]} 
+              width={30}
             />
             <YAxis 
               yAxisId="right" 
               orientation="right" 
               stroke="#ef4444" 
+              width={30}
             />
             <ChartTooltip content={<ChartTooltipContent />} />
-            <Legend />
+            <Legend wrapperStyle={{ bottom: -10 }} />
             <Bar 
               dataKey="utilizationHours" 
               name="Hours Used" 

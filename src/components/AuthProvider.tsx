@@ -15,6 +15,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Create a reusable function to fetch user profile with force refresh option
   const fetchUserProfile = useCallback(async (userId: string, forceRefresh: boolean = false) => {
     try {
+      console.log('Fetching user profile for ID:', userId, 'Force refresh:', forceRefresh);
+      
       // Check if this is a faculty member with a rejected request
       const { data: facultyRequest, error: facultyError } = await supabase
         .from('faculty_requests')
@@ -29,6 +31,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       // If the faculty request was rejected, sign the user out
       if (facultyRequest && facultyRequest.status === 'rejected') {
+        console.log('Faculty request rejected, signing out user');
         await supabase.auth.signOut();
         toast({
           title: 'Access Denied',
@@ -41,8 +44,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return null;
       }
 
-      // Add cache busting parameter for force refresh
-      const timestamp = forceRefresh ? `?t=${new Date().getTime()}` : '';
+      // Check for pending faculty requests for new Google sign-in users
+      const { data: pendingRequest } = await supabase
+        .from('faculty_requests')
+        .select('status')
+        .eq('user_id', userId)
+        .eq('status', 'pending')
+        .maybeSingle();
+
+      if (pendingRequest && pendingRequest.status === 'pending') {
+        console.log('Faculty request pending, redirecting to confirmation page');
+        await supabase.auth.signOut();
+        toast({
+          title: 'Account Pending',
+          description: 'Your faculty account request is pending approval. Please wait for administrator review.',
+        });
+        navigate('/faculty-confirmation');
+        setUser(null);
+        setIsLoading(false);
+        return null;
+      }
+      
+      // Force refresh by adding cache busting
+      const cacheKey = forceRefresh ? `?_=${new Date().getTime()}` : '';
       
       // Continue with normal profile fetching with cache control
       const { data: profile, error } = await supabase
@@ -57,6 +81,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       if (profile) {
+        console.log('Profile fetched successfully:', profile);
         const userData = {
           id: profile.id,
           name: profile.name,
@@ -83,9 +108,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { data } = await supabase.auth.getSession();
       
       if (data.session?.user) {
+        console.log('Refreshing user data with force refresh');
         // Force refresh by passing true to fetch fresh data
         await fetchUserProfile(data.session.user.id, true);
       } else {
+        console.log('No active session found during refresh');
         setUser(null);
       }
     } catch (error) {
@@ -104,10 +131,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setIsLoading(true);
       
       try {
+        console.log('Performing initial auth check');
         const { data: sessionData } = await supabase.auth.getSession();
         
         if (sessionData.session?.user && mounted) {
+          console.log('Found existing session, fetching profile with force refresh');
           await fetchUserProfile(sessionData.session.user.id, true); // Force a fresh fetch on initial load
+        } else {
+          console.log('No session found during initial check');
+          setUser(null);
         }
       } catch (error) {
         console.error('Error during initial auth check:', error);
@@ -126,14 +158,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.log('Auth state changed:', event, session ? 'session exists' : 'no session');
         
         if (session?.user && mounted) {
-          // Use setTimeout to avoid potential deadlocks with Supabase auth
+          // To avoid potential Supabase auth deadlocks, use setTimeout for async operations
           setTimeout(async () => {
             if (mounted) {
-              await fetchUserProfile(session.user.id, true); // Force a fresh fetch on auth state change
+              console.log('Auth state changed to logged in, fetching fresh profile');
+              // Clear any cached data first
+              setUser(null);
+              // Then fetch fresh profile data
+              await fetchUserProfile(session.user.id, true);
               setIsLoading(false);
             }
           }, 0);
         } else if (mounted) {
+          console.log('Auth state changed to logged out');
           setUser(null);
           setIsLoading(false);
         }
@@ -141,6 +178,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     );
 
     return () => {
+      console.log('Cleaning up AuthProvider');
       mounted = false;
       subscription.unsubscribe();
     };
@@ -149,6 +187,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signOut = async () => {
     try {
       setIsLoading(true);
+      console.log('Signing out user');
       await supabase.auth.signOut();
       setUser(null);
       navigate('/login');

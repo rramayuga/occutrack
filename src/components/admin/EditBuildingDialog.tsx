@@ -28,13 +28,18 @@ const EditBuildingDialog: React.FC<EditBuildingDialogProps> = ({
         <BuildingForm 
           defaultValues={{
             name: building.name,
-            floorCount: building.floors.length,
+            floorCount: building.floors?.length || 0,
             location: building.location || ''
           }}
           onSubmit={(data) => {
             // Log the submission data
             console.log('Submitting edit building form:', data);
-            onSubmit(data);
+            onSubmit({
+              ...data,
+              // Ensure floorCount is properly passed as a number
+              floorCount: typeof data.floorCount === 'string' ? 
+                parseInt(data.floorCount, 10) : data.floorCount
+            });
           }}
           onCancel={onClose}
         />

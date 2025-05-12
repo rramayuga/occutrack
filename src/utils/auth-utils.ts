@@ -6,18 +6,38 @@ export const handleStudentRegistration = async (
   password: string,
   name: string
 ) => {
+  // Create a pending registration request instead of direct signup
   const { data, error: signUpError } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: {
         name,
-        role: 'student'
+        role: 'student',
+        status: 'pending'
       }
     }
   });
 
   if (signUpError) throw signUpError;
+  
+  // If it's not a student with an education domain, create a pending request
+  if (!email.endsWith('@neu.edu.ph')) {
+    if (data.user) {
+      const { error: requestError } = await supabase
+        .from('faculty_requests')
+        .insert({
+          user_id: data.user.id,
+          name,
+          email,
+          department: 'Student',
+          status: 'pending'
+        });
+
+      if (requestError) throw requestError;
+    }
+  }
+
   return { user: data.user, session: data.session };
 };
 
@@ -87,7 +107,19 @@ export const handleLogin = async (email: string, password: string) => {
       throw new Error('Your faculty account request has been rejected. Please contact administration.');
     }
 
-    // Proceed with login if not rejected
+    // Check if the user has a pending request
+    const { data: pendingRequest } = await supabase
+      .from('faculty_requests')
+      .select('status')
+      .eq('email', email)
+      .eq('status', 'pending')
+      .single();
+
+    if (pendingRequest?.status === 'pending') {
+      throw new Error('Your account registration is pending approval. Please wait for administrator review.');
+    }
+
+    // Proceed with login if not rejected or pending
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
