@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export const handleStudentRegistration = async (
@@ -107,6 +108,30 @@ export const handleLogin = async (email: string, password: string) => {
     };
   } catch (error: any) {
     console.error('Login process error:', error);
+    throw error;
+  }
+};
+
+export const deleteUser = async (userId: string) => {
+  try {
+    // First delete any faculty request
+    const { error: facultyError } = await supabase
+      .from('faculty_requests')
+      .delete()
+      .eq('user_id', userId);
+    
+    if (facultyError) {
+      console.error('Error deleting faculty request:', facultyError);
+    }
+    
+    // Then delete user
+    const { error } = await supabase.auth.admin.deleteUser(userId);
+    
+    if (error) throw error;
+    
+    return true;
+  } catch (error) {
+    console.error('Error deleting user:', error);
     throw error;
   }
 };

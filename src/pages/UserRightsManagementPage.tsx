@@ -7,10 +7,12 @@ import UsersList from '@/components/admin/users/UsersList';
 import Navbar from '@/components/layout/Navbar';
 import { useAuth } from '@/lib/auth';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '@/hooks/use-toast';
 
 const UserRightsManagementPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const isAuthorized = user?.role === 'admin' || user?.role === 'superadmin';
   
   // Redirect to home if not authorized
@@ -27,6 +29,7 @@ const UserRightsManagementPage = () => {
     roleFilter,
     setRoleFilter,
     handleRoleChange,
+    handleDeleteUser,
     filteredUsers,
     fetchUsers
   } = useUserRightsManagement(isAuthorized);  // Only fetch users when component mounts and user is authorized
@@ -70,6 +73,7 @@ const UserRightsManagementPage = () => {
               loading={loading}
               filteredUsers={filteredUsers}
               handleRoleChange={handleRoleChange}
+              handleDeleteUser={user?.role === 'superadmin' ? handleDeleteUser : undefined}
             />
           </CardContent>
         </Card>

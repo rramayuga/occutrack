@@ -61,6 +61,7 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
 
       console.log('Fetched users:', filteredUsers);
       setUsers(filteredUsers);
+      applyFilters(filteredUsers, searchTerm, roleFilter);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast({
@@ -71,7 +72,7 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
     } finally {
       setLoading(false);
     }
-  }, [toast, currentUser]);
+  }, [searchTerm, roleFilter, toast, currentUser]);
   
   const handleRoleChange = async (userId: string, newRole: UserRole) => {
     try {
@@ -128,22 +129,91 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
       fetchUsers();
     }
   };
-  
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = 
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      user.email.toLowerCase().includes(searchTerm.toLowerCase());
+
+  const handleDeleteUser = async (userId: string) => {
+    try {
+      // Check if current user is trying to delete themselves
+      if (currentUser?.id === userId) {
+        toast({
+          title: 'Error',
+          description: 'You cannot delete your own account',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      // Only superadmin can delete users
+      if (currentUser?.role !== 'superadmin') {
+        toast({
+          title: 'Permission Denied',
+          description: 'Only super administrators can delete user accounts',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      // Delete from auth.users will cascade to profiles due to RLS
+      const { error } = await supabase.auth.admin.deleteUser(userId);
+        
+      if (error) {
+        console.error('Error deleting user:', error);
+        throw error;
+      }
       
-    const matchesRole = roleFilter === 'all' || user.role === roleFilter;
+      // Update the local state by removing the deleted user
+      setUsers(prevUsers => prevUsers.filter(user => user.id !== userId));
+      
+      toast({
+        title: 'User deleted',
+        description: 'User account has been permanently deleted',
+      });
+      
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete user account',
+        variant: 'destructive'
+      });
+    }
+  };
+  
+  const applyFilters = (
+    userList: User[],
+    search: string,
+    role: UserRole | 'all'
+  ) => {
+    // Filter by search query
+    let filtered = [...userList];
+    if (search) {
+      const query = search.toLowerCase();
+      filtered = filtered.filter(
+        user => 
+          user.name.toLowerCase().includes(query) ||
+          user.email.toLowerCase().includes(query)
+      );
+    }
     
-    return matchesSearch && matchesRole;
-  });
+    // Filter by role
+    if (role !== 'all') {
+      filtered = filtered.filter(user => user.role === role);
+    }
+    
+    setFilteredUsers(filtered);
+  };
+
+  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
 
   useEffect(() => {
     if (shouldFetch) {
       fetchUsers();
     }
   }, [shouldFetch, fetchUsers]);
+
+  // Apply filters whenever users, searchTerm, or roleFilter changes
+  useEffect(() => {
+    applyFilters(users, searchTerm, roleFilter);
+  }, [users, searchTerm, roleFilter]);
 
   // Set up a subscription to profile changes
   useEffect(() => {
@@ -172,6 +242,7 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
     roleFilter,
     setRoleFilter,
     handleRoleChange,
+    handleDeleteUser,
     filteredUsers,
     fetchUsers
   };
