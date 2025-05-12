@@ -31,7 +31,11 @@ const EditBuildingDialog: React.FC<EditBuildingDialogProps> = ({
             floorCount: building.floors.length,
             location: building.location || ''
           }}
-          onSubmit={onSubmit}
+          onSubmit={(data) => {
+            // Log the submission data
+            console.log('Submitting edit building form:', data);
+            onSubmit(data);
+          }}
           onCancel={onClose}
         />
       </DialogContent>

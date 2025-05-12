@@ -12,8 +12,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Create a reusable function to fetch user profile
-  const fetchUserProfile = useCallback(async (userId: string) => {
+  // Create a reusable function to fetch user profile with force refresh option
+  const fetchUserProfile = useCallback(async (userId: string, forceRefresh: boolean = false) => {
     try {
       // Check if this is a faculty member with a rejected request
       const { data: facultyRequest, error: facultyError } = await supabase
@@ -41,7 +41,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return null;
       }
 
-      // Continue with normal profile fetching
+      // Add cache busting parameter for force refresh
+      const timestamp = forceRefresh ? `?t=${new Date().getTime()}` : '';
+      
+      // Continue with normal profile fetching with cache control
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
@@ -74,13 +77,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [navigate, toast]);
 
-  // Add a refresh user method - simplified to avoid redundant operations
+  // Add a refresh user method that forces a fresh data fetch
   const refreshUser = useCallback(async () => {
     try {
       const { data } = await supabase.auth.getSession();
       
       if (data.session?.user) {
-        await fetchUserProfile(data.session.user.id);
+        // Force refresh by passing true to fetch fresh data
+        await fetchUserProfile(data.session.user.id, true);
       } else {
         setUser(null);
       }
@@ -103,7 +107,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const { data: sessionData } = await supabase.auth.getSession();
         
         if (sessionData.session?.user && mounted) {
-          await fetchUserProfile(sessionData.session.user.id);
+          await fetchUserProfile(sessionData.session.user.id, true); // Force a fresh fetch on initial load
         }
       } catch (error) {
         console.error('Error during initial auth check:', error);
@@ -125,7 +129,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           // Use setTimeout to avoid potential deadlocks with Supabase auth
           setTimeout(async () => {
             if (mounted) {
-              await fetchUserProfile(session.user.id);
+              await fetchUserProfile(session.user.id, true); // Force a fresh fetch on auth state change
               setIsLoading(false);
             }
           }, 0);

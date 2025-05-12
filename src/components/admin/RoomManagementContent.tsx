@@ -19,7 +19,7 @@ const RoomManagementContent = () => {
     buildings, 
     loading: buildingsLoading, 
     addBuilding,
-    editBuilding, // This function expects (id, name, location) parameters
+    updateBuilding, // Use updateBuilding instead of editBuilding
     deleteBuilding
   } = useBuildings();
 
@@ -94,6 +94,12 @@ const RoomManagementContent = () => {
     setActiveTab("rooms");
   };
 
+  const handleUpdateBuilding = (id: string, data: any) => {
+    console.log("Updating building with:", id, data);
+    // Use updateBuilding function that correctly handles floor count
+    return updateBuilding(id, data.name, data.floorCount, data.location);
+  };
+
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab}>
       <TabsList>
@@ -106,10 +112,7 @@ const RoomManagementContent = () => {
           buildings={buildings}
           onViewRooms={handleViewBuilding}
           onDeleteBuilding={deleteBuilding}
-          onUpdateBuilding={(id, data) => {
-            // Fix the type mismatch by extracting the fields and passing them correctly
-            editBuilding(id, data.name, data.location);
-          }}
+          onUpdateBuilding={handleUpdateBuilding}
           isLoading={buildingsLoading}
         />
       </TabsContent>

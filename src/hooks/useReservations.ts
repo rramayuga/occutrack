@@ -124,17 +124,28 @@ export function useReservations() {
         return null;
       }
       
-      // Check for time conflicts
+      // Fixed time conflict check - proper overlap detection
       const { data: conflicts, error: conflictError } = await supabase
         .from('room_reservations')
         .select('*')
         .eq('room_id', roomId)
-        .eq('date', values.date)
-        .or(`start_time.lte.${values.endTime},end_time.gte.${values.startTime}`);
+        .eq('date', values.date);
       
       if (conflictError) throw conflictError;
+
+      // Manually check for time overlaps
+      const hasTimeConflict = conflicts?.some(booking => {
+        // Convert booking times to minutes for easier comparison
+        const bookingStart = convertTimeToMinutes(booking.start_time);
+        const bookingEnd = convertTimeToMinutes(booking.end_time);
+        const newStart = convertTimeToMinutes(values.startTime);
+        const newEnd = convertTimeToMinutes(values.endTime);
+        
+        // Check for overlap: new start time is before existing end time AND new end time is after existing start time
+        return (newStart < bookingEnd && newEnd > bookingStart);
+      });
       
-      if (conflicts && conflicts.length > 0) {
+      if (hasTimeConflict) {
         toast({
           title: "Time conflict",
           description: "This room is already booked during the selected time period.",
@@ -181,6 +192,12 @@ export function useReservations() {
       });
       return null;
     }
+  };
+
+  // Helper function to convert time string (HH:MM) to minutes
+  const convertTimeToMinutes = (timeString: string): number => {
+    const [hours, minutes] = timeString.split(':').map(Number);
+    return hours * 60 + minutes;
   };
 
   // Setup real-time subscription for reservation updates

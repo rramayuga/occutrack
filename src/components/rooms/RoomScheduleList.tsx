@@ -19,6 +19,20 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
 }) => {
   if (!showSchedules) return null;
   
+  // Filter out finished schedules
+  const activeSchedules = roomSchedules.filter(schedule => {
+    // Parse date and time to check if the schedule is finished
+    const scheduleDate = new Date(schedule.date);
+    const today = new Date();
+    
+    // Set hours from end time
+    const [endHours, endMinutes] = schedule.endTime.split(':').map(Number);
+    scheduleDate.setHours(endHours, endMinutes, 0, 0);
+    
+    // Compare with current time - only show future schedules
+    return scheduleDate >= today;
+  });
+  
   // Handle click internally to manage the event
   const handleCancelButtonClick = (e: React.MouseEvent, reservation: Reservation) => {
     e.stopPropagation();
@@ -28,9 +42,9 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
   return (
     <div className="px-4 pb-4 text-sm">
       <h4 className="font-medium text-xs mb-2 text-muted-foreground">Upcoming Reservations:</h4>
-      {roomSchedules.length > 0 ? (
+      {activeSchedules.length > 0 ? (
         <div className="space-y-2 max-h-40 overflow-y-auto">
-          {roomSchedules.map(schedule => (
+          {activeSchedules.map(schedule => (
             <div key={schedule.id} className="p-2 bg-accent rounded text-xs flex justify-between items-center">
               <div>
                 <p className="font-medium">{new Date(schedule.date).toLocaleDateString()} ({schedule.startTime}-{schedule.endTime})</p>

@@ -72,6 +72,7 @@ export const useBuildings = () => {
         schema: 'public', 
         table: 'buildings' 
       }, () => {
+        console.log('Buildings table changed, fetching updated data');
         fetchBuildings();
       })
       .subscribe();
@@ -83,6 +84,7 @@ export const useBuildings = () => {
         schema: 'public', 
         table: 'rooms' 
       }, () => {
+        console.log('Rooms table changed, updating buildings data');
         fetchBuildings();
       })
       .subscribe();
@@ -118,6 +120,9 @@ export const useBuildings = () => {
         description: `${name} has been added successfully`,
       });
       
+      // Refresh buildings data after adding
+      fetchBuildings();
+      
       return true;
     } catch (error) {
       console.error('Error adding building:', error);
@@ -142,6 +147,9 @@ export const useBuildings = () => {
       
       if (error) throw error;
       
+      // Refresh buildings data after editing
+      fetchBuildings();
+      
       return true;
     } catch (error) {
       console.error('Error updating building:', error);
@@ -154,9 +162,11 @@ export const useBuildings = () => {
     }
   };
 
-  // Added a function to update both name and floor count
+  // Fix this function to correctly update floor count
   const updateBuilding = async (id: string, name: string, floorCount: number, location?: string) => {
     try {
+      console.log(`Updating building ${id}: name=${name}, floors=${floorCount}, location=${location}`);
+      
       const { error } = await supabase
         .from('buildings')
         .update({ 
@@ -166,12 +176,18 @@ export const useBuildings = () => {
         })
         .eq('id', id);
       
-      if (error) throw error;
+      if (error) {
+        console.error('Database error when updating building:', error);
+        throw error;
+      }
       
       toast({
         title: 'Building Updated',
         description: `${name} has been updated successfully`,
       });
+      
+      // Refresh buildings data after updating
+      fetchBuildings();
       
       return true;
     } catch (error) {
@@ -211,6 +227,9 @@ export const useBuildings = () => {
         .eq('id', id);
         
       if (error) throw error;
+      
+      // Refresh buildings data after deletion
+      fetchBuildings();
       
       return true;
     } catch (error) {
