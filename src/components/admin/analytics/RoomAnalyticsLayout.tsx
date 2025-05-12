@@ -59,12 +59,14 @@ const RoomAnalyticsLayout: React.FC<RoomAnalyticsLayoutProps> = ({
 
   return (
     <div className="space-y-8">
-      {/* Chart Container with fixed height */}
-      <div className="bg-background p-4 rounded-lg border mb-16">
-        <div className="h-[450px] w-full">
-          <RoomUsageChart data={currentPageData} currentPage={currentPage} />
+      {/* Chart Container with fixed height and contained inside the container */}
+      <Card className="bg-background border mb-6 overflow-hidden">
+        <div className="p-4">
+          <div className="h-[400px] w-full">
+            <RoomUsageChart data={currentPageData} currentPage={currentPage} />
+          </div>
         </div>
-      </div>
+      </Card>
       
       {/* Room Usage Cards with margin bottom */}
       <div className="mb-8">

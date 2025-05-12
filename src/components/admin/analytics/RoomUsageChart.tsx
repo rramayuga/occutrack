@@ -11,7 +11,7 @@ interface RoomUsageChartProps {
 
 const RoomUsageChart: React.FC<RoomUsageChartProps> = ({ data, currentPage }) => {
   return (
-    <div className="h-[400px] w-full">
+    <div className="h-full w-full">
       <ChartContainer config={{
         utilizationHours: { label: "Hours", color: "#22c55e" },
         reservations: { label: "Reservations", color: "#ef4444" }
@@ -28,6 +28,7 @@ const RoomUsageChart: React.FC<RoomUsageChartProps> = ({ data, currentPage }) =>
               textAnchor="end" 
               tick={{ fontSize: 12 }}
               height={70}
+              interval={0}
             />
             <YAxis 
               yAxisId="left" 

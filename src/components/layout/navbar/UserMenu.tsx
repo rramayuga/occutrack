@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronDown, LogOut, Settings, User } from 'lucide-react';
+import { ChevronDown, LogOut } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -72,17 +72,6 @@ const UserMenu: React.FC<UserMenuProps> = ({ user, onSignOut }) => {
           <DropdownMenuLabel className="font-normal pt-0">
             Role: <span className="font-medium capitalize">{user.role}</span>
           </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuGroup>
-            <DropdownMenuItem>
-              <User className="h-4 w-4 mr-2" />
-              <span>Profile</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Settings className="h-4 w-4 mr-2" />
-              <span>Settings</span>
-            </DropdownMenuItem>
-          </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={onSignOut}>
             <LogOut className="h-4 w-4 mr-2" />

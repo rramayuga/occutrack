@@ -69,7 +69,7 @@ const UserRightsManagementPage = () => {
             />
             
             <UsersList
-              users={[]}  // This is not used directly in the component
+              users={[]} 
               loading={loading}
               filteredUsers={filteredUsers}
               handleRoleChange={handleRoleChange}

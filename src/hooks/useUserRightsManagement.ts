@@ -112,11 +112,6 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
         description: 'User role has been updated successfully',
       });
       
-      // Refetch users to ensure we have the most current data
-      setTimeout(() => {
-        fetchUsers();
-      }, 1000);
-      
     } catch (error) {
       console.error('Error updating user role:', error);
       toast({
@@ -152,11 +147,24 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
         return;
       }
 
-      // Delete from auth.users will cascade to profiles due to RLS
+      console.log('Attempting to delete user:', userId);
+      
+      // First delete the user's profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userId);
+      
+      if (profileError) {
+        console.error('Error deleting user profile:', profileError);
+        throw profileError;
+      }
+
+      // Then try to delete from auth.users using admin API
       const { error } = await supabase.auth.admin.deleteUser(userId);
         
       if (error) {
-        console.error('Error deleting user:', error);
+        console.error('Error deleting user from auth:', error);
         throw error;
       }
       
@@ -172,7 +180,7 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
       console.error('Error deleting user:', error);
       toast({
         title: 'Error',
-        description: 'Failed to delete user account',
+        description: 'Failed to delete user account. Please try again.',
         variant: 'destructive'
       });
     }

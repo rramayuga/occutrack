@@ -22,7 +22,7 @@ interface UsersListProps {
   loading: boolean;
   filteredUsers: User[];
   handleRoleChange: (userId: string, newRole: UserRole) => void;
-  handleDeleteUser?: (userId: string) => void;
+  handleDeleteUser?: (userId: string) => Promise<void>;
 }
 
 const UsersList: React.FC<UsersListProps> = ({ 
@@ -42,9 +42,9 @@ const UsersList: React.FC<UsersListProps> = ({
     setIsDeleteDialogOpen(true);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (userToDelete && handleDeleteUser) {
-      handleDeleteUser(userToDelete);
+      await handleDeleteUser(userToDelete);
       setIsDeleteDialogOpen(false);
       setUserToDelete(null);
     }
@@ -89,7 +89,6 @@ const UsersList: React.FC<UsersListProps> = ({
                       variant="destructive"
                       size="sm"
                       onClick={() => confirmDelete(user.id)}
-                      className="ml-2"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>

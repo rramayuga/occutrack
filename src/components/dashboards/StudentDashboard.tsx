@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { User, Announcement } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from "@/components/ui/use-toast";
 
 interface StudentDashboardProps {
   user: User;
@@ -11,36 +12,37 @@ interface StudentDashboardProps {
 export const StudentDashboard: React.FC<StudentDashboardProps> = ({ user }) => {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   // Fetch announcements
-  useEffect(() => {
-    const fetchAnnouncements = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('announcements')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(5);
-        
-        if (error) throw error;
-        
-        // Transform the data to match the Announcement type
-        const formattedAnnouncements: Announcement[] = (data || []).map(item => ({
-          id: item.id,
-          title: item.title,
-          content: item.content,
-          createdAt: item.created_at,
-          createdBy: item.created_by
-        }));
-        
-        setAnnouncements(formattedAnnouncements);
-      } catch (error) {
-        console.error('Error fetching announcements:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchAnnouncements = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('announcements')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(5);
+      
+      if (error) throw error;
+      
+      // Transform the data to match the Announcement type
+      const formattedAnnouncements: Announcement[] = (data || []).map(item => ({
+        id: item.id,
+        title: item.title,
+        content: item.content,
+        createdAt: item.created_at,
+        createdBy: item.created_by
+      }));
+      
+      setAnnouncements(formattedAnnouncements);
+    } catch (error) {
+      console.error('Error fetching announcements:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchAnnouncements();
 
     // Subscribe to changes in the announcements table
@@ -51,6 +53,14 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ user }) => {
         (payload) => {
           console.log('Announcement change received:', payload);
           fetchAnnouncements();
+          
+          // Show toast notification for new announcements
+          if (payload.eventType === 'INSERT') {
+            toast({
+              title: "New Announcement",
+              description: "A new announcement has been posted"
+            });
+          }
         }
       )
       .subscribe();

@@ -1,10 +1,12 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Shield, MessageSquare } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/components/ui/use-toast";
+import { supabase } from '@/integrations/supabase/client';
 
 interface SuperAdminDashboardProps {
   user: User;
@@ -12,6 +14,44 @@ interface SuperAdminDashboardProps {
 
 export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user }) => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [isRealTimeEnabled, setIsRealTimeEnabled] = useState(false);
+
+  // Enable real-time updates on mount
+  useEffect(() => {
+    // Set up real-time subscription for announcements
+    const announcementsChannel = supabase
+      .channel('announcements_changes')
+      .on('postgres_changes', 
+          { 
+            event: '*', 
+            schema: 'public', 
+            table: 'announcements' 
+          }, 
+          (payload) => {
+            console.log('Real-time announcement change received:', payload);
+            // Show toast notification when an announcement is created or updated
+            if (payload.eventType === 'INSERT') {
+              toast({
+                title: "New Announcement Posted",
+                description: "A new announcement has been added to the system."
+              });
+            } else if (payload.eventType === 'UPDATE') {
+              toast({
+                title: "Announcement Updated",
+                description: "An announcement has been modified."
+              });
+            }
+          })
+      .subscribe();
+
+    setIsRealTimeEnabled(true);
+    console.log('Real-time updates for announcements enabled');
+
+    return () => {
+      supabase.removeChannel(announcementsChannel);
+    };
+  }, [toast]);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -35,7 +75,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user }
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         <Card>
           <CardHeader>
             <CardTitle>Administration</CardTitle>
@@ -43,6 +83,11 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user }
           <CardContent>
             <p className="text-muted-foreground">
               Use the buttons above to manage user rights or post announcements to the system.
+              {isRealTimeEnabled && (
+                <span className="block mt-2 text-xs text-green-600">
+                  ✓ Real-time updates enabled
+                </span>
+              )}
             </p>
           </CardContent>
         </Card>

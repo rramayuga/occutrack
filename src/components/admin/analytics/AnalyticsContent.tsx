@@ -50,9 +50,13 @@ const AnalyticsContent: React.FC<AnalyticsContentProps> = ({
 
   return (
     <div className="space-y-8">
-      <div className="h-[400px] w-full">
-        <RoomUsageChart data={currentPageData} currentPage={currentPage} />
-      </div>
+      <Card className="bg-background border mb-6 overflow-hidden">
+        <CardContent className="p-4">
+          <div className="h-[400px]">
+            <RoomUsageChart data={currentPageData} currentPage={currentPage} />
+          </div>
+        </CardContent>
+      </Card>
       
       <div className="flex items-center justify-between mb-4">
         <p className="text-sm text-muted-foreground">
