@@ -11,18 +11,6 @@ export function useReservations() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  // Format times to 12-hour format (AM/PM)
-  const formatTimeTo12Hour = (time: string): string => {
-    if (!time) return '';
-    if (time.includes('AM') || time.includes('PM')) return time;
-    
-    const [hoursStr, minutes] = time.split(':').map(String);
-    const hours = parseInt(hoursStr, 10);
-    const period = hours >= 12 ? 'PM' : 'AM';
-    const hour12 = hours % 12 || 12; // Convert 0 to 12
-    return `${hour12}:${minutes} ${period}`;
-  };
-
   // Fetch user's reservations
   const fetchReservations = async () => {
     if (!user) return;
@@ -75,8 +63,6 @@ export function useReservations() {
           date: item.date,
           startTime: item.start_time,
           endTime: item.end_time,
-          displayStartTime: formatTimeTo12Hour(item.start_time),
-          displayEndTime: formatTimeTo12Hour(item.end_time),
           purpose: item.purpose || '',
           status: item.status,
           faculty: user.name
@@ -110,191 +96,131 @@ export function useReservations() {
       return null;
     }
     
-    if (user.role !== 'faculty' && user.role !== 'admin' && user.role !== 'superadmin') {
+    if (user.role !== 'faculty') {
       toast({
         title: "Access denied",
-        description: "Only faculty members can make reservations.",
+        description: "Only faculty members can make room reservations.",
         variant: "destructive"
       });
       return null;
     }
     
     try {
-      // Check for overlapping reservations - don't count the current reservation
-      const { data: existingReservations, error: checkError } = await supabase
+      // First, check if the room is under maintenance
+      const { data: roomData, error: roomError } = await supabase
+        .from('rooms')
+        .select('status')
+        .eq('id', roomId)
+        .single();
+        
+      if (roomError) throw roomError;
+      
+      if (roomData?.status === 'maintenance') {
+        toast({
+          title: "Cannot Reserve Room",
+          description: "This room is currently under maintenance and cannot be reserved.",
+          variant: "destructive"
+        });
+        return null;
+      }
+      
+      // Check for time conflicts
+      const { data: conflicts, error: conflictError } = await supabase
         .from('room_reservations')
         .select('*')
         .eq('room_id', roomId)
         .eq('date', values.date)
-        .or(`start_time.lt.${values.endTime},end_time.gt.${values.startTime}`);
+        .or(`start_time.lte.${values.endTime},end_time.gte.${values.startTime}`);
       
-      if (checkError) throw checkError;
+      if (conflictError) throw conflictError;
       
-      // More precise overlap check - exclude reservations that end at our start time or start at our end time
-      const hasOverlap = existingReservations?.some(res => {
-        // Convert all times to minutes for easier comparison
-        const existingStart = timeToMinutes(res.start_time);
-        const existingEnd = timeToMinutes(res.end_time);
-        const newStart = timeToMinutes(values.startTime);
-        const newEnd = timeToMinutes(values.endTime);
-        
-        // Check if there's an actual overlap
-        return (newStart < existingEnd && newEnd > existingStart);
-      });
-      
-      if (hasOverlap) {
+      if (conflicts && conflicts.length > 0) {
         toast({
-          title: "Time slot unavailable",
-          description: "The selected time slot overlaps with an existing reservation.",
+          title: "Time conflict",
+          description: "This room is already booked during the selected time period.",
           variant: "destructive"
         });
         return null;
       }
       
       // Create the reservation
+      const newReservation = {
+        room_id: roomId,
+        faculty_id: user.id,
+        date: values.date,
+        start_time: values.startTime,
+        end_time: values.endTime,
+        purpose: values.purpose,
+        status: 'approved' // Auto-approve for now
+      };
+      
       const { data, error } = await supabase
         .from('room_reservations')
-        .insert({
-          room_id: roomId,
-          faculty_id: user.id,
-          date: values.date,
-          start_time: values.startTime,
-          end_time: values.endTime,
-          purpose: values.purpose,
-          status: 'confirmed'
-        })
-        .select()
-        .single();
+        .insert(newReservation)
+        .select();
       
       if (error) throw error;
       
-      // Optimistically add the new reservation to the local state
-      const newReservation: Reservation = {
-        id: data.id,
-        roomId: roomId,
-        roomNumber: values.roomNumber || '',
-        building: values.building || '',
-        date: values.date,
-        startTime: values.startTime,
-        endTime: values.endTime,
-        displayStartTime: formatTimeTo12Hour(values.startTime),
-        displayEndTime: formatTimeTo12Hour(values.endTime),
-        purpose: values.purpose,
-        status: 'confirmed',
-        faculty: user.name
-      };
-      
-      setReservations(prev => [...prev, newReservation]);
-      
-      toast({
-        title: "Room booked",
-        description: `${values.roomNumber || 'Room'} has been booked successfully.`
-      });
-      
-      // Refresh reservations to get the formatted times
-      fetchReservations();
-      
-      return data;
+      if (data && data.length > 0) {
+        toast({
+          title: "Room booked successfully",
+          description: `You've booked ${values.roomNumber || 'a room'} in ${values.building || 'the building'} on ${values.date} from ${values.startTime} to ${values.endTime}`,
+        });
+        
+        // Refresh reservations
+        fetchReservations();
+        return data[0];
+      }
+      return null;
     } catch (error) {
-      console.error("Error booking room:", error);
+      console.error("Error creating reservation:", error);
       toast({
-        title: "Booking failed",
-        description: "Could not book the room. Please try again.",
+        title: "Error",
+        description: "Failed to book the room. Please try again.",
         variant: "destructive"
       });
       return null;
     }
   };
-  
-  // Helper function to convert time string to minutes for easier comparison
-  const timeToMinutes = (timeStr: string): number => {
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    return hours * 60 + minutes;
-  };
-  
-  // Cancel a reservation
-  const cancelReservation = async (reservationId: string) => {
-    if (!user) return false;
+
+  // Setup real-time subscription for reservation updates
+  const setupReservationsSubscription = () => {
+    if (!user) return () => {};
     
-    try {
-      // Get the reservation to check if it belongs to the current user
-      const { data: reservation, error: fetchError } = await supabase
-        .from('room_reservations')
-        .select('faculty_id')
-        .eq('id', reservationId)
-        .single();
-      
-      if (fetchError) throw fetchError;
-      
-      // Only allow faculty to cancel their own reservations or admins/superadmins to cancel any
-      if (user.role === 'faculty' && reservation.faculty_id !== user.id) {
-        toast({
-          title: "Permission denied",
-          description: "You can only cancel your own reservations.",
-          variant: "destructive"
-        });
-        return false;
-      }
-      
-      // Delete the reservation
-      const { error } = await supabase
-        .from('room_reservations')
-        .delete()
-        .eq('id', reservationId);
-      
-      if (error) throw error;
-      
-      // Update the local state
-      setReservations(prev => prev.filter(r => r.id !== reservationId));
-      
-      toast({
-        title: "Reservation cancelled",
-        description: "The room reservation has been cancelled."
-      });
-      
-      return true;
-    } catch (error) {
-      console.error("Error cancelling reservation:", error);
-      toast({
-        title: "Cancellation failed",
-        description: "Could not cancel the reservation. Please try again.",
-        variant: "destructive"
-      });
-      return false;
-    }
+    const channel = supabase
+      .channel('public:room_reservations')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'room_reservations',
+        filter: `faculty_id=eq.${user.id}`
+      }, (payload) => {
+        console.log('Reservation change received:', payload);
+        fetchReservations();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   };
-  
-  // Fetch reservations on mount and when user changes
+
   useEffect(() => {
     if (user) {
       fetchReservations();
+      
+      const unsubscribe = setupReservationsSubscription();
+      
+      return () => {
+        unsubscribe();
+      };
     }
-  }, [user]);
-  
-  // Set up real-time subscription to reservation changes
-  useEffect(() => {
-    if (!user) return;
-    
-    const reservationsChannel = supabase
-      .channel('room_reservations_changes')
-      .on('postgres_changes', 
-          { event: '*', schema: 'public', table: 'room_reservations' }, 
-          (payload) => {
-            console.log('Reservation change detected:', payload);
-            fetchReservations();
-          })
-      .subscribe();
-    
-    return () => {
-      supabase.removeChannel(reservationsChannel);
-    };
-  }, [user]);
+  }, [user?.id]);
 
   return {
     reservations,
     loading,
-    fetchReservations,
     createReservation,
-    cancelReservation
+    fetchReservations
   };
 }

@@ -6,14 +6,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 interface UserRoleSelectorProps {
   currentRole: UserRole;
   onRoleChange: (newRole: UserRole) => void;
-  disabled?: boolean;
 }
 
-const UserRoleSelector: React.FC<UserRoleSelectorProps> = ({ 
-  currentRole, 
-  onRoleChange,
-  disabled = false
-}) => {
+const UserRoleSelector: React.FC<UserRoleSelectorProps> = ({ currentRole, onRoleChange }) => {
   console.log('Rendering UserRoleSelector with role:', currentRole);
 
   return (
@@ -23,7 +18,6 @@ const UserRoleSelector: React.FC<UserRoleSelectorProps> = ({
         console.log(`Role selection changed to: ${value}`);
         onRoleChange(value as UserRole);
       }}
-      disabled={disabled}
     >
       <SelectTrigger className="w-32">
         <SelectValue />

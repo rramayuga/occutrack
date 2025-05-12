@@ -13,7 +13,7 @@ export interface Building {
   id: string;
   name: string;
   location?: string;
-  floors?: number | Floor[];
+  floors?: number;
   createdAt?: string;
   updatedAt?: string;
   roomCount?: number;
@@ -49,18 +49,15 @@ export interface Reservation {
   purpose: string;
   status: string;
   faculty: string;
-  displayStartTime?: string;  // Added to match usage in code
-  displayEndTime?: string;    // Added to match usage in code
 }
 
 export interface ReservationFormValues {
-  roomId?: string;  // Added roomId as optional property
-  date: string;
+  date: string;  // Changed from Date to string
   startTime: string;
   endTime: string;
   purpose: string;
-  roomNumber: string;  // Making this required to match usage
-  building: string;    // Making this required to match usage
+  roomNumber?: string;  // Added these optional properties 
+  building?: string;    // to match usage in the code
 }
 
 export type RoomStatus = 'available' | 'occupied' | 'maintenance';

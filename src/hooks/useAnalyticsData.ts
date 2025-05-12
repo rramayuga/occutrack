@@ -67,14 +67,12 @@ export const useAnalyticsData = (
       
       roomsData.forEach((room: any) => {
         roomUsageMap.set(room.id, {
-          roomId: room.id,  // Add the required roomId property
           roomName: room.name,
           reservations: 0,
           utilizationHours: 0,
           status: room.status || 'available',
           buildingName: room.buildings?.name || 'Unknown',
-          floor: room.floor,
-          roomType: room.type
+          floor: room.floor
         });
       });
 

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Reservation } from '@/lib/types';
 import { useAuth } from '@/lib/auth';
@@ -14,8 +13,6 @@ export const useRoomSchedules = (roomId: string, roomName: string) => {
   const fetchRoomSchedules = async () => {
     try {
       const today = new Date().toISOString().split('T')[0];
-      const now = new Date();
-      const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
       
       const { data, error } = await supabase
         .from('room_reservations')
@@ -40,17 +37,7 @@ export const useRoomSchedules = (roomId: string, roomName: string) => {
       }
       
       if (data) {
-        // Filter out past reservations
-        const filteredData = data.filter(item => {
-          // If date is today, filter by time
-          if (item.date === today) {
-            return item.end_time > currentTime;
-          }
-          // Future dates are always included
-          return true;
-        });
-
-        const reservations: Reservation[] = filteredData.map(item => ({
+        const reservations: Reservation[] = data.map(item => ({
           id: item.id,
           roomId: roomId,
           roomNumber: roomName,
@@ -98,16 +85,8 @@ export const useRoomSchedules = (roomId: string, roomName: string) => {
     });
   };
 
-  // Setup periodic refresh to update expired bookings
   useEffect(() => {
     fetchRoomSchedules();
-    
-    // Check for expired bookings every minute
-    const intervalId = setInterval(() => {
-      fetchRoomSchedules();
-    }, 60000); // 60 seconds
-    
-    return () => clearInterval(intervalId);
   }, [roomId]);
 
   const handleToggleSchedules = () => {

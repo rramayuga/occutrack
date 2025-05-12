@@ -9,10 +9,7 @@ import { useReservationManagement } from '@/hooks/rooms/useReservationManagement
 export const useRoomCardLogic = (room: Room, onToggleAvailability: (roomId: string) => void, refetchRooms: () => Promise<void>) => {
   const { user } = useAuth();
   
-  // Fix the issue by passing the correct parameters to useRoomStatus
-  const roomStatus = useRoomStatus(room, refetchRooms);
-  const { getEffectiveStatus, handleStatusChange } = roomStatus;
-  
+  const { getEffectiveStatus, handleStatusChange } = useRoomStatus(room, refetchRooms);
   const { currentOccupant: occupiedBy } = useRoomOccupancy(room.id, room.status !== 'occupied', room.occupiedBy);
   const { roomSchedules, showSchedules, handleToggleSchedules } = useRoomSchedules(room.id, room.name);
   const {

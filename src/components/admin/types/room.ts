@@ -1,13 +1,20 @@
 
-// Add or update the RoomUsageData type for the analytics
 export interface RoomUsageData {
-  roomId: string;  // Changed from optional to required
   roomName: string;
-  roomType?: string;
-  status?: string;
-  buildingName: string;
-  floor: number;
   reservations: number;
   utilizationHours: number;
-  utilizationRate?: number;
+  status: string;
+  buildingName: string;
+  floor: number;
+}
+
+export interface RoomAnalyticsFiltersProps {
+  selectedBuilding: string;
+  setSelectedBuilding: (buildingId: string) => void;
+  selectedFloor: string;
+  setSelectedFloor: (floor: string) => void;
+  statusFilter: string;
+  setStatusFilter: (status: string) => void;
+  buildings: { id: string; name: string }[];
+  floors: number[];
 }

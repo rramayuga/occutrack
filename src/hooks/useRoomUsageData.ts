@@ -1,114 +1,138 @@
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { format } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { RoomUsageData } from '@/components/admin/types/room';
 
-export function useRoomUsageData(
-  startDate?: Date,
-  endDate?: Date,
-  selectedBuilding?: string,
-  selectedFloor?: string,
-  statusFilter?: string
-) {
+export const useRoomUsageData = (
+  startDate: Date,
+  endDate: Date,
+  selectedBuilding: string,
+  selectedFloor: string,
+  statusFilter: string
+) => {
   const [roomUsageData, setRoomUsageData] = useState<RoomUsageData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
+
+  const fetchRoomUsageData = async () => {
+    setIsLoading(true);
+    try {
+      const formattedStartDate = format(startDate, 'yyyy-MM-dd');
+      const formattedEndDate = format(endDate, 'yyyy-MM-dd');
+
+      // First, get all rooms with their building information
+      const { data: roomsData, error: roomsError } = await supabase
+        .from('rooms')
+        .select(`
+          id,
+          name,
+          type,
+          status,
+          floor,
+          buildings (
+            id,
+            name
+          )
+        `);
+
+      if (roomsError) throw roomsError;
+
+      // Then get all reservations for these rooms
+      const { data: reservationData, error: reservationError } = await supabase
+        .from('room_reservations')
+        .select('*')
+        .gte('date', formattedStartDate)
+        .lte('date', formattedEndDate);
+
+      if (reservationError) throw reservationError;
+
+      // Process the data to create room usage statistics
+      const roomUsageMap = new Map<string, RoomUsageData>();
+      
+      roomsData.forEach((room: any) => {
+        roomUsageMap.set(room.id, {
+          roomName: room.name,
+          reservations: 0,
+          utilizationHours: 0,
+          status: room.status || 'available',
+          buildingName: room.buildings?.name || 'Unknown',
+          floor: room.floor
+        });
+      });
+
+      reservationData.forEach((reservation: any) => {
+        const roomId = reservation.room_id;
+        const roomData = roomUsageMap.get(roomId);
+        
+        if (roomData) {
+          const startTime = reservation.start_time;
+          const endTime = reservation.end_time;
+          
+          if (startTime && endTime) {
+            const [startHour, startMinute] = startTime.split(':').map(Number);
+            const [endHour, endMinute] = endTime.split(':').map(Number);
+            const durationHours = (endHour - startHour) + (endMinute - startMinute) / 60;
+            
+            roomUsageMap.set(roomId, {
+              ...roomData,
+              reservations: roomData.reservations + 1,
+              utilizationHours: roomData.utilizationHours + durationHours
+            });
+          }
+        }
+      });
+
+      let roomUsageArray = Array.from(roomUsageMap.values())
+        .filter(room => {
+          const buildingMatch = selectedBuilding === "all" || room.buildingName === selectedBuilding;
+          const floorMatch = selectedFloor === "all" || room.floor === parseInt(selectedFloor);
+          const statusMatch = statusFilter === "all" || room.status === statusFilter;
+          return buildingMatch && floorMatch && statusMatch;
+        })
+        .sort((a, b) => {
+          // Extract numbers from room names for natural sorting
+          const aNum = parseInt(a.roomName.match(/\d+/)?.[0] || '0');
+          const bNum = parseInt(b.roomName.match(/\d+/)?.[0] || '0');
+          return aNum - bNum;
+        });
+
+      setRoomUsageData(roomUsageArray);
+      setIsLoading(false);
+    } catch (error) {
+      console.error("Error fetching room usage data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load room usage data",
+        variant: "destructive"
+      });
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchRoomUsageData = async () => {
-      try {
-        setLoading(true);
-        
-        // In a real app, this would fetch usage data from the database
-        // For now, we'll create some sample data
-        const sampleData: RoomUsageData[] = [
-          {
-            roomId: '1',
-            roomName: 'Room 101',
-            roomType: 'Classroom',
-            buildingName: 'Engineering Building',
-            floor: 1,
-            status: 'available',
-            reservations: 12,
-            utilizationHours: 24,
-            utilizationRate: 0.45
-          },
-          {
-            roomId: '2',
-            roomName: 'Room 202',
-            roomType: 'Laboratory',
-            buildingName: 'Science Building',
-            floor: 2,
-            status: 'occupied',
-            reservations: 18,
-            utilizationHours: 36,
-            utilizationRate: 0.70
-          },
-          {
-            roomId: '3',
-            roomName: 'Room 305',
-            roomType: 'Lecture Hall',
-            buildingName: 'Humanities Building',
-            floor: 3,
-            status: 'available',
-            reservations: 8,
-            utilizationHours: 16,
-            utilizationRate: 0.30
-          },
-          {
-            roomId: '4',
-            roomName: 'Room 405',
-            roomType: 'Classroom',
-            buildingName: 'Engineering Building',
-            floor: 4,
-            status: 'maintenance',
-            reservations: 5,
-            utilizationHours: 10,
-            utilizationRate: 0.20
-          },
-          {
-            roomId: '5',
-            roomName: 'Room 501',
-            roomType: 'Conference',
-            buildingName: 'Admin Building',
-            floor: 5,
-            status: 'available',
-            reservations: 22,
-            utilizationHours: 44,
-            utilizationRate: 0.85
-          }
-        ];
-        
-        // Apply filters if provided
-        let filteredData = [...sampleData];
-        
-        if (selectedBuilding && selectedBuilding !== 'all') {
-          filteredData = filteredData.filter(room => 
-            room.buildingName.toLowerCase().includes(selectedBuilding.toLowerCase())
-          );
-        }
-        
-        if (selectedFloor && selectedFloor !== 'all') {
-          filteredData = filteredData.filter(room => 
-            room.floor === parseInt(selectedFloor)
-          );
-        }
-        
-        if (statusFilter && statusFilter !== 'all') {
-          filteredData = filteredData.filter(room => 
-            room.status === statusFilter
-          );
-        }
-        
-        setRoomUsageData(filteredData);
-      } catch (error) {
-        console.error("Error fetching room usage data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchRoomUsageData();
-  }, [startDate, endDate, selectedBuilding, selectedFloor, statusFilter]); 
+    
+    const channel = supabase
+      .channel('room-reservations-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'room_reservations'
+        },
+        () => {
+          fetchRoomUsageData();
+        }
+      )
+      .subscribe();
 
-  return { roomUsageData, loading };
-}
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [startDate, endDate, selectedBuilding, selectedFloor, statusFilter]);
+
+  return { roomUsageData, isLoading };
+};

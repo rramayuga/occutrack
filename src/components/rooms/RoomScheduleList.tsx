@@ -19,16 +19,6 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
 }) => {
   if (!showSchedules) return null;
   
-  // Format time to AM/PM if not already formatted
-  const formatTimeToAMPM = (time: string): string => {
-    if (time.includes('AM') || time.includes('PM')) return time;
-    
-    const [hours, minutes] = time.split(':').map(Number);
-    const period = hours >= 12 ? 'PM' : 'AM';
-    const hour12 = hours % 12 || 12; // Convert 0 to 12
-    return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
-  };
-  
   // Handle click internally to manage the event
   const handleCancelButtonClick = (e: React.MouseEvent, reservation: Reservation) => {
     e.stopPropagation();
@@ -43,11 +33,7 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
           {roomSchedules.map(schedule => (
             <div key={schedule.id} className="p-2 bg-accent rounded text-xs flex justify-between items-center">
               <div>
-                <p className="font-medium">
-                  {new Date(schedule.date).toLocaleDateString()} 
-                  ({schedule.displayStartTime || formatTimeToAMPM(schedule.startTime)}-
-                  {schedule.displayEndTime || formatTimeToAMPM(schedule.endTime)})
-                </p>
+                <p className="font-medium">{new Date(schedule.date).toLocaleDateString()} ({schedule.startTime}-{schedule.endTime})</p>
                 <p className="text-muted-foreground">{schedule.faculty}</p>
                 <p className="text-muted-foreground">{schedule.purpose}</p>
               </div>

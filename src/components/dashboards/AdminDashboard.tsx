@@ -1,132 +1,197 @@
 
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { BuildingWithFloors, User } from '@/lib/types';
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, ClipboardList, Building2, Users } from "lucide-react";
-import { User } from '@/lib/types';
+import { Search, Plus } from 'lucide-react';
 import AdminDashboardCards from './admin/AdminDashboardCards';
 import BuildingsTab from './admin/BuildingsTab';
 import FacultyTab from './admin/FacultyTab';
 import AnalyticsTab from './admin/AnalyticsTab';
-import { useRoomUsageData } from '@/hooks/useRoomUsageData';
+import BuildingManagementDialogs from '../admin/dialogs/BuildingManagementDialogs';
 import { useBuildings } from '@/hooks/useBuildings';
-import { BuildingWithFloors } from '@/lib/types';
+import { useEnhancedRoomsManagement } from '@/hooks/useEnhancedRoomsManagement';
 import { useFacultyManagement } from '@/hooks/useFacultyManagement';
+import { useRoomUtilization } from '@/hooks/useRoomUtilization';
+import { useToast } from "@/hooks/use-toast";
 
 interface AdminDashboardProps {
   user: User;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
-  const [activeTab, setActiveTab] = useState("overview");
-  const { roomUsageData } = useRoomUsageData();
-  const { buildings, loading } = useBuildings();
+  const [isBuildingDialogOpen, setIsBuildingDialogOpen] = useState(false);
+  const [isRoomDialogOpen, setIsRoomDialogOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedBuilding, setSelectedBuilding] = useState<BuildingWithFloors | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
+  const { buildings, loading, addBuilding, editBuilding, deleteBuilding } = useBuildings();
+  const { addRoom } = useEnhancedRoomsManagement();
   const { facultyCount, facultyMembers, isLoadingFaculty } = useFacultyManagement();
-  
-  // States and handlers for BuildingsTab
-  const [searchTerm, setSearchTerm] = useState("");
-  const filteredBuildings = buildings.filter(building => 
-    building.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-  
-  // Mock room count for AdminDashboardCards
-  const roomCount = buildings.reduce((total, building) => total + (building.roomCount || 0), 0);
-  
-  // Mock handlers for faculty management
-  const handleViewFaculty = (facultyId: string) => {
-    console.log("View faculty", facultyId);
+  const utilizationRate = useRoomUtilization();
+  const { toast } = useToast();
+  const navigate = useNavigate();
+
+  const onBuildingSubmit = async (data: any) => {
+    const result = await addBuilding(data.name, data.floorCount, data.location);
+    if (result) {
+      setIsBuildingDialogOpen(false);
+    }
   };
-  
-  const handleEditFaculty = (facultyId: string) => {
-    console.log("Edit faculty", facultyId);
+
+  const onEditBuildingSubmit = async (data: any) => {
+    if (selectedBuilding) {
+      const result = await editBuilding(selectedBuilding.id, data.name, data.location);
+      if (result) {
+        setIsEditDialogOpen(false);
+        setSelectedBuilding(null);
+        toast({
+          title: "Building updated",
+          description: `${data.name} has been updated successfully.`
+        });
+      }
+    }
   };
-  
-  // Mock handlers for building management
+
+  const onDeleteBuilding = async () => {
+    if (selectedBuilding) {
+      const result = await deleteBuilding(selectedBuilding.id);
+      if (result) {
+        setIsDeleteDialogOpen(false);
+        setSelectedBuilding(null);
+        toast({
+          title: "Building deleted",
+          description: `${selectedBuilding.name} has been deleted.`
+        });
+      }
+    }
+  };
+
+  const onRoomSubmit = async (data: any) => {
+    const roomData = {
+      name: data.name,
+      type: data.type,
+      floor: data.floor,
+      buildingId: data.buildingId,
+      isAvailable: data.isAvailable,
+      capacity: 30
+    };
+    
+    const result = await addRoom(roomData);
+    if (result) {
+      setIsRoomDialogOpen(false);
+    }
+  };
+
   const handleViewBuilding = (id: string) => {
-    console.log("View building", id);
+    window.location.href = '/rooms';
   };
-  
+
   const handleEditBuilding = (building: BuildingWithFloors) => {
-    console.log("Edit building", building);
+    setSelectedBuilding(building);
+    setIsEditDialogOpen(true);
   };
-  
+
   const handleDeleteBuilding = (building: BuildingWithFloors) => {
-    console.log("Delete building", building);
+    setSelectedBuilding(building);
+    setIsDeleteDialogOpen(true);
   };
-  
-  const onAddBuilding = () => {
-    console.log("Add building");
+
+  const handleViewFaculty = (facultyId: string) => {
+    navigate('/faculty-management', { state: { selectedFacultyId: facultyId } });
   };
+
+  const handleEditFaculty = (facultyId: string) => {
+    navigate('/faculty-management', { 
+      state: { selectedFacultyId: facultyId, isEditing: true } 
+    });
+  };
+
+  const filteredBuildings = buildings.filter(building => {
+    if (!searchTerm) return true;
+    return building.name.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-2">Admin Dashboard</h1>
-      <p className="text-muted-foreground mb-8">Welcome back, {user.name}!</p>
+      <div className="flex flex-wrap items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Admin Dashboard</h1>
+          <p className="text-muted-foreground">Welcome back, {user.name}!</p>
+        </div>
+        <div className="flex gap-4 mt-4 md:mt-0">
+          <Button variant="outline">
+            <Search className="h-4 w-4 mr-2" /> Search
+          </Button>
+          <Button onClick={() => setIsRoomDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" /> Add New Room
+          </Button>
+        </div>
+      </div>
 
-      <AdminDashboardCards 
+      <AdminDashboardCards
         buildings={buildings.length}
-        rooms={roomCount}
+        rooms={buildings.reduce((total, building) => total + (building.roomCount || 0), 0)}
         facultyCount={facultyCount}
-        utilizationRate="65%"
+        utilizationRate={utilizationRate}
       />
 
-      <div className="mt-8">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-4 md:w-[400px] mb-8">
-            <TabsTrigger value="overview" className="flex items-center gap-1">
-              <BarChart3 className="h-4 w-4" />
-              <span className="hidden sm:inline">Overview</span>
-            </TabsTrigger>
-            <TabsTrigger value="buildings" className="flex items-center gap-1">
-              <Building2 className="h-4 w-4" />
-              <span className="hidden sm:inline">Buildings</span>
-            </TabsTrigger>
-            <TabsTrigger value="faculty" className="flex items-center gap-1">
-              <Users className="h-4 w-4" />
-              <span className="hidden sm:inline">Faculty</span>
-            </TabsTrigger>
-            <TabsTrigger value="analytics" className="flex items-center gap-1">
-              <BarChart3 className="h-4 w-4" />
-              <span className="hidden sm:inline">Analytics</span>
-            </TabsTrigger>
-          </TabsList>
+      <Tabs defaultValue="buildings" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3 md:w-auto">
+          <TabsTrigger value="buildings">Buildings</TabsTrigger>
+          <TabsTrigger value="faculty">Faculty</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="buildings">
+          <BuildingsTab
+            buildings={buildings}
+            loading={loading}
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            onAddBuilding={() => setIsBuildingDialogOpen(true)}
+            filteredBuildings={filteredBuildings}
+            handleViewBuilding={handleViewBuilding}
+            handleEditBuilding={handleEditBuilding}
+            handleDeleteBuilding={handleDeleteBuilding}
+          />
+        </TabsContent>
+        
+        <TabsContent value="faculty">
+          <FacultyTab
+            isLoadingFaculty={isLoadingFaculty}
+            facultyMembers={facultyMembers}
+            handleViewFaculty={handleViewFaculty}
+            handleEditFaculty={handleEditFaculty}
+          />
+        </TabsContent>
+        
+        <TabsContent value="analytics">
+          <AnalyticsTab />
+        </TabsContent>
+      </Tabs>
 
-          <TabsContent value="overview">
-            <div className="space-y-4">
-              <p>Quick overview of your admin panel. Select a tab to manage specific aspects of the system.</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Content will go here */}
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="buildings">
-            <BuildingsTab 
-              buildings={buildings}
-              loading={loading}
-              searchTerm={searchTerm}
-              setSearchTerm={setSearchTerm}
-              onAddBuilding={onAddBuilding}
-              filteredBuildings={filteredBuildings}
-              handleViewBuilding={handleViewBuilding}
-              handleEditBuilding={handleEditBuilding}
-              handleDeleteBuilding={handleDeleteBuilding}
-            />
-          </TabsContent>
-          
-          <TabsContent value="faculty">
-            <FacultyTab 
-              isLoadingFaculty={isLoadingFaculty}
-              facultyMembers={facultyMembers}
-              handleViewFaculty={handleViewFaculty}
-              handleEditFaculty={handleEditFaculty}
-            />
-          </TabsContent>
-
-          <TabsContent value="analytics">
-            <AnalyticsTab roomUsageData={roomUsageData} />
-          </TabsContent>
-        </Tabs>
-      </div>
+      <BuildingManagementDialogs
+        isBuildingDialogOpen={isBuildingDialogOpen}
+        setIsBuildingDialogOpen={setIsBuildingDialogOpen}
+        isRoomDialogOpen={isRoomDialogOpen}
+        setIsRoomDialogOpen={setIsRoomDialogOpen}
+        isEditDialogOpen={isEditDialogOpen}
+        setIsEditDialogOpen={setIsEditDialogOpen}
+        isDeleteDialogOpen={isDeleteDialogOpen}
+        setIsDeleteDialogOpen={setIsDeleteDialogOpen}
+        selectedBuilding={selectedBuilding}
+        setSelectedBuilding={setSelectedBuilding}
+        onBuildingSubmit={onBuildingSubmit}
+        onRoomSubmit={onRoomSubmit}
+        onEditBuildingSubmit={onEditBuildingSubmit}
+        onDeleteBuilding={onDeleteBuilding}
+      />
     </div>
   );
 };
+
+export default AdminDashboard;
