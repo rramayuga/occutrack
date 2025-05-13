@@ -19,7 +19,12 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
   const { reservations, createReservation } = useReservations();
   
   // Initialize the reservation time tracker to handle automatic status updates
-  useReservationTimeTracker();
+  const { activeReservations, fetchActiveReservations } = useReservationTimeTracker();
+  
+  // Fetch active reservations on mount
+  useEffect(() => {
+    fetchActiveReservations();
+  }, []);
   
   // Get today's schedule from reservations
   const todaySchedule = reservations.filter(booking => {

@@ -25,9 +25,13 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
         const { data: reservations, error } = await supabase
           .from('room_reservations')
           .select('*')
-          .eq('date', currentDate);
+          .eq('date', currentDate)
+          .neq('status', 'completed'); // Don't check completed reservations
         
-        if (error) throw error;
+        if (error) {
+          console.error("Error fetching reservations:", error);
+          throw error;
+        }
         
         if (reservations && reservations.length > 0) {
           console.log('Found reservations for today:', reservations.length);
@@ -51,7 +55,7 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
               
               // Determine if the room status needs to be updated based on reservation time
               const shouldBeOccupied = isActive;
-              const shouldBeAvailable = !isActive;
+              const shouldBeAvailable = !isActive && currentTime >= endTime;
               
               // Only update if status needs to change
               if ((shouldBeOccupied && roomToUpdate.status !== 'occupied') || 
@@ -63,17 +67,17 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
                 console.log(`Room ${roomToUpdate.name} status automatically updating to ${newStatus} based on reservation time`);
                 updateRoomAvailability(reservation.room_id, isAvailable, newStatus);
                 
-                // Show toast notification for automatic status changes
-                if (shouldBeOccupied) {
-                  toast({
-                    title: "Room Now Occupied",
-                    description: `${roomToUpdate.name} is now occupied due to a scheduled reservation.`,
-                  });
-                } else {
-                  toast({
-                    title: "Room Now Available",
-                    description: `${roomToUpdate.name} is now available as the reservation period has ended.`,
-                  });
+                // If reservation has ended, mark it as completed
+                if (shouldBeAvailable && currentTime >= endTime) {
+                  console.log(`Marking reservation ${reservation.id} as completed since end time ${endTime} has passed`);
+                  const { error: updateError } = await supabase
+                    .from('room_reservations')
+                    .update({ status: 'completed' })
+                    .eq('id', reservation.id);
+                  
+                  if (updateError) {
+                    console.error("Error marking reservation as completed:", updateError);
+                  }
                 }
               }
             }
@@ -84,9 +88,9 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
       }
     };
 
-    // Update room status on load and every minute
+    // Update room status on load and every 30 seconds
     updateRoomStatusBasedOnBookings();
-    const intervalId = setInterval(updateRoomStatusBasedOnBookings, 60000);
+    const intervalId = setInterval(updateRoomStatusBasedOnBookings, 30000);
     
     return () => clearInterval(intervalId);
   }, [rooms, user, updateRoomAvailability, toast]);

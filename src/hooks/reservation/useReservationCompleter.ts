@@ -10,6 +10,13 @@ export function useReservationCompleter() {
   // Mark a reservation as completed
   const markReservationAsCompleted = async (reservationId: string) => {
     try {
+      console.log(`Marking reservation ${reservationId} as completed`);
+      
+      if (!reservationId) {
+        console.error("Cannot complete reservation: Missing reservationId");
+        return false;
+      }
+      
       // Add this reservation ID to our completed list to avoid re-processing
       setCompletedReservations(prev => [...prev, reservationId]);
       
@@ -19,7 +26,12 @@ export function useReservationCompleter() {
         .update({ status: 'completed' })
         .eq('id', reservationId);
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error marking reservation as completed:", error);
+        throw error;
+      }
+      
+      console.log(`Successfully marked reservation ${reservationId} as completed in database`);
       
       toast({
         title: "Reservation Completed",

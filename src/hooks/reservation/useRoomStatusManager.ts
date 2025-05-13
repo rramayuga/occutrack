@@ -10,6 +10,13 @@ export function useRoomStatusManager() {
   // Set room status based on reservation time
   const updateRoomStatus = async (roomId: string, isOccupied: boolean) => {
     try {
+      console.log(`Updating room ${roomId} status to ${isOccupied ? 'occupied' : 'available'}`);
+      
+      if (!roomId) {
+        console.error("Cannot update room status: Missing roomId");
+        return;
+      }
+      
       // Update room status in database
       const newStatus = isOccupied ? 'occupied' : 'available';
       
@@ -18,18 +25,25 @@ export function useRoomStatusManager() {
         .update({ status: newStatus })
         .eq('id', roomId);
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error updating room status:", error);
+        throw error;
+      }
+      
+      console.log(`Successfully updated room ${roomId} to status: ${newStatus}`);
       
       // Create availability record
-      await supabase
-        .from('room_availability')
-        .insert({
-          room_id: roomId,
-          is_available: !isOccupied,
-          status: newStatus,
-          updated_by: user?.id || '',
-          updated_at: new Date().toISOString()
-        });
+      if (user) {
+        await supabase
+          .from('room_availability')
+          .insert({
+            room_id: roomId,
+            is_available: !isOccupied,
+            status: newStatus,
+            updated_by: user.id,
+            updated_at: new Date().toISOString()
+          });
+      }
       
       if (isOccupied) {
         toast({
