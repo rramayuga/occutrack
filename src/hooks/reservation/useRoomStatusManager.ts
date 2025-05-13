@@ -41,7 +41,7 @@ export function useRoomStatusManager() {
         toast({
           title: "Status Not Changed",
           description: `Room ${roomData.name} is under maintenance and cannot be automatically updated.`,
-          variant: "warning"
+          variant: "default" // Changed from "warning" to "default"
         });
         return false;
       }
