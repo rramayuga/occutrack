@@ -19,7 +19,7 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
 }) => {
   if (!showSchedules) return null;
   
-  // Filter out finished schedules more accurately
+  // Filter out completed reservations and past schedules
   const activeSchedules = roomSchedules.filter(schedule => {
     // Filter out completed reservations
     if (schedule.status === 'completed') return false;

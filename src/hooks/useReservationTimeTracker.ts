@@ -15,7 +15,7 @@ export function useReservationTimeTracker() {
   const { updateRoomStatus } = useRoomStatusManager();
   const { completedReservations, markReservationAsCompleted } = useReservationCompleter();
   const { toast } = useToast();
-
+  
   // Function to fetch and update the active reservations
   const fetchAndUpdateActiveReservations = useCallback(async () => {
     if (!user) return [];
@@ -32,9 +32,11 @@ export function useReservationTimeTracker() {
     
     const now = new Date();
     
-    // Format time as HH:MM for accurate comparison
-    const currentTime = now.getHours().toString().padStart(2, '0') + ':' + 
-                      now.getMinutes().toString().padStart(2, '0');
+    // Format current time for accurate comparison
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    const currentTime = `${hours}:${minutes}`;
+    
     const today = now.toISOString().split('T')[0];
     
     console.log(`Checking ${activeReservations.length} reservations at ${today} ${currentTime}`);
@@ -42,7 +44,7 @@ export function useReservationTimeTracker() {
     let reservationsUpdated = false;
     
     for (const reservation of activeReservations) {
-      // Skip if already in completed list
+      // Skip if already completed
       if (completedReservations.includes(reservation.id)) {
         continue;
       }
@@ -65,9 +67,6 @@ export function useReservationTimeTracker() {
       const isStartTimeReached = now >= reservationStart;
       const isEndTimeReached = now >= reservationEnd;
       
-      console.log(`Reservation ${reservation.id}: Start=${reservation.startTime}, End=${reservation.endTime}, Current=${currentTime}`);
-      console.log(`Start time reached: ${isStartTimeReached}, End time reached: ${isEndTimeReached}`);
-      
       // Check if start time has been reached - MARK AS OCCUPIED
       if (isStartTimeReached && !isEndTimeReached && reservation.status !== 'occupied') {
         console.log(`START TIME REACHED for reservation ${reservation.id} - marking room ${reservation.roomId} as OCCUPIED`);
@@ -76,6 +75,7 @@ export function useReservationTimeTracker() {
           toast({
             title: "Room Now Occupied",
             description: `${reservation.roomNumber} is now occupied for the scheduled reservation.`,
+            duration: 5000,
           });
           reservationsUpdated = true;
         }
@@ -94,6 +94,7 @@ export function useReservationTimeTracker() {
             toast({
               title: "Reservation Completed",
               description: `Reservation in ${reservation.roomNumber} has ended and the room is now available.`,
+              duration: 5000,
             });
             reservationsUpdated = true;
           }
@@ -118,10 +119,10 @@ export function useReservationTimeTracker() {
     checkReservationTimes();
     
     // Setup interval to check reservation times every second for real-time updates
-    const intervalId = setInterval(checkReservationTimes, 1000);
+    const intervalId = setInterval(checkReservationTimes, 3000);
     
     // Also set up a subscription to reservation changes
-    const channel = supabase
+    const reservationChannel = supabase
       .channel('room_reservations_changes')
       .on('postgres_changes', { 
         event: '*', 
@@ -131,10 +132,23 @@ export function useReservationTimeTracker() {
         fetchAndUpdateActiveReservations();
       })
       .subscribe();
+      
+    // Subscribe to room status changes  
+    const roomsChannel = supabase
+      .channel('room_status_changes')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'rooms'
+      }, () => {
+        fetchAndUpdateActiveReservations();
+      })
+      .subscribe();
     
     return () => {
       clearInterval(intervalId);
-      supabase.removeChannel(channel);
+      supabase.removeChannel(reservationChannel);
+      supabase.removeChannel(roomsChannel);
     };
   }, [user, fetchAndUpdateActiveReservations, checkReservationTimes]);
 

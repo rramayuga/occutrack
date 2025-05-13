@@ -1,13 +1,13 @@
 
-import { useAuth } from '@/lib/auth';
-import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { RoomStatus } from '@/lib/types';
+import { RoomStatus } from "@/lib/types";
+import { useAuth } from "@/lib/auth";
+import { useToast } from "@/hooks/use-toast";
 
 export function useRoomStatusManager() {
   const { user } = useAuth();
   const { toast } = useToast();
-
+  
   // Set room status based on reservation time
   const updateRoomStatus = async (roomId: string, isOccupied: boolean) => {
     try {
@@ -15,6 +15,11 @@ export function useRoomStatusManager() {
       
       if (!roomId) {
         console.error("Cannot update room status: Missing roomId");
+        return false;
+      }
+
+      if (!user) {
+        console.error("User must be logged in to update room status");
         return false;
       }
       
@@ -36,19 +41,16 @@ export function useRoomStatusManager() {
         return false;
       }
       
-      // Check if status already matches what we want to set
-      if ((isOccupied && roomData.status === 'occupied') || 
-          (!isOccupied && roomData.status === 'available')) {
-        console.log(`Room ${roomData.name} status already set to ${roomData.status}, skipping update`);
-        return true; // Status already correct, consider operation successful
-      }
-      
       // Update room status in database
       const newStatus: RoomStatus = isOccupied ? 'occupied' : 'available';
       
       const { error } = await supabase
         .from('rooms')
-        .update({ status: newStatus })
+        .update({ 
+          status: newStatus,
+          // Also update the isAvailable flag to ensure consistency
+          isAvailable: !isOccupied
+        })
         .eq('id', roomId);
       
       if (error) {
@@ -56,20 +58,19 @@ export function useRoomStatusManager() {
         return false;
       }
       
-      console.log(`Successfully updated room ${roomId} to status: ${newStatus}`);
+      // Create availability record for tracking
+      await supabase
+        .from('room_availability')
+        .insert({
+          room_id: roomId,
+          is_available: !isOccupied,
+          status: newStatus,
+          updated_by: user.id,
+          updated_at: new Date().toISOString()
+        });
       
-      // Create availability record - this is important for analytics tracking
-      if (user) {
-        await supabase
-          .from('room_availability')
-          .insert({
-            room_id: roomId,
-            is_available: !isOccupied,
-            status: newStatus,
-            updated_by: user.id,
-            updated_at: new Date().toISOString()
-          });
-      }
+      // Log successful update
+      console.log(`Successfully updated room ${roomId} to status: ${newStatus}`);
       
       return true;
     } catch (error) {
