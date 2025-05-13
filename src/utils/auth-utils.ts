@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export const handleStudentRegistration = async (
@@ -78,21 +77,31 @@ export const handleFacultyRegistration = async (
 };
 
 export const handleGoogleSignIn = async () => {
-  // Ensure Google auth only allows NEU domain
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: `${window.location.origin}/dashboard`,
-      queryParams: {
-        access_type: 'offline',
-        prompt: 'consent',
-        hd: 'neu.edu.ph' // Restrict to NEU domain emails only
+  try {
+    console.log('Initiating Google Sign In...');
+    // Ensure Google auth only allows NEU domain
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/dashboard`,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+          hd: 'neu.edu.ph' // Restrict to NEU domain emails only
+        }
       }
-    }
-  });
-  
-  if (error) throw error;
-  return data;
+    });
+    
+    if (error) throw error;
+
+    // Note: We'll handle the profile fetch after the redirect completes
+    // in the AuthProvider's onAuthStateChange listener
+    
+    return data;
+  } catch (error) {
+    console.error('Google login error:', error);
+    throw error;
+  }
 };
 
 export const handleLogin = async (email: string, password: string) => {
