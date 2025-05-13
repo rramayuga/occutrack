@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { CheckCircle, X } from 'lucide-react';
 import { Reservation } from '@/lib/types';
@@ -15,7 +15,15 @@ interface TeachingScheduleProps {
 export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ reservations }) => {
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
+  const [filteredReservations, setFilteredReservations] = useState<Reservation[]>([]);
   const { toast } = useToast();
+
+  // Filter out completed reservations and update when props change
+  useEffect(() => {
+    const active = reservations.filter(res => res.status !== 'completed');
+    console.log(`Filtered ${reservations.length} reservations to ${active.length} active ones`);
+    setFilteredReservations(active);
+  }, [reservations]);
 
   const handleCancelClick = (reservation: Reservation) => {
     setSelectedReservation(reservation);
@@ -35,6 +43,9 @@ export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ reservations
         throw error;
       }
       
+      // Remove the cancelled reservation from our local state
+      setFilteredReservations(prev => prev.filter(res => res.id !== selectedReservation.id));
+      
       toast({
         title: "Reservation Cancelled",
         description: "Your room reservation has been cancelled successfully.",
@@ -43,8 +54,6 @@ export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ reservations
       // Close dialog
       setIsCancelDialogOpen(false);
       setSelectedReservation(null);
-      
-      // No need to refresh here as the parent component will handle this through realtime subscription
     } catch (error) {
       console.error("Error cancelling reservation:", error);
       toast({
@@ -55,9 +64,6 @@ export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ reservations
     }
   };
 
-  // Filter out completed reservations
-  const activeReservations = reservations.filter(res => res.status !== 'completed');
-
   return (
     <>
       <Card className="lg:col-span-2">
@@ -67,8 +73,8 @@ export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ reservations
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {activeReservations.length > 0 ? (
-              activeReservations.map((booking) => {
+            {filteredReservations.length > 0 ? (
+              filteredReservations.map((booking) => {
                 // Determine if the booking is currently active
                 const now = new Date();
                 const bookingDate = new Date(booking.date);

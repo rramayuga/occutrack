@@ -14,7 +14,25 @@ export function useRoomStatusManager() {
       
       if (!roomId) {
         console.error("Cannot update room status: Missing roomId");
-        return;
+        return false;
+      }
+      
+      // Get current room status to check if it's under maintenance
+      const { data: roomData, error: roomError } = await supabase
+        .from('rooms')
+        .select('status, name')
+        .eq('id', roomId)
+        .single();
+      
+      if (roomError) {
+        console.error("Error fetching room status:", roomError);
+        return false;
+      }
+      
+      // Don't update rooms under maintenance
+      if (roomData.status === 'maintenance') {
+        console.log(`Room ${roomData.name} is under maintenance, skipping status update`);
+        return false;
       }
       
       // Update room status in database
@@ -27,7 +45,7 @@ export function useRoomStatusManager() {
       
       if (error) {
         console.error("Error updating room status:", error);
-        throw error;
+        return false;
       }
       
       console.log(`Successfully updated room ${roomId} to status: ${newStatus}`);
@@ -45,19 +63,10 @@ export function useRoomStatusManager() {
           });
       }
       
-      if (isOccupied) {
-        toast({
-          title: "Room Now Occupied",
-          description: "Your reserved room is now marked as occupied for your schedule.",
-        });
-      } else {
-        toast({
-          title: "Room Now Available",
-          description: "Your reservation has ended and the room is now available.",
-        });
-      }
+      return true;
     } catch (error) {
       console.error("Error updating room status:", error);
+      return false;
     }
   };
 

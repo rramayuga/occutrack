@@ -17,8 +17,11 @@ export function useReservationCompleter() {
         return false;
       }
       
-      // Add this reservation ID to our completed list to avoid re-processing
-      setCompletedReservations(prev => [...prev, reservationId]);
+      // Check if already completed to avoid duplicate operations
+      if (completedReservations.includes(reservationId)) {
+        console.log(`Reservation ${reservationId} is already in completed list, skipping`);
+        return true;
+      }
       
       // Update the status of the reservation to 'completed' in the database
       const { error } = await supabase
@@ -28,15 +31,13 @@ export function useReservationCompleter() {
       
       if (error) {
         console.error("Error marking reservation as completed:", error);
-        throw error;
+        return false;
       }
       
-      console.log(`Successfully marked reservation ${reservationId} as completed in database`);
+      // Add this reservation ID to our completed list to avoid re-processing
+      setCompletedReservations(prev => [...prev, reservationId]);
       
-      toast({
-        title: "Reservation Completed",
-        description: "Your reservation has ended and the room is now available.",
-      });
+      console.log(`Successfully marked reservation ${reservationId} as completed in database`);
       
       return true;
     } catch (error) {

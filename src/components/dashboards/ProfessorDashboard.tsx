@@ -15,15 +15,25 @@ interface ProfessorDashboardProps {
 
 export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const { buildings, rooms } = useRooms();
-  const { reservations, createReservation } = useReservations();
+  const { buildings, rooms, refreshRooms } = useRooms();
+  const { reservations, createReservation, fetchReservations } = useReservations();
   
   // Initialize the reservation time tracker to handle automatic status updates
   const { activeReservations, fetchActiveReservations } = useReservationTimeTracker();
   
-  // Fetch active reservations on mount
+  // Fetch active reservations and refresh rooms on mount and periodically
   useEffect(() => {
+    // Initial fetch
     fetchActiveReservations();
+    refreshRooms();
+    
+    // Set up interval for periodic refresh
+    const intervalId = setInterval(() => {
+      fetchReservations();
+      refreshRooms();
+    }, 30000); // Every 30 seconds
+    
+    return () => clearInterval(intervalId);
   }, []);
   
   // Get today's schedule from reservations
@@ -42,6 +52,9 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
     // We'll need to pre-populate the form in the RoomBookingDialog component
     // This will be passed down to the component
   };
+  
+  // Filter out completed reservations from the display
+  const activeReservationsForDisplay = reservations.filter(r => r.status !== 'completed');
   
   return (
     <div className="container mx-auto px-4 py-8">
@@ -62,12 +75,12 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
       {/* Overview Cards */}
       <ProfessorOverviewCards 
         todaySchedule={todaySchedule} 
-        reservations={reservations.filter(r => r.status !== 'completed')} 
+        reservations={activeReservationsForDisplay} 
       />
 
       {/* Teaching Schedule & Room Management */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <TeachingSchedule reservations={reservations.filter(r => r.status !== 'completed')} />
+        <TeachingSchedule reservations={reservations} />
         <AvailableRooms 
           rooms={rooms} 
           buildings={buildings} 
