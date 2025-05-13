@@ -36,6 +36,13 @@ export function useRoomStatusManager() {
         return false;
       }
       
+      // Check if status already matches what we want to set
+      if ((isOccupied && roomData.status === 'occupied') || 
+          (!isOccupied && roomData.status === 'available')) {
+        console.log(`Room ${roomData.name} status already set to ${roomData.status}, skipping update`);
+        return true; // Status already correct, consider operation successful
+      }
+      
       // Update room status in database
       const newStatus: RoomStatus = isOccupied ? 'occupied' : 'available';
       

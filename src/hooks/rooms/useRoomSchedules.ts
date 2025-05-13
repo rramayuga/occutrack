@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Reservation } from '@/lib/types';
 import { useAuth } from '@/lib/auth';
@@ -28,6 +29,7 @@ export const useRoomSchedules = (roomId: string, roomName: string) => {
         `)
         .eq('room_id', roomId)
         .gte('date', today)
+        .neq('status', 'completed') // Only fetch non-completed reservations
         .order('date', { ascending: true })
         .order('start_time', { ascending: true });
       
@@ -85,11 +87,34 @@ export const useRoomSchedules = (roomId: string, roomName: string) => {
     });
   };
 
+  // Setup real-time subscription for reservation changes
   useEffect(() => {
     fetchRoomSchedules();
+
+    // Subscribe to changes in room_reservations table for this room
+    const channel = supabase
+      .channel(`room-schedules-${roomId}`)
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'room_reservations',
+        filter: `room_id=eq.${roomId}`
+      }, () => {
+        console.log(`Detected change in reservations for room ${roomId}, refreshing schedules`);
+        fetchRoomSchedules();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [roomId]);
 
   const handleToggleSchedules = () => {
+    if (!showSchedules) {
+      // Refresh schedules when opening the list
+      fetchRoomSchedules();
+    }
     setShowSchedules(!showSchedules);
   };
 

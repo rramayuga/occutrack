@@ -18,7 +18,7 @@ export function useReservationTimeTracker() {
 
   // Function to fetch and update the active reservations
   const fetchAndUpdateActiveReservations = useCallback(async () => {
-    if (!user) return;
+    if (!user) return [];
     
     const reservations = await fetchActiveReservations();
     console.log("Fetched active reservations:", reservations.length);
@@ -31,9 +31,10 @@ export function useReservationTimeTracker() {
     if (!user || activeReservations.length === 0) return;
     
     const now = new Date();
+    
     // Format time as HH:MM for accurate comparison
     const currentTime = now.getHours().toString().padStart(2, '0') + ':' + 
-                       now.getMinutes().toString().padStart(2, '0');
+                      now.getMinutes().toString().padStart(2, '0');
     const today = now.toISOString().split('T')[0];
     
     console.log(`Checking ${activeReservations.length} reservations at ${today} ${currentTime}`);
@@ -43,45 +44,59 @@ export function useReservationTimeTracker() {
     for (const reservation of activeReservations) {
       // Skip if already in completed list
       if (completedReservations.includes(reservation.id)) {
-        console.log(`Reservation ${reservation.id} already marked as completed, skipping`);
         continue;
       }
       
       // Check if reservation is for today
       if (reservation.date !== today) {
-        console.log(`Reservation ${reservation.id} not for today (${reservation.date}), skipping`);
         continue;
       }
       
-      console.log(`Processing reservation ${reservation.id} - Start: ${reservation.startTime}, End: ${reservation.endTime}, Current: ${currentTime}`);
+      // For more accurate time comparison, compare timestamps
+      const startTimeParts = reservation.startTime.split(':').map(Number);
+      const endTimeParts = reservation.endTime.split(':').map(Number);
+      
+      const reservationStart = new Date();
+      reservationStart.setHours(startTimeParts[0], startTimeParts[1], 0, 0);
+      
+      const reservationEnd = new Date();
+      reservationEnd.setHours(endTimeParts[0], endTimeParts[1], 0, 0);
+      
+      const isStartTimeReached = now >= reservationStart;
+      const isEndTimeReached = now >= reservationEnd;
+      
+      console.log(`Reservation ${reservation.id}: Start=${reservation.startTime}, End=${reservation.endTime}, Current=${currentTime}`);
+      console.log(`Start time reached: ${isStartTimeReached}, End time reached: ${isEndTimeReached}`);
       
       // Check if start time has been reached - MARK AS OCCUPIED
-      if (currentTime >= reservation.startTime && reservation.status !== 'occupied') {
+      if (isStartTimeReached && !isEndTimeReached && reservation.status !== 'occupied') {
         console.log(`START TIME REACHED for reservation ${reservation.id} - marking room ${reservation.roomId} as OCCUPIED`);
-        await updateRoomStatus(reservation.roomId, true);
-        toast({
-          title: "Room Now Occupied",
-          description: `${reservation.roomNumber} is now occupied for the scheduled reservation.`,
-        });
-        reservationsUpdated = true;
+        const success = await updateRoomStatus(reservation.roomId, true);
+        if (success) {
+          toast({
+            title: "Room Now Occupied",
+            description: `${reservation.roomNumber} is now occupied for the scheduled reservation.`,
+          });
+          reservationsUpdated = true;
+        }
       }
       
       // Check if end time has been reached - MARK AS AVAILABLE and COMPLETE reservation
-      if (currentTime >= reservation.endTime) {
+      if (isEndTimeReached) {
         console.log(`END TIME REACHED for reservation ${reservation.id} - completing reservation and marking room available`);
-        await updateRoomStatus(reservation.roomId, false);
+        const success = await updateRoomStatus(reservation.roomId, false);
         
         // Mark reservation as completed
-        const success = await markReservationAsCompleted(reservation.id);
         if (success) {
-          console.log(`Successfully marked reservation ${reservation.id} as completed`);
-          toast({
-            title: "Reservation Completed",
-            description: `Reservation in ${reservation.roomNumber} has ended and the room is now available.`,
-          });
-          reservationsUpdated = true;
-        } else {
-          console.error(`Failed to mark reservation ${reservation.id} as completed`);
+          const completionSuccess = await markReservationAsCompleted(reservation.id);
+          if (completionSuccess) {
+            console.log(`Successfully marked reservation ${reservation.id} as completed`);
+            toast({
+              title: "Reservation Completed",
+              description: `Reservation in ${reservation.roomNumber} has ended and the room is now available.`,
+            });
+            reservationsUpdated = true;
+          }
         }
       }
     }
@@ -102,7 +117,7 @@ export function useReservationTimeTracker() {
     // Check status immediately and then set interval
     checkReservationTimes();
     
-    // Setup interval to check reservation times more frequently (every second for real-time updates)
+    // Setup interval to check reservation times every second for real-time updates
     const intervalId = setInterval(checkReservationTimes, 1000);
     
     // Also set up a subscription to reservation changes
@@ -112,8 +127,7 @@ export function useReservationTimeTracker() {
         event: '*', 
         schema: 'public', 
         table: 'room_reservations'
-      }, (payload) => {
-        console.log("Reservation change detected:", payload);
+      }, () => {
         fetchAndUpdateActiveReservations();
       })
       .subscribe();

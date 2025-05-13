@@ -24,7 +24,6 @@ export function useReservationCompleter() {
       }
       
       // Update the status of the reservation to 'completed' in the database
-      // This is crucial for analytics tracking in Admin
       const { error } = await supabase
         .from('room_reservations')
         .update({ status: 'completed' })

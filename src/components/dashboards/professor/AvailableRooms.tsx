@@ -4,6 +4,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription }
 import { BuildingWithFloors, Room } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
+import { supabase } from "@/integrations/supabase/client";
 
 interface AvailableRoomsProps {
   rooms: Room[];
@@ -22,6 +23,64 @@ export const AvailableRooms: React.FC<AvailableRoomsProps> = ({
   // Update available rooms list when rooms prop changes
   useEffect(() => {
     updateAvailableRooms();
+    
+    // Subscribe to room status changes
+    const roomsChannel = supabase
+      .channel('available-rooms-status')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'rooms'
+        },
+        () => {
+          updateAvailableRooms();
+        }
+      )
+      .subscribe();
+      
+    // Subscribe to room availability changes
+    const availabilityChannel = supabase
+      .channel('available-rooms-availability')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'room_availability'
+        },
+        () => {
+          updateAvailableRooms();
+        }
+      )
+      .subscribe();
+    
+    // Subscribe to reservation changes
+    const reservationsChannel = supabase
+      .channel('available-rooms-reservations')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'room_reservations'
+        },
+        () => {
+          updateAvailableRooms();
+        }
+      )
+      .subscribe();
+    
+    // Refresh the list every 10 seconds
+    const intervalId = setInterval(updateAvailableRooms, 10000);
+    
+    return () => {
+      clearInterval(intervalId);
+      supabase.removeChannel(roomsChannel);
+      supabase.removeChannel(availabilityChannel);
+      supabase.removeChannel(reservationsChannel);
+    };
   }, [rooms]);
 
   // Filter available rooms
