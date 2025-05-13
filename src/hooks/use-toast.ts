@@ -1,3 +1,4 @@
+
 import * as React from "react"
 import { cn } from "@/lib/utils"
 
@@ -7,18 +8,20 @@ import type {
 } from "@/components/ui/toast"
 
 // Define ToasterToast type without circular references
-export interface ToasterToast extends Omit<ToastProps, "id"> {
+export interface ToasterToast {
   id: string
   title?: React.ReactNode
   description?: React.ReactNode
   action?: ToastActionElement
   duration?: number
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  variant?: "default" | "destructive"
+  className?: string
 }
 
 // Define Toast type without circular references
-export interface Toast extends Omit<ToasterToast, "id"> {
-  id: string
-}
+export type Toast = Omit<ToasterToast, "id">
 
 const TOAST_LIMIT = 5
 const TOAST_REMOVE_DELAY = 1000000
@@ -144,8 +147,6 @@ function dispatch(action: Action) {
     listener(memoryState)
   })
 }
-
-type Toast = Omit<ToasterToast, "id">
 
 function toast({ ...props }: Toast) {
   const id = genId()
