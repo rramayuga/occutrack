@@ -8,6 +8,7 @@ import { RoomBookingDialog } from './professor/RoomBookingDialog';
 import { TeachingSchedule } from './professor/TeachingSchedule';
 import { AvailableRooms } from './professor/AvailableRooms';
 import { useReservationTimeTracker } from '@/hooks/useReservationTimeTracker';
+import { useToast } from '@/hooks/use-toast';
 
 interface ProfessorDashboardProps {
   user: User;
@@ -17,6 +18,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { buildings, rooms, refreshRooms } = useRooms();
   const { reservations, createReservation, fetchReservations } = useReservations();
+  const { toast } = useToast();
   
   // Initialize the reservation time tracker to handle automatic status updates
   const { activeReservations, fetchActiveReservations } = useReservationTimeTracker();
@@ -32,7 +34,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
     const intervalId = setInterval(() => {
       fetchReservations();
       refreshRooms();
-    }, 10000); // Every 10 seconds for more real-time updates
+    }, 5000); // Every 5 seconds for more real-time updates
     
     return () => clearInterval(intervalId);
   }, []);
@@ -50,8 +52,10 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
   // Handler for when a user clicks "Reserve" on an available room
   const handleReserveClick = (buildingId: string, roomId: string, buildingName: string, roomName: string) => {
     setIsDialogOpen(true);
-    // We'll need to pre-populate the form in the RoomBookingDialog component
-    // This will be passed down to the component
+    toast({
+      title: "Reserve a Room",
+      description: `You are about to reserve ${roomName} in ${buildingName}`,
+    });
   };
   
   // Filter out completed reservations from the display
@@ -81,7 +85,9 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
 
       {/* Teaching Schedule & Room Management */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <TeachingSchedule reservations={reservations} />
+        <TeachingSchedule 
+          reservations={activeReservationsForDisplay} 
+        />
         <AvailableRooms 
           rooms={rooms} 
           buildings={buildings} 

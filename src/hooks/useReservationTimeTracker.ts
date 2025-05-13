@@ -31,7 +31,9 @@ export function useReservationTimeTracker() {
     if (!user || activeReservations.length === 0) return;
     
     const now = new Date();
-    const currentTime = now.toTimeString().substring(0, 5); // HH:MM format
+    // Format time as HH:MM for accurate comparison
+    const currentTime = now.getHours().toString().padStart(2, '0') + ':' + 
+                       now.getMinutes().toString().padStart(2, '0');
     const today = now.toISOString().split('T')[0];
     
     console.log(`Checking ${activeReservations.length} reservations at ${today} ${currentTime}`);
@@ -59,7 +61,7 @@ export function useReservationTimeTracker() {
         await updateRoomStatus(reservation.roomId, true);
         toast({
           title: "Room Now Occupied",
-          description: `${reservation.roomNumber} is now occupied for your scheduled reservation.`,
+          description: `${reservation.roomNumber} is now occupied for the scheduled reservation.`,
         });
         reservationsUpdated = true;
       }
@@ -75,7 +77,7 @@ export function useReservationTimeTracker() {
           console.log(`Successfully marked reservation ${reservation.id} as completed`);
           toast({
             title: "Reservation Completed",
-            description: `Your reservation in ${reservation.roomNumber} has ended and the room is now available.`,
+            description: `Reservation in ${reservation.roomNumber} has ended and the room is now available.`,
           });
           reservationsUpdated = true;
         } else {
@@ -100,8 +102,8 @@ export function useReservationTimeTracker() {
     // Check status immediately and then set interval
     checkReservationTimes();
     
-    // Setup interval to check reservation times more frequently (every 5 seconds for more real-time updates)
-    const intervalId = setInterval(checkReservationTimes, 5000);
+    // Setup interval to check reservation times more frequently (every second for real-time updates)
+    const intervalId = setInterval(checkReservationTimes, 1000);
     
     // Also set up a subscription to reservation changes
     const channel = supabase

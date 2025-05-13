@@ -17,7 +17,10 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
         // Get current date and time
         const now = new Date();
         const currentDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
-        const currentTime = now.toTimeString().split(' ')[0].slice(0, 5); // HH:MM
+        
+        // Format time as HH:MM for accurate comparison
+        const currentTime = now.getHours().toString().padStart(2, '0') + ':' + 
+                          now.getMinutes().toString().padStart(2, '0');
         
         console.log(`Checking reservations at ${currentDate} ${currentTime}`);
         
@@ -94,9 +97,9 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
       }
     };
 
-    // Update room status on load and every 5 seconds (for more real-time updates)
+    // Update room status on load and every second (for more real-time updates)
     updateRoomStatusBasedOnBookings();
-    const intervalId = setInterval(updateRoomStatusBasedOnBookings, 5000);
+    const intervalId = setInterval(updateRoomStatusBasedOnBookings, 1000);
     
     return () => clearInterval(intervalId);
   }, [rooms, user, updateRoomAvailability, toast]);

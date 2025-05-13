@@ -1,8 +1,9 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { BuildingWithFloors, Room } from '@/lib/types';
 import { Button } from '@/components/ui/button';
+import { RefreshCw } from 'lucide-react';
 
 interface AvailableRoomsProps {
   rooms: Room[];
@@ -15,14 +16,49 @@ export const AvailableRooms: React.FC<AvailableRoomsProps> = ({
   buildings,
   onReserveClick 
 }) => {
-  // Get available rooms
-  const availableRooms = rooms.filter(room => room.isAvailable && room.status === 'available').slice(0, 3);
+  const [availableRooms, setAvailableRooms] = useState<Room[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Update available rooms list when rooms prop changes
+  useEffect(() => {
+    updateAvailableRooms();
+  }, [rooms]);
+
+  // Filter available rooms
+  const updateAvailableRooms = () => {
+    const filtered = rooms.filter(room => 
+      room.isAvailable && room.status === 'available'
+    ).slice(0, 3);
+    
+    setAvailableRooms(filtered);
+  };
+
+  // Handle manual refresh
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    updateAvailableRooms();
+    
+    // Visual feedback for refresh action
+    setTimeout(() => {
+      setIsRefreshing(false);
+    }, 500);
+  };
   
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Room Availability</CardTitle>
-        <CardDescription>Currently available rooms</CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <div>
+          <CardTitle>Room Availability</CardTitle>
+          <CardDescription>Currently available rooms</CardDescription>
+        </div>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="h-8 w-8 p-0" 
+          onClick={handleRefresh}
+        >
+          <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+        </Button>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">

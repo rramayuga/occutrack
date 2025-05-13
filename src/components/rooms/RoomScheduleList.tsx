@@ -81,6 +81,6 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
       )}
     </div>
   );
-};
+}
 
 export default RoomScheduleList;
