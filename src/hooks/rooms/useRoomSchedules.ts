@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Reservation } from '@/lib/types';
 import { useAuth } from '@/lib/auth';
@@ -56,15 +55,14 @@ export const useRoomSchedules = (roomId: string, roomName: string) => {
             faculty: item.profiles?.name || "Unknown Faculty"
           }))
           .filter(reservation => {
-            // Only show future reservations or current ones
-            if (reservation.date > today) return true;
-            
+            // Filter out past reservation times of today
             if (reservation.date === today) {
               const [endHours, endMinutes] = reservation.endTime.split(':').map(Number);
               return endHours > currentHour || (endHours === currentHour && endMinutes > currentMinute);
             }
             
-            return false;
+            // Keep all future dates
+            return true;
           });
         
         console.log(`Fetched ${reservations.length} active schedules for room ${roomName}`);
@@ -137,6 +135,7 @@ export const useRoomSchedules = (roomId: string, roomName: string) => {
   return {
     roomSchedules,
     showSchedules,
-    handleToggleSchedules
+    handleToggleSchedules,
+    fetchRoomSchedules
   };
 };

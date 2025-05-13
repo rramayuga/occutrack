@@ -25,6 +25,8 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
   
   // Fetch active reservations and refresh rooms on mount and periodically
   useEffect(() => {
+    console.log("Setting up dashboard refresh intervals");
+    
     // Initial fetch
     fetchActiveReservations();
     refreshRooms();
@@ -32,6 +34,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
     
     // Set up interval for periodic refresh - more frequent updates for real-time status changes
     const intervalId = setInterval(() => {
+      console.log("Running periodic dashboard refresh");
       fetchReservations();
       refreshRooms();
     }, 5000); // Every 5 seconds for more real-time updates

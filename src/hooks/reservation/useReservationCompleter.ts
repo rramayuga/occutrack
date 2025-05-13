@@ -35,10 +35,8 @@ export function useReservationCompleter() {
       
       // Add the reservation ID to completed list to avoid duplicate completion
       setCompletedReservations(prev => [...prev, reservationId]);
-      toast({
-        title: "Reservation Completed",
-        description: "The reservation has been marked as completed."
-      });
+      
+      console.log(`Successfully marked reservation ${reservationId} as completed`);
       
       return true;
     } catch (error) {

@@ -38,6 +38,11 @@ export function useRoomStatusManager() {
       // Don't update rooms under maintenance
       if (roomData.status === 'maintenance') {
         console.log(`Room ${roomData.name} is under maintenance, skipping status update`);
+        toast({
+          title: "Status Not Changed",
+          description: `Room ${roomData.name} is under maintenance and cannot be automatically updated.`,
+          variant: "warning"
+        });
         return false;
       }
       
@@ -55,6 +60,11 @@ export function useRoomStatusManager() {
       
       if (error) {
         console.error("Error updating room status:", error);
+        toast({
+          title: "Error",
+          description: `Failed to update room status: ${error.message}`,
+          variant: "destructive"
+        });
         return false;
       }
       

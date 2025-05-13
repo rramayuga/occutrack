@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useFetchActiveReservations } from './reservation/useFetchActiveReservations';
 import { useRoomStatusManager } from './reservation/useRoomStatusManager';
 import { useReservationCompleter } from './reservation/useReservationCompleter';
-import { toast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 
 export function useReservationTimeTracker() {
   const [activeReservations, setActiveReservations] = useState<Reservation[]>([]);
@@ -14,6 +14,7 @@ export function useReservationTimeTracker() {
   const { fetchActiveReservations } = useFetchActiveReservations();
   const { updateRoomStatus } = useRoomStatusManager();
   const { completedReservations, markReservationAsCompleted } = useReservationCompleter();
+  const { toast } = useToast();
   
   // Function to fetch and update the active reservations
   const fetchAndUpdateActiveReservations = useCallback(async () => {
@@ -32,7 +33,7 @@ export function useReservationTimeTracker() {
     const now = new Date();
     const today = now.toISOString().split('T')[0];
     
-    console.log(`Checking ${activeReservations.length} reservations at ${now.toISOString()}`);
+    console.log(`Checking ${activeReservations.length} reservations at ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`);
     
     let reservationsUpdated = false;
     
@@ -53,6 +54,8 @@ export function useReservationTimeTracker() {
       
       const nowHours = now.getHours();
       const nowMinutes = now.getMinutes();
+      
+      console.log(`Reservation ${reservation.id}: Time now ${nowHours}:${nowMinutes}, Start ${startHours}:${startMinutes}, End ${endHours}:${endMinutes}`);
       
       // Check if start time has been reached but not end time - MARK AS OCCUPIED
       if ((nowHours > startHours || (nowHours === startHours && nowMinutes >= startMinutes)) && 
@@ -94,7 +97,7 @@ export function useReservationTimeTracker() {
     if (reservationsUpdated) {
       await fetchAndUpdateActiveReservations();
     }
-  }, [activeReservations, completedReservations, fetchAndUpdateActiveReservations, markReservationAsCompleted, updateRoomStatus, user]);
+  }, [activeReservations, completedReservations, fetchAndUpdateActiveReservations, markReservationAsCompleted, updateRoomStatus, user, toast]);
 
   useEffect(() => {
     if (!user) return;
@@ -107,7 +110,10 @@ export function useReservationTimeTracker() {
     checkReservationTimes();
     
     // Setup interval to check reservation times every 3 seconds for real-time updates
-    const intervalId = setInterval(checkReservationTimes, 3000);
+    const intervalId = setInterval(() => {
+      console.log("Running periodic reservation check");
+      checkReservationTimes();
+    }, 3000);
     
     // Subscribe to reservation changes
     const reservationChannel = supabase
@@ -117,6 +123,7 @@ export function useReservationTimeTracker() {
         schema: 'public', 
         table: 'room_reservations'
       }, () => {
+        console.log("Detected changes in reservations table, refreshing");
         fetchAndUpdateActiveReservations();
         checkReservationTimes();
       })
@@ -130,6 +137,7 @@ export function useReservationTimeTracker() {
         schema: 'public', 
         table: 'rooms'
       }, () => {
+        console.log("Detected changes in rooms table, refreshing");
         fetchAndUpdateActiveReservations();
         checkReservationTimes();
       })
