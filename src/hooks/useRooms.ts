@@ -1,14 +1,18 @@
 
-// If this hook doesn't already exist, I'm creating a new one
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { BuildingWithFloors, Room } from '@/lib/types';
+import { BuildingWithFloors, Room, Floor } from '@/lib/types';
+
+export interface FloorRoomsMap {
+  [floorNumber: number]: Room[];
+}
 
 export const useRooms = () => {
   const [buildings, setBuildings] = useState<BuildingWithFloors[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
+  const [selectedBuilding, setSelectedBuilding] = useState<string>("");
+  
   const fetchData = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -37,14 +41,28 @@ export const useRooms = () => {
       if (availabilityError) throw availabilityError;
       
       // Transform and set data
-      const buildingsWithFloors: BuildingWithFloors[] = buildingsData ? buildingsData.map(building => ({
-        id: building.id,
-        name: building.name,
-        floors: building.floors,
-        location: building.location || '',
-        utilization: building.utilization || '',
-        floorRooms: {}
-      })) : [];
+      const buildingsWithFloors: BuildingWithFloors[] = buildingsData ? buildingsData.map(building => {
+        // Create floor objects for each floor
+        const floorArray: Floor[] = [];
+        for (let i = 1; i <= building.floors; i++) {
+          floorArray.push({
+            id: `${building.id}-floor-${i}`,
+            number: i,
+            name: `Floor ${i}`
+          });
+        }
+        
+        return {
+          id: building.id,
+          name: building.name,
+          floors: floorArray,
+          location: building.location || '',
+          utilization: building.utilization || '',
+          roomCount: 0, // Will be calculated below
+          createdAt: building.created_at,
+          updatedAt: building.created_at // Using created_at as fallback
+        };
+      }) : [];
       
       const roomsWithAvailability: Room[] = roomsData ? roomsData.map(room => {
         const availability = availabilityData?.find(a => a.room_id === room.id);
@@ -61,15 +79,9 @@ export const useRooms = () => {
         };
       }) : [];
       
-      // Organize rooms by floor for each building
-      roomsWithAvailability.forEach(room => {
-        const buildingIndex = buildingsWithFloors.findIndex(b => b.id === room.buildingId);
-        if (buildingIndex >= 0) {
-          if (!buildingsWithFloors[buildingIndex].floorRooms[room.floor]) {
-            buildingsWithFloors[buildingIndex].floorRooms[room.floor] = [];
-          }
-          buildingsWithFloors[buildingIndex].floorRooms[room.floor].push(room);
-        }
+      // Count rooms per building
+      buildingsWithFloors.forEach(building => {
+        building.roomCount = roomsWithAvailability.filter(room => room.buildingId === building.id).length;
       });
       
       console.log('Rooms and buildings data fetched successfully');
@@ -79,6 +91,34 @@ export const useRooms = () => {
       console.error('Error fetching rooms and buildings:', error);
     } finally {
       setIsLoading(false);
+    }
+  }, []);
+
+  // Function to toggle room availability
+  const handleToggleRoomAvailability = useCallback(async (roomId: string, isAvailable: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('room_availability')
+        .upsert({
+          room_id: roomId,
+          is_available: isAvailable,
+          updated_by: (await supabase.auth.getUser()).data.user?.id || '',
+          updated_at: new Date().toISOString()
+        });
+
+      if (error) throw error;
+      
+      // Update local state
+      setRooms(prevRooms => 
+        prevRooms.map(room => 
+          room.id === roomId ? { ...room, isAvailable } : room
+        )
+      );
+      
+      return true;
+    } catch (error) {
+      console.error('Error updating room availability:', error);
+      return false;
     }
   }, []);
 
@@ -112,5 +152,13 @@ export const useRooms = () => {
     };
   }, [fetchData]);
 
-  return { buildings, rooms, isLoading, refreshRooms };
+  return { 
+    buildings, 
+    rooms, 
+    isLoading, 
+    refreshRooms, 
+    selectedBuilding, 
+    setSelectedBuilding,
+    handleToggleRoomAvailability
+  };
 };

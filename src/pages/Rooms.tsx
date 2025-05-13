@@ -1,4 +1,5 @@
-import React, { useEffect, useCallback, memo } from 'react';
+
+import React, { useEffect, useCallback, memo, useState } from 'react';
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { AlertCircle } from "lucide-react";
 import Navbar from '@/components/layout/Navbar';
@@ -14,11 +15,11 @@ const Rooms = () => {
   const { 
     buildings, 
     rooms, 
-    loading, 
+    isLoading, 
     selectedBuilding, 
     setSelectedBuilding, 
     handleToggleRoomAvailability,
-    refetchRooms
+    refreshRooms
   } = useRooms();
   
   const { user } = useAuth();
@@ -67,7 +68,7 @@ const Rooms = () => {
           <h1 className="text-3xl font-bold">Campus Rooms</h1>
         </div>
 
-        {loading ? (
+        {isLoading ? (
           <div className="flex justify-center items-center h-64">
             <p>Loading rooms data...</p>
           </div>
@@ -110,7 +111,7 @@ const Rooms = () => {
                             rooms={floorRooms}
                             canModifyRooms={canModifyRooms}
                             onToggleAvailability={handleToggleRoomAvailability}
-                            refetchRooms={refetchRooms}
+                            refetchRooms={refreshRooms}
                           />
                         );
                       })}

@@ -1,4 +1,3 @@
-
 // If this hook doesn't already exist, I'm creating a new one
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -31,13 +30,9 @@ export const useReservations = () => {
         .from('room_reservations')
         .select(`
           *,
-          rooms!inner(
-            name, 
-            building_id
-          ),
-          buildings!inner(
-            name
-          )
+          rooms(name, building_id),
+          buildings:rooms(building_id).buildings(name),
+          profiles:faculty_id(name)
         `);
         
       // If user is faculty, only fetch their reservations
@@ -53,15 +48,15 @@ export const useReservations = () => {
         const formattedReservations: Reservation[] = data.map(item => ({
           id: item.id,
           roomId: item.room_id,
-          facultyId: item.faculty_id,
+          roomNumber: item.rooms?.name || '',
+          building: item.buildings?.name || '',
           date: item.date,
           startTime: item.start_time,
           endTime: item.end_time,
           purpose: item.purpose || '',
           status: item.status,
-          roomNumber: item.rooms.name,
-          building: item.buildings.name,
-          buildingId: item.rooms.building_id
+          faculty: item.profiles?.name || "Unknown Faculty",
+          buildingId: item.rooms?.building_id || ''
         }));
         
         // Sort by date and time
