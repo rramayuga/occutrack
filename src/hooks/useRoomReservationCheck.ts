@@ -21,8 +21,9 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
         // Format current hour and minute for accurate comparison
         const currentHour = now.getHours();
         const currentMinute = now.getMinutes();
+        const currentSecond = now.getSeconds();
         
-        console.log(`Checking reservations at ${currentDate} ${currentHour}:${currentMinute}`);
+        console.log(`Checking reservations at ${currentDate} ${currentHour}:${currentMinute}:${currentSecond}`);
         
         // Fetch today's reservations
         const { data: reservations, error } = await supabase

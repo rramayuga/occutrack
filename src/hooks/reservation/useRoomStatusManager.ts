@@ -23,6 +23,10 @@ export function useRoomStatusManager() {
         return false;
       }
       
+      // Add a short delay to ensure the status change has time to propagate
+      // This helps prevent flickering or race conditions
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
       // Get current room status to check if it's under maintenance
       const { data: roomData, error: roomError } = await supabase
         .from('rooms')

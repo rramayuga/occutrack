@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useFetchActiveReservations } from './reservation/useFetchActiveReservations';
 import { useRoomStatusManager } from './reservation/useRoomStatusManager';
 import { useReservationCompleter } from './reservation/useReservationCompleter';
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 export function useReservationTimeTracker() {
   const [activeReservations, setActiveReservations] = useState<Reservation[]>([]);
@@ -54,8 +54,9 @@ export function useReservationTimeTracker() {
       
       const nowHours = now.getHours();
       const nowMinutes = now.getMinutes();
+      const nowSeconds = now.getSeconds();
       
-      console.log(`Reservation ${reservation.id}: Time now ${nowHours}:${nowMinutes}, Start ${startHours}:${startMinutes}, End ${endHours}:${endMinutes}`);
+      console.log(`Reservation ${reservation.id}: Time now ${nowHours}:${nowMinutes}:${nowSeconds}, Start ${startHours}:${startMinutes}, End ${endHours}:${endMinutes}`);
       
       // Check if start time has been reached but not end time - MARK AS OCCUPIED
       if ((nowHours > startHours || (nowHours === startHours && nowMinutes >= startMinutes)) && 

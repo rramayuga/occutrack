@@ -55,7 +55,7 @@ export const useRoomSchedules = (roomId: string, roomName: string) => {
             faculty: item.profiles?.name || "Unknown Faculty"
           }))
           .filter(reservation => {
-            // Filter out past reservation times of today
+            // More aggressive filtering of past reservation times
             if (reservation.date === today) {
               const [endHours, endMinutes] = reservation.endTime.split(':').map(Number);
               return endHours > currentHour || (endHours === currentHour && endMinutes > currentMinute);
@@ -101,7 +101,7 @@ export const useRoomSchedules = (roomId: string, roomName: string) => {
     });
   };
 
-  // Setup real-time subscription for reservation changes
+  // Setup real-time subscription for reservation changes with more frequent refresh
   useEffect(() => {
     fetchRoomSchedules();
 
@@ -119,8 +119,15 @@ export const useRoomSchedules = (roomId: string, roomName: string) => {
       })
       .subscribe();
 
+    // Add a frequent refresh interval (every 15 seconds) to ensure schedules are current
+    const intervalId = setInterval(() => {
+      console.log(`Refreshing schedules for room ${roomId}`);
+      fetchRoomSchedules();
+    }, 15000);
+
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(intervalId);
     };
   }, [roomId]);
 

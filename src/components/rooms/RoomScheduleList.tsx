@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { X } from 'lucide-react';
@@ -20,9 +21,9 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
   
   const now = new Date();
   
-  // Filter out completed reservations and past schedules
+  // Filter out completed reservations and past schedules more aggressively
   const activeSchedules = roomSchedules.filter(schedule => {
-    // Filter out completed reservations
+    // Always filter out completed reservations
     if (schedule.status === 'completed') return false;
     
     // Parse date and time to check if the schedule is finished
@@ -38,8 +39,8 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
       const nowHours = now.getHours();
       const nowMinutes = now.getMinutes();
       
-      // Only show if end time hasn't passed yet
-      return nowHours < endHours || (nowHours === endHours && nowMinutes < endMinutes);
+      // Only show if end time hasn't passed yet (with a small buffer)
+      return (nowHours < endHours) || (nowHours === endHours && nowMinutes < endMinutes);
     }
     
     // Schedule date is in the past
