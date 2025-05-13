@@ -154,6 +154,11 @@ export function useReservationTimeTracker() {
           title: "Room Now Occupied",
           description: "Your reserved room is now marked as occupied for your schedule.",
         });
+      } else {
+        toast({
+          title: "Room Now Available",
+          description: "Your reservation has ended and the room is now available.",
+        });
       }
     } catch (error) {
       console.error("Error updating room status:", error);
@@ -179,15 +184,17 @@ export function useReservationTimeTracker() {
         // Check if reservation is for today
         if (reservation.date !== today) return;
         
-        // Check if start time has been reached but room not yet occupied
+        // Check if start time has been reached - MARK AS OCCUPIED
         if (currentTime >= reservation.startTime && reservation.status !== 'occupied') {
+          console.log(`Start time reached for reservation ${reservation.id} - marking room as OCCUPIED`);
           updateRoomStatus(reservation.roomId, true); // Mark as OCCUPIED at start time
         }
         
-        // Check if end time has been reached and mark as completed
+        // Check if end time has been reached - MARK AS AVAILABLE and REMOVE from schedule
         if (currentTime >= reservation.endTime) {
+          console.log(`End time reached for reservation ${reservation.id} - marking room as AVAILABLE and removing reservation`);
           updateRoomStatus(reservation.roomId, false); // Mark as AVAILABLE at end time
-          markReservationAsCompleted(reservation.id); // Remove from active list
+          markReservationAsCompleted(reservation.id); // Remove from active list and mark as completed
         }
       });
     }, 60000); // Check every minute

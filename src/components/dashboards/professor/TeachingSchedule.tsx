@@ -55,6 +55,9 @@ export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ reservations
     }
   };
 
+  // Filter out completed reservations
+  const activeReservations = reservations.filter(res => res.status !== 'completed');
+
   return (
     <>
       <Card className="lg:col-span-2">
@@ -64,8 +67,8 @@ export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ reservations
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {reservations.length > 0 ? (
-              reservations.map((booking) => {
+            {activeReservations.length > 0 ? (
+              activeReservations.map((booking) => {
                 // Determine if the booking is currently active
                 const now = new Date();
                 const bookingDate = new Date(booking.date);
