@@ -4,7 +4,7 @@ import {
   ToastProps 
 } from "@/components/ui/toast"
 
-const TOAST_LIMIT = 20
+const TOAST_LIMIT = 5
 const TOAST_REMOVE_DELAY = 1000000
 
 type ToasterToast = ToastProps & {
@@ -24,7 +24,7 @@ const actionTypes = {
 let count = 0
 
 function genId() {
-  count = (count + 1) % Number.MAX_SAFE_INTEGER
+  count = (count + 1) % Number.MAX_VALUE
   return count.toString()
 }
 
@@ -41,11 +41,11 @@ type Action =
     }
   | {
       type: ActionType["DISMISS_TOAST"]
-      toastId?: string
+      toastId?: ToasterToast["id"]
     }
   | {
       type: ActionType["REMOVE_TOAST"]
-      toastId?: string
+      toastId?: ToasterToast["id"]
     }
 
 interface State {
@@ -82,9 +82,7 @@ export const reducer = (state: State, action: Action): State => {
       return {
         ...state,
         toasts: state.toasts.map((t) =>
-          t.id === action.toast.id
-            ? { ...t, ...action.toast }
-            : t
+          t.id === action.toast.id ? { ...t, ...action.toast } : t
         ),
       }
 
@@ -140,12 +138,10 @@ function dispatch(action: Action) {
 
 type Toast = Omit<ToasterToast, "id">
 
-function toast(props: Toast) {
-  // Generate id first before using it
+function toast({ ...props }: Toast) {
   const id = genId()
-  
-  // Now define functions that use the id
-  const update = (props: Partial<ToasterToast>) =>
+
+  const update = (props: ToasterToast) =>
     dispatch({
       type: "UPDATE_TOAST",
       toast: { ...props, id },
@@ -156,7 +152,7 @@ function toast(props: Toast) {
     type: "ADD_TOAST",
     toast: {
       ...props,
-      id, // Include id here
+      id,
       open: true,
       onOpenChange: (open) => {
         if (!open) dismiss()
@@ -165,7 +161,7 @@ function toast(props: Toast) {
   })
 
   return {
-    id,
+    id: id,
     dismiss,
     update,
   }
