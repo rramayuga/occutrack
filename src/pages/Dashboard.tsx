@@ -10,8 +10,14 @@ import { SuperAdminDashboard } from '@/components/dashboards/SuperAdminDashboard
 import { useAuth } from '@/lib/auth';
 
 const Dashboard = () => {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, refreshUser } = useAuth();
   const navigate = useNavigate();
+
+  // Always fetch fresh user data when the dashboard mounts
+  useEffect(() => {
+    console.log('Dashboard mounted, refreshing user data');
+    refreshUser();
+  }, [refreshUser]);
 
   useEffect(() => {
     if (!isLoading && !user) {

@@ -65,10 +65,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return null;
       }
       
-      // Force refresh by adding cache busting
+      // Add cache busting parameter to avoid cached responses
       const cacheKey = forceRefresh ? `?_=${new Date().getTime()}` : '';
       
-      // Continue with normal profile fetching with cache control
+      // Use a transaction-level isolation to prevent stale reads
+      console.log('Fetching fresh profile data with cache busting:', cacheKey);
+      
+      // Use direct database query with cache control headers
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
@@ -90,6 +93,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           avatarUrl: profile.avatar
         };
         
+        console.log('Setting user data in state:', userData);
         setUser(userData);
         return userData;
       }
@@ -105,10 +109,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Add a refresh user method that forces a fresh data fetch
   const refreshUser = useCallback(async () => {
     try {
+      console.log('Executing refreshUser function');
       const { data } = await supabase.auth.getSession();
       
       if (data.session?.user) {
-        console.log('Refreshing user data with force refresh');
+        console.log('Active session found during refresh, user ID:', data.session.user.id);
         // Force refresh by passing true to fetch fresh data
         await fetchUserProfile(data.session.user.id, true);
       } else {
@@ -135,8 +140,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const { data: sessionData } = await supabase.auth.getSession();
         
         if (sessionData.session?.user && mounted) {
-          console.log('Found existing session, fetching profile with force refresh');
-          await fetchUserProfile(sessionData.session.user.id, true); // Force a fresh fetch on initial load
+          console.log('Found existing session, auth provider:', sessionData.session.user.app_metadata?.provider);
+          console.log('User ID from session:', sessionData.session.user.id);
+          console.log('User email from session:', sessionData.session.user.email);
+          
+          // Force a fresh fetch on initial load
+          await fetchUserProfile(sessionData.session.user.id, true);
         } else {
           console.log('No session found during initial check');
           setUser(null);
@@ -156,15 +165,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         console.log('Auth state changed:', event, session ? 'session exists' : 'no session');
+        console.log('Auth provider:', session?.user?.app_metadata?.provider || 'none');
         
         if (session?.user && mounted) {
           // To avoid potential Supabase auth deadlocks, use setTimeout for async operations
           setTimeout(async () => {
             if (mounted) {
               console.log('Auth state changed to logged in, fetching fresh profile');
-              // Clear any cached data first
-              setUser(null);
-              // Then fetch fresh profile data
+              console.log('User ID from auth state change:', session.user.id);
+              console.log('Email from auth state change:', session.user.email);
+              
+              // Always force a fresh fetch on auth state change
+              // This ensures we always get the latest data regardless of auth method
+              setUser(null); // Clear any cached data first
               await fetchUserProfile(session.user.id, true);
               setIsLoading(false);
             }

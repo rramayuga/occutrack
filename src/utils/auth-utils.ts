@@ -95,6 +95,8 @@ export const handleGoogleSignIn = async () => {
 
 export const handleLogin = async (email: string, password: string) => {
   try {
+    console.log('Attempting login for:', email);
+    
     // First check if the user has been rejected
     const { data: facultyRequest } = await supabase
       .from('faculty_requests')
@@ -134,6 +136,8 @@ export const handleLogin = async (email: string, password: string) => {
       throw new Error('Authentication failed');
     }
 
+    console.log('Login successful for user ID:', data.user.id);
+    
     return { 
       user: data.user,
       session: data.session 
