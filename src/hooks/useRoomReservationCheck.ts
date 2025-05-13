@@ -94,9 +94,9 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
       }
     };
 
-    // Update room status on load and every 15 seconds
+    // Update room status on load and every 5 seconds (for more real-time updates)
     updateRoomStatusBasedOnBookings();
-    const intervalId = setInterval(updateRoomStatusBasedOnBookings, 15000);
+    const intervalId = setInterval(updateRoomStatusBasedOnBookings, 5000);
     
     return () => clearInterval(intervalId);
   }, [rooms, user, updateRoomAvailability, toast]);

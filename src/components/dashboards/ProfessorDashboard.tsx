@@ -26,12 +26,13 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
     // Initial fetch
     fetchActiveReservations();
     refreshRooms();
+    fetchReservations();
     
-    // Set up interval for periodic refresh
+    // Set up interval for periodic refresh - more frequent updates for real-time status changes
     const intervalId = setInterval(() => {
       fetchReservations();
       refreshRooms();
-    }, 30000); // Every 30 seconds
+    }, 10000); // Every 10 seconds for more real-time updates
     
     return () => clearInterval(intervalId);
   }, []);

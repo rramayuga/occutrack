@@ -2,6 +2,7 @@
 import React from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { BuildingWithFloors, Room } from '@/lib/types';
+import { Button } from '@/components/ui/button';
 
 interface AvailableRoomsProps {
   rooms: Room[];
@@ -11,8 +12,12 @@ interface AvailableRoomsProps {
 
 export const AvailableRooms: React.FC<AvailableRoomsProps> = ({ 
   rooms, 
-  buildings 
+  buildings,
+  onReserveClick 
 }) => {
+  // Get available rooms
+  const availableRooms = rooms.filter(room => room.isAvailable && room.status === 'available').slice(0, 3);
+  
   return (
     <Card>
       <CardHeader>
@@ -21,15 +26,26 @@ export const AvailableRooms: React.FC<AvailableRoomsProps> = ({
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {rooms.filter(room => room.isAvailable).slice(0, 3).length > 0 ? (
-            rooms.filter(room => room.isAvailable).slice(0, 3).map((room) => {
+          {availableRooms.length > 0 ? (
+            availableRooms.map((room) => {
               const building = buildings.find(b => b.id === room.buildingId);
+              const buildingName = building?.name || 'Unknown Building';
+              
               return (
-                <div key={room.id} className="pb-4 border-b last:border-0">
-                  <h4 className="text-sm font-medium">{room.name}</h4>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {building?.name || 'Unknown Building'} • Type: {room.type}
-                  </p>
+                <div key={room.id} className="pb-4 border-b last:border-0 flex justify-between items-center">
+                  <div>
+                    <h4 className="text-sm font-medium">{room.name}</h4>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {buildingName} • Type: {room.type}
+                    </p>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => onReserveClick(room.buildingId, room.id, buildingName, room.name)}
+                  >
+                    Reserve
+                  </Button>
                 </div>
               );
             })

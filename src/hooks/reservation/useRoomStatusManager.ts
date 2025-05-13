@@ -2,6 +2,7 @@
 import { useAuth } from '@/lib/auth';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { RoomStatus } from '@/lib/types';
 
 export function useRoomStatusManager() {
   const { user } = useAuth();
@@ -36,7 +37,7 @@ export function useRoomStatusManager() {
       }
       
       // Update room status in database
-      const newStatus = isOccupied ? 'occupied' : 'available';
+      const newStatus: RoomStatus = isOccupied ? 'occupied' : 'available';
       
       const { error } = await supabase
         .from('rooms')
@@ -50,7 +51,7 @@ export function useRoomStatusManager() {
       
       console.log(`Successfully updated room ${roomId} to status: ${newStatus}`);
       
-      // Create availability record
+      // Create availability record - this is important for analytics tracking
       if (user) {
         await supabase
           .from('room_availability')

@@ -100,8 +100,8 @@ export function useReservationTimeTracker() {
     // Check status immediately and then set interval
     checkReservationTimes();
     
-    // Setup interval to check reservation times more frequently (every 10 seconds)
-    const intervalId = setInterval(checkReservationTimes, 10000);
+    // Setup interval to check reservation times more frequently (every 5 seconds for more real-time updates)
+    const intervalId = setInterval(checkReservationTimes, 5000);
     
     // Also set up a subscription to reservation changes
     const channel = supabase
