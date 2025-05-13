@@ -1,13 +1,20 @@
 
 import { supabase } from "@/integrations/supabase/client";
+import { useState } from "react";
 
 export function useReservationCompleter() {
-  const completedReservations: string[] = [];
+  const [completedReservations, setCompletedReservations] = useState<string[]>([]);
   
   // Function to mark reservation as completed
   const markReservationAsCompleted = async (reservationId: string) => {
     try {
       console.log(`Marking reservation ${reservationId} as completed`);
+      
+      // Skip if already marked as completed in our local state
+      if (completedReservations.includes(reservationId)) {
+        console.log(`Reservation ${reservationId} already marked as completed locally`);
+        return true;
+      }
       
       const { error } = await supabase
         .from('room_reservations')
@@ -20,9 +27,7 @@ export function useReservationCompleter() {
       }
       
       // Add the reservation ID to completed list to avoid duplicate completion
-      if (!completedReservations.includes(reservationId)) {
-        completedReservations.push(reservationId);
-      }
+      setCompletedReservations(prev => [...prev, reservationId]);
       
       return true;
     } catch (error) {

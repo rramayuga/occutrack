@@ -2,14 +2,13 @@
 import { useState, useEffect } from 'react';
 import { Reservation } from '@/lib/types';
 import { useAuth } from '@/lib/auth';
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 export const useRoomSchedules = (roomId: string, roomName: string) => {
   const [roomSchedules, setRoomSchedules] = useState<Reservation[]>([]);
   const [showSchedules, setShowSchedules] = useState(false);
   const { user } = useAuth();
-  const { toast } = useToast();
 
   const fetchRoomSchedules = async () => {
     try {
@@ -52,6 +51,7 @@ export const useRoomSchedules = (roomId: string, roomName: string) => {
           faculty: item.profiles?.name || "Unknown Faculty"
         }));
         
+        console.log(`Fetched ${reservations.length} schedules for room ${roomName}`);
         setRoomSchedules(reservations);
         
         if (user && user.role === 'faculty') {
