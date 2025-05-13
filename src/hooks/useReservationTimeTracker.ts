@@ -33,6 +33,7 @@ export function useReservationTimeTracker() {
         `)
         .eq('faculty_id', user.id)
         .eq('date', today)
+        .neq('status', 'completed')
         .order('start_time');
       
       if (error) throw error;
@@ -180,13 +181,13 @@ export function useReservationTimeTracker() {
         
         // Check if start time has been reached but room not yet occupied
         if (currentTime >= reservation.startTime && reservation.status !== 'occupied') {
-          updateRoomStatus(reservation.roomId, true);
+          updateRoomStatus(reservation.roomId, true); // Mark as OCCUPIED at start time
         }
         
         // Check if end time has been reached and mark as completed
         if (currentTime >= reservation.endTime) {
-          updateRoomStatus(reservation.roomId, false);
-          markReservationAsCompleted(reservation.id);
+          updateRoomStatus(reservation.roomId, false); // Mark as AVAILABLE at end time
+          markReservationAsCompleted(reservation.id); // Remove from active list
         }
       });
     }, 60000); // Check every minute
