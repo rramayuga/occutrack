@@ -1,3 +1,4 @@
+
 import React, { useEffect, useCallback, memo } from 'react';
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { AlertCircle } from "lucide-react";
@@ -14,11 +15,11 @@ const Rooms = () => {
   const { 
     buildings, 
     rooms, 
-    loading, 
+    isLoading: loading, 
     selectedBuilding, 
     setSelectedBuilding, 
     handleToggleRoomAvailability,
-    refetchRooms
+    refreshRooms: refetchRooms
   } = useRooms();
   
   const { user } = useAuth();
