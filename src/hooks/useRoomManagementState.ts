@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Room } from '@/lib/types';
 import { useRoomsManagement } from './useRoomsManagement';
@@ -10,7 +11,7 @@ export const useRoomManagementState = () => {
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const { addRoom, deleteRoom, handleRoomCsvUpload, exportRoomsToCsv, isUploading } = useRoomsManagement();
-  const { rooms: fetchedRooms, isLoading: roomsLoading, refreshRooms } = useRooms();
+  const { rooms: fetchedRooms, loading: roomsLoading, refetchRooms } = useRooms();
   const { toast } = useToast();
 
   const handleAddRoom = async (formData: any) => {
@@ -41,7 +42,7 @@ export const useRoomManagementState = () => {
       if (success) {
         const newRooms = rooms.filter(room => room.id !== roomId);
         setRooms(newRooms);
-        await refreshRooms();
+        await refetchRooms();
         
         toast({
           title: "Room deleted",

@@ -10,13 +10,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 
 interface TeachingScheduleProps {
   reservations: Reservation[];
-  onReservationCanceled?: () => void;
 }
 
-export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ 
-  reservations,
-  onReservationCanceled 
-}) => {
+export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ reservations }) => {
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const { toast } = useToast();
@@ -48,10 +44,7 @@ export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({
       setIsCancelDialogOpen(false);
       setSelectedReservation(null);
       
-      // Notify parent component to refresh data
-      if (onReservationCanceled) {
-        onReservationCanceled();
-      }
+      // No need to refresh here as the parent component will handle this through realtime subscription
     } catch (error) {
       console.error("Error cancelling reservation:", error);
       toast({

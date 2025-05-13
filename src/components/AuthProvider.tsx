@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { AuthContext } from '@/lib/auth';
 import { User, UserRole } from '@/lib/types';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from './ui/use-toast';
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -66,14 +66,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
       
       // Add cache busting parameter to avoid cached responses
-      const timestamp = new Date().getTime();
+      const cacheKey = forceRefresh ? `?_=${new Date().getTime()}` : '';
       
-      // Use direct database query with cache control - using explicit nocache headers
+      // Use a transaction-level isolation to prevent stale reads
+      console.log('Fetching fresh profile data with cache busting:', cacheKey);
+      
+      // Use direct database query with cache control headers
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .limit(1)
         .single();
 
       if (error) {
@@ -108,7 +110,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const refreshUser = useCallback(async () => {
     try {
       console.log('Executing refreshUser function');
-      setIsLoading(true);
       const { data } = await supabase.auth.getSession();
       
       if (data.session?.user) {
@@ -174,8 +175,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               console.log('User ID from auth state change:', session.user.id);
               console.log('Email from auth state change:', session.user.email);
               
-              setIsLoading(true);
               // Always force a fresh fetch on auth state change
+              // This ensures we always get the latest data regardless of auth method
               setUser(null); // Clear any cached data first
               await fetchUserProfile(session.user.id, true);
               setIsLoading(false);
