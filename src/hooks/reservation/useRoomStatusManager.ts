@@ -2,10 +2,11 @@
 import { supabase } from "@/integrations/supabase/client";
 import { RoomStatus } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { toast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 export function useRoomStatusManager() {
   const { user } = useAuth();
+  const { toast } = useToast();
   
   // Set room status based on reservation time
   const updateRoomStatus = async (roomId: string, isOccupied: boolean) => {
@@ -48,7 +49,7 @@ export function useRoomStatusManager() {
         .update({ 
           status: newStatus,
           // Also update the isAvailable flag to ensure consistency
-          isAvailable: !isOccupied
+          is_available: !isOccupied
         })
         .eq('id', roomId);
       

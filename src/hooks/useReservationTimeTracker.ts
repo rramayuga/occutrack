@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useFetchActiveReservations } from './reservation/useFetchActiveReservations';
 import { useRoomStatusManager } from './reservation/useRoomStatusManager';
 import { useReservationCompleter } from './reservation/useReservationCompleter';
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "@/hooks/use-toast";
 
 export function useReservationTimeTracker() {
   const [activeReservations, setActiveReservations] = useState<Reservation[]>([]);
@@ -32,7 +32,7 @@ export function useReservationTimeTracker() {
     const now = new Date();
     const today = now.toISOString().split('T')[0];
     
-    console.log(`Checking ${activeReservations.length} reservations at ${today} ${now.toTimeString()}`);
+    console.log(`Checking ${activeReservations.length} reservations at ${now.toISOString()}`);
     
     let reservationsUpdated = false;
     
@@ -51,14 +51,13 @@ export function useReservationTimeTracker() {
       const [startHours, startMinutes] = reservation.startTime.split(':').map(Number);
       const [endHours, endMinutes] = reservation.endTime.split(':').map(Number);
       
-      const reservationStart = new Date();
-      reservationStart.setHours(startHours, startMinutes, 0, 0);
-      
-      const reservationEnd = new Date();
-      reservationEnd.setHours(endHours, endMinutes, 0, 0);
+      const nowHours = now.getHours();
+      const nowMinutes = now.getMinutes();
       
       // Check if start time has been reached but not end time - MARK AS OCCUPIED
-      if (now >= reservationStart && now < reservationEnd && reservation.status !== 'completed') {
+      if ((nowHours > startHours || (nowHours === startHours && nowMinutes >= startMinutes)) && 
+          (nowHours < endHours || (nowHours === endHours && nowMinutes < endMinutes)) && 
+          reservation.status !== 'completed') {
         console.log(`START TIME REACHED for reservation ${reservation.id} - marking room ${reservation.roomId} as OCCUPIED`);
         const success = await updateRoomStatus(reservation.roomId, true);
         if (success) {
@@ -71,7 +70,8 @@ export function useReservationTimeTracker() {
       }
       
       // Check if end time has been reached - MARK AS AVAILABLE and COMPLETE reservation
-      if (now >= reservationEnd && reservation.status !== 'completed') {
+      if ((nowHours > endHours || (nowHours === endHours && nowMinutes >= endMinutes)) && 
+          reservation.status !== 'completed') {
         console.log(`END TIME REACHED for reservation ${reservation.id} - completing reservation and marking room available`);
         const success = await updateRoomStatus(reservation.roomId, false);
         
@@ -106,8 +106,8 @@ export function useReservationTimeTracker() {
     // Check status immediately and then set interval
     checkReservationTimes();
     
-    // Setup interval to check reservation times every 30 seconds for real-time updates
-    const intervalId = setInterval(checkReservationTimes, 30000);
+    // Setup interval to check reservation times every 3 seconds for real-time updates
+    const intervalId = setInterval(checkReservationTimes, 3000);
     
     // Subscribe to reservation changes
     const reservationChannel = supabase

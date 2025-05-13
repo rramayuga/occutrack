@@ -18,11 +18,11 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
         const now = new Date();
         const currentDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
         
-        // Format time as HH:MM for accurate comparison
-        const currentTime = now.getHours().toString().padStart(2, '0') + ':' + 
-                          now.getMinutes().toString().padStart(2, '0');
+        // Format current hour and minute for accurate comparison
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes();
         
-        console.log(`Checking reservations at ${currentDate} ${currentTime}`);
+        console.log(`Checking reservations at ${currentDate} ${currentHour}:${currentMinute}`);
         
         // Fetch today's reservations
         const { data: reservations, error } = await supabase
@@ -40,12 +40,14 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
           console.log('Found reservations for today:', reservations.length);
           
           for (const reservation of reservations) {
-            const startTime = reservation.start_time;
-            const endTime = reservation.end_time;
+            const [startHours, startMinutes] = reservation.start_time.split(':').map(Number);
+            const [endHours, endMinutes] = reservation.end_time.split(':').map(Number);
             
             // Check if current time is between start and end times
-            const isActive = currentTime >= startTime && currentTime < endTime;
-            const hasEnded = currentTime >= endTime;
+            const isActive = (currentHour > startHours || (currentHour === startHours && currentMinute >= startMinutes)) && 
+                            (currentHour < endHours || (currentHour === endHours && currentMinute < endMinutes));
+            
+            const hasEnded = currentHour > endHours || (currentHour === endHours && currentMinute >= endMinutes);
             
             // Find the room
             const roomToUpdate = rooms.find(r => r.id === reservation.room_id);
@@ -97,9 +99,9 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
       }
     };
 
-    // Update room status on load and every second (for more real-time updates)
+    // Update room status on load and every 3 seconds (for more real-time updates)
     updateRoomStatusBasedOnBookings();
-    const intervalId = setInterval(updateRoomStatusBasedOnBookings, 1000);
+    const intervalId = setInterval(updateRoomStatusBasedOnBookings, 3000);
     
     return () => clearInterval(intervalId);
   }, [rooms, user, updateRoomAvailability, toast]);

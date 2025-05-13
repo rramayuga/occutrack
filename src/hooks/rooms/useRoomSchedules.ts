@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Reservation } from '@/lib/types';
 import { useAuth } from '@/lib/auth';
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 export const useRoomSchedules = (roomId: string, roomName: string) => {
@@ -38,20 +38,36 @@ export const useRoomSchedules = (roomId: string, roomName: string) => {
       }
       
       if (data) {
-        const reservations: Reservation[] = data.map(item => ({
-          id: item.id,
-          roomId: roomId,
-          roomNumber: roomName,
-          building: '',
-          date: item.date,
-          startTime: item.start_time,
-          endTime: item.end_time,
-          purpose: item.purpose || '',
-          status: item.status,
-          faculty: item.profiles?.name || "Unknown Faculty"
-        }));
+        const now = new Date();
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes();
         
-        console.log(`Fetched ${reservations.length} schedules for room ${roomName}`);
+        const reservations: Reservation[] = data
+          .map(item => ({
+            id: item.id,
+            roomId: roomId,
+            roomNumber: roomName,
+            building: '',
+            date: item.date,
+            startTime: item.start_time,
+            endTime: item.end_time,
+            purpose: item.purpose || '',
+            status: item.status,
+            faculty: item.profiles?.name || "Unknown Faculty"
+          }))
+          .filter(reservation => {
+            // Only show future reservations or current ones
+            if (reservation.date > today) return true;
+            
+            if (reservation.date === today) {
+              const [endHours, endMinutes] = reservation.endTime.split(':').map(Number);
+              return endHours > currentHour || (endHours === currentHour && endMinutes > currentMinute);
+            }
+            
+            return false;
+          });
+        
+        console.log(`Fetched ${reservations.length} active schedules for room ${roomName}`);
         setRoomSchedules(reservations);
         
         if (user && user.role === 'faculty') {

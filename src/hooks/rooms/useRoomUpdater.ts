@@ -34,7 +34,7 @@ export function useRoomUpdater(
       // Get the current room to check if it's under maintenance
       const { data: roomData, error: roomError } = await supabase
         .from('rooms')
-        .select('status')
+        .select('status, name')
         .eq('id', roomId)
         .single();
       
@@ -63,7 +63,8 @@ export function useRoomUpdater(
       const { error: updateError } = await supabase
         .from('rooms')
         .update({
-          status: newStatus
+          status: newStatus,
+          is_available: isAvailable
         })
         .eq('id', roomId);
       
