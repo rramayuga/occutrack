@@ -21,7 +21,7 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
   
   const now = new Date();
   
-  // Filter out completed reservations and past schedules more aggressively
+  // Filter out completed reservations and past schedules extremely aggressively
   const activeSchedules = roomSchedules.filter(schedule => {
     // Always filter out completed reservations
     if (schedule.status === 'completed') return false;
@@ -39,7 +39,7 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
       const nowHours = now.getHours();
       const nowMinutes = now.getMinutes();
       
-      // Only show if end time hasn't passed yet (with a small buffer)
+      // Only show if end time hasn't passed yet (with zero tolerance)
       return (nowHours < endHours) || (nowHours === endHours && nowMinutes < endMinutes);
     }
     

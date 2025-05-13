@@ -27,7 +27,7 @@ export const useRoomCardLogic = (room: Room, onToggleAvailability: (roomId: stri
     setIsCancelDialogOpen
   } = useReservationManagement();
 
-  // Refresh schedules periodically
+  // Refresh schedules more frequently
   useEffect(() => {
     if (showSchedules) {
       // Initial fetch
@@ -36,7 +36,7 @@ export const useRoomCardLogic = (room: Room, onToggleAvailability: (roomId: stri
       // Set up periodic refresh
       const intervalId = setInterval(() => {
         fetchRoomSchedules();
-      }, 10000); // Every 10 seconds
+      }, 5000); // Every 5 seconds
       
       return () => clearInterval(intervalId);
     }

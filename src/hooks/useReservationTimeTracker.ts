@@ -58,10 +58,12 @@ export function useReservationTimeTracker() {
       
       console.log(`Reservation ${reservation.id}: Time now ${nowHours}:${nowMinutes}:${nowSeconds}, Start ${startHours}:${startMinutes}, End ${endHours}:${endMinutes}`);
       
+      // More precise check for reservation start/end times
+      const hasStarted = (nowHours > startHours) || (nowHours === startHours && nowMinutes >= startMinutes);
+      const hasEnded = (nowHours > endHours) || (nowHours === endHours && nowMinutes >= endMinutes);
+      
       // Check if start time has been reached but not end time - MARK AS OCCUPIED
-      if ((nowHours > startHours || (nowHours === startHours && nowMinutes >= startMinutes)) && 
-          (nowHours < endHours || (nowHours === endHours && nowMinutes < endMinutes)) && 
-          reservation.status !== 'completed') {
+      if (hasStarted && !hasEnded && reservation.status !== 'completed') {
         console.log(`START TIME REACHED for reservation ${reservation.id} - marking room ${reservation.roomId} as OCCUPIED`);
         const success = await updateRoomStatus(reservation.roomId, true);
         if (success) {
@@ -74,8 +76,7 @@ export function useReservationTimeTracker() {
       }
       
       // Check if end time has been reached - MARK AS AVAILABLE and COMPLETE reservation
-      if ((nowHours > endHours || (nowHours === endHours && nowMinutes >= endMinutes)) && 
-          reservation.status !== 'completed') {
+      if (hasEnded && reservation.status !== 'completed') {
         console.log(`END TIME REACHED for reservation ${reservation.id} - completing reservation and marking room available`);
         const success = await updateRoomStatus(reservation.roomId, false);
         
@@ -110,11 +111,10 @@ export function useReservationTimeTracker() {
     // Check status immediately and then set interval
     checkReservationTimes();
     
-    // Setup interval to check reservation times every 3 seconds for real-time updates
+    // Setup interval to check reservation times every second for real-time updates
     const intervalId = setInterval(() => {
-      console.log("Running periodic reservation check");
       checkReservationTimes();
-    }, 3000);
+    }, 1000);
     
     // Subscribe to reservation changes
     const reservationChannel = supabase

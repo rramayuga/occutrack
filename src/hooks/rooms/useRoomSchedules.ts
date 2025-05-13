@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Reservation } from '@/lib/types';
 import { useAuth } from '@/lib/auth';
 import { toast } from "@/hooks/use-toast";
@@ -9,7 +9,7 @@ export const useRoomSchedules = (roomId: string, roomName: string) => {
   const [showSchedules, setShowSchedules] = useState(false);
   const { user } = useAuth();
 
-  const fetchRoomSchedules = async () => {
+  const fetchRoomSchedules = useCallback(async () => {
     try {
       const today = new Date().toISOString().split('T')[0];
       
@@ -55,10 +55,12 @@ export const useRoomSchedules = (roomId: string, roomName: string) => {
             faculty: item.profiles?.name || "Unknown Faculty"
           }))
           .filter(reservation => {
-            // More aggressive filtering of past reservation times
+            // Extremely aggressive filtering of past reservation times
             if (reservation.date === today) {
               const [endHours, endMinutes] = reservation.endTime.split(':').map(Number);
-              return endHours > currentHour || (endHours === currentHour && endMinutes > currentMinute);
+              // Only keep reservations that haven't ended yet
+              return (endHours > currentHour) || 
+                     (endHours === currentHour && endMinutes > currentMinute);
             }
             
             // Keep all future dates
@@ -75,7 +77,7 @@ export const useRoomSchedules = (roomId: string, roomName: string) => {
     } catch (error) {
       console.error("Error in fetchRoomSchedules:", error);
     }
-  };
+  }, [roomId, roomName, user]);
 
   const setRemindersForFacultyReservations = (facultyReservations: Reservation[]) => {
     facultyReservations.forEach(reservation => {
@@ -119,17 +121,17 @@ export const useRoomSchedules = (roomId: string, roomName: string) => {
       })
       .subscribe();
 
-    // Add a frequent refresh interval (every 15 seconds) to ensure schedules are current
+    // Add a frequent refresh interval (every 5 seconds) to ensure schedules are current
     const intervalId = setInterval(() => {
       console.log(`Refreshing schedules for room ${roomId}`);
       fetchRoomSchedules();
-    }, 15000);
+    }, 5000);
 
     return () => {
       supabase.removeChannel(channel);
       clearInterval(intervalId);
     };
-  }, [roomId]);
+  }, [roomId, fetchRoomSchedules]);
 
   const handleToggleSchedules = () => {
     if (!showSchedules) {
