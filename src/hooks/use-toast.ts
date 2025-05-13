@@ -1,15 +1,26 @@
+
 import * as React from "react";
-import { create } from "@/lib/utils";
+// Remove the non-existent 'create' import
+import { cn } from "@/lib/utils";
 
 const TOAST_LIMIT = 3;
 const TOAST_REMOVE_DELAY = 1000000;
 
-type ToasterToast = Toast & {
-  id: string;
+// Fix circular reference by properly defining the types
+interface Toast {
   title?: React.ReactNode;
   description?: React.ReactNode;
   action?: React.ReactNode;
-};
+  variant?: "default" | "destructive";
+  duration?: number;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}
+
+// Now define ToasterToast which extends Toast
+interface ToasterToast extends Toast {
+  id: string;
+}
 
 const actionTypes = {
   ADD_TOAST: "ADD_TOAST",
@@ -133,12 +144,8 @@ function dispatch(action: Action) {
   });
 }
 
-type Toast = Omit<
-  ToasterToast,
-  "id"
->;
-
-function toast({ ...props }: Toast) {
+// Function to create toast notifications
+function toast(props: Toast) {
   const id = genId();
 
   const update = (props: Toast) =>
