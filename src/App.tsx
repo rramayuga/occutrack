@@ -54,7 +54,16 @@ const AuthRedirect = () => {
   return <Index />;
 };
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: true,
+      staleTime: 5000, // Consider data fresh for 5 seconds
+      retry: 1,
+      networkMode: 'always',
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
