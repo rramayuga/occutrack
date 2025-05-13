@@ -7,6 +7,7 @@ import { ProfessorOverviewCards } from './professor/ProfessorOverviewCards';
 import { RoomBookingDialog } from './professor/RoomBookingDialog';
 import { TeachingSchedule } from './professor/TeachingSchedule';
 import { AvailableRooms } from './professor/AvailableRooms';
+import { useReservationTimeTracker } from '@/hooks/useReservationTimeTracker';
 
 interface ProfessorDashboardProps {
   user: User;
@@ -17,13 +18,17 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
   const { buildings, rooms } = useRooms();
   const { reservations, createReservation } = useReservations();
   
+  // Initialize the reservation time tracker to handle automatic status updates
+  useReservationTimeTracker();
+  
   // Get today's schedule from reservations
   const todaySchedule = reservations.filter(booking => {
     const bookingDate = new Date(booking.date);
     const today = new Date();
     return bookingDate.getDate() === today.getDate() && 
            bookingDate.getMonth() === today.getMonth() && 
-           bookingDate.getFullYear() === today.getFullYear();
+           bookingDate.getFullYear() === today.getFullYear() &&
+           booking.status !== 'completed'; // Don't show completed reservations
   });
 
   // Handler for when a user clicks "Reserve" on an available room
@@ -52,12 +57,12 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
       {/* Overview Cards */}
       <ProfessorOverviewCards 
         todaySchedule={todaySchedule} 
-        reservations={reservations} 
+        reservations={reservations.filter(r => r.status !== 'completed')} 
       />
 
       {/* Teaching Schedule & Room Management */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <TeachingSchedule reservations={reservations} />
+        <TeachingSchedule reservations={reservations.filter(r => r.status !== 'completed')} />
         <AvailableRooms 
           rooms={rooms} 
           buildings={buildings} 

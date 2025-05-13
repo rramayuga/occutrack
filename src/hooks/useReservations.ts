@@ -31,7 +31,10 @@ export function useReservations() {
           status,
           faculty_id
         `)
-        .eq('faculty_id', user.id);
+        .eq('faculty_id', user.id)
+        .neq('status', 'completed') // Don't get completed reservations by default
+        .order('date', { ascending: true })
+        .order('start_time', { ascending: true });
       
       if (reservationError) throw reservationError;
       
@@ -146,7 +149,8 @@ export function useReservations() {
         .from('room_reservations')
         .select('*')
         .eq('room_id', roomId)
-        .eq('date', values.date);
+        .eq('date', values.date)
+        .neq('status', 'completed');
       
       if (conflictError) throw conflictError;
 
