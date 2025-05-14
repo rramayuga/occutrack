@@ -5,7 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import UserRoleSelector from './UserRoleSelector';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { Trash2 } from 'lucide-react';
+import { Trash2, UserX } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,6 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useToast } from '@/hooks/use-toast';
 
 interface UsersListProps {
   users: User[];
@@ -33,9 +34,11 @@ const UsersList: React.FC<UsersListProps> = ({
   handleDeleteUser
 }) => {
   const { user: currentUser } = useAuth();
+  const { toast } = useToast();
   const isSuperAdmin = currentUser?.role === 'superadmin';
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
 
   const confirmDelete = (userId: string) => {
     setUserToDelete(userId);
@@ -44,9 +47,25 @@ const UsersList: React.FC<UsersListProps> = ({
 
   const handleConfirmDelete = async () => {
     if (userToDelete && handleDeleteUser) {
-      await handleDeleteUser(userToDelete);
-      setIsDeleteDialogOpen(false);
-      setUserToDelete(null);
+      try {
+        setIsDeletingUser(true);
+        await handleDeleteUser(userToDelete);
+        setIsDeleteDialogOpen(false);
+        setUserToDelete(null);
+        toast({
+          title: "Success",
+          description: "User account has been permanently deleted."
+        });
+      } catch (error) {
+        console.error("Error deleting user:", error);
+        toast({
+          title: "Error",
+          description: "Failed to delete the user account. Please try again.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsDeletingUser(false);
+      }
     }
   };
 
@@ -89,8 +108,9 @@ const UsersList: React.FC<UsersListProps> = ({
                       variant="destructive"
                       size="sm"
                       onClick={() => confirmDelete(user.id)}
+                      title="Delete User Account"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <UserX className="h-4 w-4" />
                     </Button>
                   )}
                 </div>
@@ -110,9 +130,13 @@ const UsersList: React.FC<UsersListProps> = ({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground">
-              Delete
+            <AlertDialogCancel disabled={isDeletingUser}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmDelete} 
+              className="bg-destructive text-destructive-foreground"
+              disabled={isDeletingUser}
+            >
+              {isDeletingUser ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

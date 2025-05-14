@@ -112,11 +112,11 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
         description: 'User role has been updated successfully',
       });
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating user role:', error);
       toast({
         title: 'Error',
-        description: 'Failed to update user role',
+        description: error.message || 'Failed to update user role',
         variant: 'destructive'
       });
       
@@ -149,7 +149,15 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
 
       console.log('Attempting to delete user:', userId);
       
-      // First delete the user's profile
+      // First delete from auth.users using admin API
+      const { error: authError } = await supabase.rpc('delete_user', { user_id: userId });
+      
+      if (authError) {
+        console.error('Error deleting user from auth:', authError);
+        throw authError;
+      }
+      
+      // Then delete the user's profile
       const { error: profileError } = await supabase
         .from('profiles')
         .delete()
@@ -158,14 +166,6 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
       if (profileError) {
         console.error('Error deleting user profile:', profileError);
         throw profileError;
-      }
-
-      // Then try to delete from auth.users using admin API
-      const { error } = await supabase.auth.admin.deleteUser(userId);
-        
-      if (error) {
-        console.error('Error deleting user from auth:', error);
-        throw error;
       }
       
       // Update the local state by removing the deleted user
@@ -176,13 +176,14 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
         description: 'User account has been permanently deleted',
       });
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting user:', error);
       toast({
         title: 'Error',
-        description: 'Failed to delete user account. Please try again.',
+        description: error.message || 'Failed to delete user account. Please try again.',
         variant: 'destructive'
       });
+      throw error;
     }
   };
   

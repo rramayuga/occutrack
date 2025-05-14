@@ -1,16 +1,16 @@
+
 import React, { useState, useEffect } from 'react';
-import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from '@/lib/auth';
+import Navbar from '@/components/layout/Navbar';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { PlusCircle, Edit, Trash2, Megaphone } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { Announcement } from '@/lib/types';
+import { useAnnouncementManagement } from '@/hooks/useAnnouncementManagement';
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -30,67 +29,34 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useAuth } from '@/lib/auth';
-import { supabase } from "@/integrations/supabase/client";
-import Navbar from '@/components/layout/Navbar';
-import { Announcement } from '@/lib/types';
-import { PlusCircle, Edit, Trash2 } from 'lucide-react';
 
-const AnnouncementsManager = () => {
+const AnnouncementsManager: React.FC = () => {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [editingAnnouncementId, setEditingAnnouncementId] = useState<string | null>(null);
-  const [deleteAnnouncementId, setDeleteAnnouncementId] = useState<string | null>(null);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   
   const { user } = useAuth();
   const { toast } = useToast();
+  const { 
+    createAnnouncement, 
+    updateAnnouncement, 
+    deleteAnnouncement, 
+    isLoading: isActionLoading 
+  } = useAnnouncementManagement();
   
-  const canManageAnnouncements = user?.role === 'admin' || user?.role === 'superadmin';
-  
+  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
+
   useEffect(() => {
-    const fetchAnnouncements = async () => {
-      try {
-        setLoading(true);
-        
-        const { data, error } = await supabase
-          .from('announcements')
-          .select('*')
-          .order('created_at', { ascending: false });
-          
-        if (error) throw error;
-        
-        if (data) {
-          const formattedData: Announcement[] = data.map(item => ({
-            id: item.id,
-            title: item.title,
-            content: item.content,
-            createdAt: item.created_at,
-            createdBy: item.created_by
-          }));
-          
-          setAnnouncements(formattedData);
-        }
-      } catch (error) {
-        console.error('Error fetching announcements:', error);
-        toast({
-          title: 'Error',
-          description: 'Could not load announcements',
-          variant: 'destructive'
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-    
     fetchAnnouncements();
     
+    // Set up realtime subscription
     const announcementsChannel = supabase
-      .channel('public:announcements')
+      .channel('announcements-changes')
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
@@ -104,230 +70,283 @@ const AnnouncementsManager = () => {
       supabase.removeChannel(announcementsChannel);
     };
   }, []);
-  
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!title.trim() || !content.trim()) {
-      toast({
-        title: 'Missing information',
-        description: 'Please provide both title and content for the announcement',
-        variant: 'destructive'
-      });
-      return;
-    }
-    
+
+  const fetchAnnouncements = async () => {
+    setIsLoading(true);
     try {
-      if (isEditMode && editingAnnouncementId) {
-        const { error } = await supabase
-          .from('announcements')
-          .update({
-            title,
-            content,
-          })
-          .eq('id', editingAnnouncementId);
-          
-        if (error) throw error;
-        
-        toast({
-          title: 'Announcement updated',
-          description: 'The announcement has been successfully updated'
-        });
-      } else {
-        const { error } = await supabase
-          .from('announcements')
-          .insert({
-            title,
-            content,
-            created_by: user?.id
-          });
-          
-        if (error) throw error;
-        
-        toast({
-          title: 'Announcement posted',
-          description: 'Your announcement has been successfully posted'
-        });
-      }
-      
-      setTitle('');
-      setContent('');
-      setIsDialogOpen(false);
-      setIsEditMode(false);
-      setEditingAnnouncementId(null);
-      
-    } catch (error) {
-      console.error('Error saving announcement:', error);
-      toast({
-        title: 'Error',
-        description: 'Could not save announcement. Please try again.',
-        variant: 'destructive'
-      });
-    }
-  };
-  
-  const handleEdit = (announcement: Announcement) => {
-    setTitle(announcement.title);
-    setContent(announcement.content);
-    setEditingAnnouncementId(announcement.id);
-    setIsEditMode(true);
-    setIsDialogOpen(true);
-  };
-  
-  const handleDelete = async () => {
-    if (!deleteAnnouncementId) return;
-    
-    try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('announcements')
-        .delete()
-        .eq('id', deleteAnnouncementId);
+        .select(`
+          id,
+          title,
+          content,
+          created_at,
+          created_by,
+          profiles:created_by (name)
+        `)
+        .order('created_at', { ascending: false });
         
       if (error) throw error;
       
-      toast({
-        title: 'Announcement deleted',
-        description: 'The announcement has been successfully removed'
-      });
-      
-      setIsDeleteDialogOpen(false);
-      setDeleteAnnouncementId(null);
-      
+      if (data) {
+        const formattedAnnouncements: Announcement[] = data.map(item => ({
+          id: item.id,
+          title: item.title,
+          content: item.content,
+          createdAt: new Date(item.created_at).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          }),
+          createdBy: item.profiles?.name || 'Admin'
+        }));
+        
+        setAnnouncements(formattedAnnouncements);
+      }
     } catch (error) {
-      console.error('Error deleting announcement:', error);
+      console.error('Error fetching announcements:', error);
       toast({
-        title: 'Error',
-        description: 'Could not delete announcement. Please try again.',
-        variant: 'destructive'
+        title: "Error",
+        description: "Failed to load announcements.",
+        variant: "destructive"
       });
+    } finally {
+      setIsLoading(false);
     }
   };
-  
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+
+  const handleAddAnnouncement = async () => {
+    if (user) {
+      const result = await createAnnouncement(title, content, user.id);
+      if (result) {
+        setTitle('');
+        setContent('');
+        setIsAddDialogOpen(false);
+        fetchAnnouncements();
+      }
+    }
   };
-  
+
+  const handleEditAnnouncement = async () => {
+    if (selectedAnnouncement) {
+      const success = await updateAnnouncement(
+        selectedAnnouncement.id,
+        title,
+        content
+      );
+      
+      if (success) {
+        setIsEditDialogOpen(false);
+        setSelectedAnnouncement(null);
+        setTitle('');
+        setContent('');
+        fetchAnnouncements();
+      }
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (selectedAnnouncement) {
+      const success = await deleteAnnouncement(selectedAnnouncement.id);
+      
+      if (success) {
+        setIsDeleteDialogOpen(false);
+        setSelectedAnnouncement(null);
+        fetchAnnouncements();
+      }
+    }
+  };
+
+  const openEditDialog = (announcement: Announcement) => {
+    setSelectedAnnouncement(announcement);
+    setTitle(announcement.title);
+    setContent(announcement.content);
+    setIsEditDialogOpen(true);
+  };
+
+  const openDeleteDialog = (announcement: Announcement) => {
+    setSelectedAnnouncement(announcement);
+    setIsDeleteDialogOpen(true);
+  };
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto py-20">
+          <h1 className="text-2xl font-bold">Access Denied</h1>
+          <p className="mt-4">You do not have permission to access this area.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="container mx-auto py-6 space-y-6 pt-20">
         <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Announcements Management</h1>
-          {canManageAnnouncements && (
-            <Button onClick={() => {
-              setTitle('');
-              setContent('');
-              setIsEditMode(false);
-              setEditingAnnouncementId(null);
-              setIsDialogOpen(true);
-            }}>
-              <PlusCircle className="h-4 w-4 mr-2" />
-              New Announcement
-            </Button>
-          )}
+          <h1 className="text-2xl font-bold">Manage Announcements</h1>
+          <Button onClick={() => setIsAddDialogOpen(true)}>
+            <PlusCircle className="h-4 w-4 mr-2" /> New Announcement
+          </Button>
         </div>
-        
-        <div className="space-y-4">
-          {loading ? (
-            <p className="text-center py-10">Loading announcements...</p>
-          ) : announcements.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-10">
-                <p className="text-muted-foreground">No announcements have been posted yet.</p>
-                {canManageAnnouncements && (
-                  <Button className="mt-4" onClick={() => {
-                    setIsDialogOpen(true);
-                  }}>
-                    Create First Announcement
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          ) : (
-            announcements.map(announcement => (
+
+        {isLoading ? (
+          <div className="flex justify-center py-8">
+            <p>Loading announcements...</p>
+          </div>
+        ) : announcements.length === 0 ? (
+          <div className="text-center py-12 border rounded-lg">
+            <Megaphone className="mx-auto h-12 w-12 text-muted-foreground" />
+            <p className="mt-4 text-muted-foreground">No announcements available.</p>
+            <Button 
+              variant="outline" 
+              className="mt-4" 
+              onClick={() => setIsAddDialogOpen(true)}
+            >
+              Create your first announcement
+            </Button>
+          </div>
+        ) : (
+          <div className="grid gap-6">
+            {announcements.map((announcement) => (
               <Card key={announcement.id}>
                 <CardHeader className="pb-2">
-                  <div className="flex justify-between items-start">
-                    <CardTitle>{announcement.title}</CardTitle>
-                    {canManageAnnouncements && (
-                      <div className="flex space-x-2">
-                        <Button
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => handleEdit(announcement)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => {
-                            setDeleteAnnouncementId(announcement.id);
-                            setIsDeleteDialogOpen(true);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                  <CardDescription>Posted on {formatDate(announcement.createdAt)}</CardDescription>
+                  <CardTitle>{announcement.title}</CardTitle>
+                  <CardDescription className="flex justify-between">
+                    <span>Posted by {announcement.createdBy}</span>
+                    <span>{announcement.createdAt}</span>
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <p className="whitespace-pre-line">{announcement.content}</p>
+                  <div className="whitespace-pre-line">{announcement.content}</div>
                 </CardContent>
+                <CardFooter className="flex justify-end gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => openEditDialog(announcement)}
+                  >
+                    <Edit className="h-4 w-4 mr-2" /> Edit
+                  </Button>
+                  <Button 
+                    variant="destructive" 
+                    size="sm" 
+                    onClick={() => openDeleteDialog(announcement)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" /> Delete
+                  </Button>
+                </CardFooter>
               </Card>
-            ))
-          )}
-        </div>
-        
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            ))}
+          </div>
+        )}
+
+        {/* Add Announcement Dialog */}
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{isEditMode ? 'Edit Announcement' : 'Create New Announcement'}</DialogTitle>
+              <DialogTitle>Create New Announcement</DialogTitle>
               <DialogDescription>
-                {isEditMode 
-                  ? 'Update the information below to modify the announcement.' 
-                  : 'Add a new announcement to inform users about important updates.'}
+                Add a new announcement that will be visible to all users.
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit}>
-              <div className="space-y-4 py-2">
-                <div className="space-y-2">
-                  <label htmlFor="title" className="text-sm font-medium">Title</label>
-                  <Input 
-                    id="title"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Enter announcement title"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor="content" className="text-sm font-medium">Content</label>
-                  <Textarea 
-                    id="content"
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    placeholder="Enter announcement content"
-                    rows={5}
-                    required
-                  />
-                </div>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="add-title" className="block text-sm font-medium">Title</label>
+                <Input
+                  id="add-title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Announcement title"
+                />
               </div>
-              <DialogFooter>
-                <Button variant="outline" type="button" onClick={() => setIsDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">
-                  {isEditMode ? 'Update' : 'Post'} Announcement
-                </Button>
-              </DialogFooter>
-            </form>
+              <div className="space-y-2">
+                <label htmlFor="add-content" className="block text-sm font-medium">Content</label>
+                <Textarea
+                  id="add-content"
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  placeholder="Announcement content"
+                  rows={5}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setIsAddDialogOpen(false);
+                  setTitle('');
+                  setContent('');
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleAddAnnouncement} 
+                disabled={isActionLoading}
+              >
+                {isActionLoading ? 'Creating...' : 'Create Announcement'}
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
-        
+
+        {/* Edit Announcement Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Announcement</DialogTitle>
+              <DialogDescription>
+                Make changes to the existing announcement.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="edit-title" className="block text-sm font-medium">Title</label>
+                <Input
+                  id="edit-title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="edit-content" className="block text-sm font-medium">Content</label>
+                <Textarea
+                  id="edit-content"
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  rows={5}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setIsEditDialogOpen(false);
+                  setSelectedAnnouncement(null);
+                  setTitle('');
+                  setContent('');
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleEditAnnouncement}
+                disabled={isActionLoading}
+              >
+                {isActionLoading ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
         <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
@@ -339,12 +358,16 @@ const AnnouncementsManager = () => {
             <AlertDialogFooter>
               <AlertDialogCancel onClick={() => {
                 setIsDeleteDialogOpen(false);
-                setDeleteAnnouncementId(null);
+                setSelectedAnnouncement(null);
               }}>
                 Cancel
               </AlertDialogCancel>
-              <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
-                Delete
+              <AlertDialogAction 
+                onClick={handleDeleteConfirm}
+                className="bg-destructive text-destructive-foreground"
+                disabled={isActionLoading}
+              >
+                {isActionLoading ? 'Deleting...' : 'Delete'}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

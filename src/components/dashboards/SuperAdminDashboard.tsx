@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Shield, MessageSquare } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from '@/integrations/supabase/client';
 
 interface SuperAdminDashboardProps {
@@ -41,6 +41,11 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user }
                 title: "Announcement Updated",
                 description: "An announcement has been modified."
               });
+            } else if (payload.eventType === 'DELETE') {
+              toast({
+                title: "Announcement Removed",
+                description: "An announcement has been deleted from the system."
+              });
             }
           })
       .subscribe();
@@ -53,21 +58,25 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user }
     };
   }, [toast]);
 
+  const handleNavigation = (route: string) => {
+    navigate(route);
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-2">Super Administrator Dashboard</h1>
       <p className="text-muted-foreground mb-8">Welcome back, {user.name}!</p>
 
-      <div className="flex gap-4 mb-8">
+      <div className="flex flex-wrap gap-4 mb-8">
         <Button 
-          onClick={() => navigate('/user-rights')}
+          onClick={() => handleNavigation('/user-rights')}
           className="flex items-center gap-2"
         >
           <Shield className="h-4 w-4" />
           Manage User Rights
         </Button>
         <Button 
-          onClick={() => navigate('/admin/announcements')}
+          onClick={() => handleNavigation('/admin/announcements')}
           className="flex items-center gap-2"
         >
           <MessageSquare className="h-4 w-4" />
@@ -95,3 +104,5 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user }
     </div>
   );
 };
+
+export default SuperAdminDashboard;

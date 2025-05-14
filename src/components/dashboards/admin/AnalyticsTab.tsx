@@ -14,8 +14,10 @@ const AnalyticsTab: React.FC = () => {
         <CardHeader>
           <CardTitle>Room Usage Analysis</CardTitle>
         </CardHeader>
-        <CardContent>
-          <RoomUsageStats />
+        <CardContent className="pt-2">
+          <div className="min-h-[600px]">
+            <RoomUsageStats />
+          </div>
         </CardContent>
       </Card>
     </div>
