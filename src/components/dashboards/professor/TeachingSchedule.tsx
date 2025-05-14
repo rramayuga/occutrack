@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { CheckCircle, X } from 'lucide-react';
 import { Reservation } from '@/lib/types';
@@ -15,14 +15,11 @@ interface TeachingScheduleProps {
 export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ reservations }) => {
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
-  const [filteredReservations, setFilteredReservations] = useState<Reservation[]>([]);
   const { toast } = useToast();
-
-  // Filter out completed reservations and update when props change
-  useEffect(() => {
-    const active = reservations.filter(res => res.status !== 'completed');
-    console.log(`Filtered ${reservations.length} reservations to ${active.length} active ones`);
-    setFilteredReservations(active);
+  
+  // Use memoization to filter out completed reservations
+  const filteredReservations = useMemo(() => {
+    return reservations.filter(res => res.status !== 'completed');
   }, [reservations]);
 
   const handleCancelClick = (reservation: Reservation) => {
@@ -43,9 +40,6 @@ export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ reservations
         throw error;
       }
       
-      // Remove the cancelled reservation from our local state
-      setFilteredReservations(prev => prev.filter(res => res.id !== selectedReservation.id));
-      
       toast({
         title: "Reservation Cancelled",
         description: "Your room reservation has been cancelled successfully.",
@@ -63,6 +57,24 @@ export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ reservations
       });
     }
   };
+  
+  // Setup realtime subscription to reservation changes
+  useEffect(() => {
+    const channel = supabase
+      .channel('teaching-schedule-changes')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'room_reservations'
+      }, (payload) => {
+        console.log("Reservation change detected in TeachingSchedule:", payload);
+      })
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   return (
     <>

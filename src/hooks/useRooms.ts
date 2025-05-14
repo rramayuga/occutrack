@@ -11,13 +11,11 @@ import { useRoomReservationCheck } from './useRoomReservationCheck';
  */
 export function useRooms() {
   // Track initial setup to prevent multiple setups
-  const isInitialSetup = useRef(true);
+  const isInitialized = useRef(false);
   const [selectedBuilding, setSelectedBuilding] = useState<string>('');
 
   // Get building data
-  const { 
-    buildings
-  } = useBuildings();
+  const { buildings } = useBuildings();
   
   // Room fetching functionality
   const {
@@ -40,31 +38,30 @@ export function useRooms() {
     setupRoomAvailabilitySubscription
   } = useRoomSubscriptions(fetchRooms, setRooms);
   
-  // Check and update rooms based on reservations
+  // Check and update rooms based on reservations - this helps catch any misalignment
   useRoomReservationCheck(rooms, updateRoomAvailability);
 
-  // Set up subscriptions on component mount
+  // Set up subscriptions on component mount - only once
   useEffect(() => {
-    // Only set up subscriptions on initial mount
-    if (isInitialSetup.current) {
-      console.log("Setting up initial room data and subscriptions");
-      
-      // Initial data fetch
-      fetchRooms();
-      
-      // Set up real-time subscription channels
-      const unsubscribeRooms = setupRoomSubscription();
-      const unsubscribeAvailability = setupRoomAvailabilitySubscription();
-      
-      isInitialSetup.current = false;
-      
-      // Clean up subscriptions on unmount
-      return () => {
-        console.log("Cleaning up room subscriptions");
-        unsubscribeRooms();
-        unsubscribeAvailability();
-      };
-    }
+    if (isInitialized.current) return;
+    
+    console.log("Setting up initial room data and subscriptions");
+    
+    // Initial data fetch
+    fetchRooms();
+    
+    // Set up real-time subscription channels
+    const unsubscribeRooms = setupRoomSubscription();
+    const unsubscribeAvailability = setupRoomAvailabilitySubscription();
+    
+    isInitialized.current = true;
+    
+    // Clean up subscriptions on unmount
+    return () => {
+      console.log("Cleaning up room subscriptions");
+      unsubscribeRooms();
+      unsubscribeAvailability();
+    };
   }, [fetchRooms, setupRoomSubscription, setupRoomAvailabilitySubscription]);
 
   return {

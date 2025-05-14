@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { User } from '@/lib/types';
 import { useRooms } from '@/hooks/useRooms';
 import { useReservations } from '@/hooks/useReservations';
@@ -7,7 +7,7 @@ import { ProfessorOverviewCards } from './professor/ProfessorOverviewCards';
 import { RoomBookingDialog } from './professor/RoomBookingDialog';
 import { TeachingSchedule } from './professor/TeachingSchedule';
 import { AvailableRooms } from './professor/AvailableRooms';
-import { useReservationTimeTracker } from '@/hooks/useReservationTimeTracker';
+import { useReservationStatusManager } from '@/hooks/useReservationStatusManager';
 
 interface ProfessorDashboardProps {
   user: User;
@@ -18,44 +18,38 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
   const { buildings, rooms, refreshRooms } = useRooms();
   const { reservations, createReservation, fetchReservations } = useReservations();
   
-  // Initialize the reservation time tracker to handle automatic status updates
-  const { activeReservations, fetchActiveReservations } = useReservationTimeTracker();
+  // Use our centralized reservation status manager
+  const { activeReservations } = useReservationStatusManager();
   
-  // Fetch active reservations and refresh rooms on mount and periodically
+  // Initial data fetch on mount - only once
   useEffect(() => {
-    // Initial fetch
-    fetchActiveReservations();
     refreshRooms();
     fetchReservations();
-    
-    // Set up interval for periodic refresh - more frequent updates for real-time status changes
-    const intervalId = setInterval(() => {
-      fetchReservations();
-      refreshRooms();
-    }, 10000); // Every 10 seconds for more real-time updates
-    
-    return () => clearInterval(intervalId);
-  }, []);
+  }, [refreshRooms, fetchReservations]);
   
-  // Get today's schedule from reservations
-  const todaySchedule = reservations.filter(booking => {
-    const bookingDate = new Date(booking.date);
+  // Memoize today's schedule to prevent unnecessary re-renders
+  const todaySchedule = useMemo(() => {
     const today = new Date();
-    return bookingDate.getDate() === today.getDate() && 
-           bookingDate.getMonth() === today.getMonth() && 
-           bookingDate.getFullYear() === today.getFullYear() &&
-           booking.status !== 'completed'; // Don't show completed reservations
-  });
+    return reservations.filter(booking => {
+      const bookingDate = new Date(booking.date);
+      return bookingDate.getDate() === today.getDate() && 
+             bookingDate.getMonth() === today.getMonth() && 
+             bookingDate.getFullYear() === today.getFullYear() &&
+             booking.status !== 'completed'; // Don't show completed reservations
+    });
+  }, [reservations]);
 
   // Handler for when a user clicks "Reserve" on an available room
   const handleReserveClick = (buildingId: string, roomId: string, buildingName: string, roomName: string) => {
     setIsDialogOpen(true);
-    // We'll need to pre-populate the form in the RoomBookingDialog component
-    // This will be passed down to the component
+    // Pre-populate form handled by RoomBookingDialog component
   };
   
-  // Filter out completed reservations from the display
-  const activeReservationsForDisplay = reservations.filter(r => r.status !== 'completed');
+  // Filter out completed reservations for display - memoized to prevent re-renders
+  const activeReservationsForDisplay = useMemo(() => 
+    reservations.filter(r => r.status !== 'completed'),
+    [reservations]
+  );
   
   return (
     <div className="container mx-auto px-4 py-8">

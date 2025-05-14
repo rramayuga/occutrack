@@ -1,5 +1,5 @@
 
-import React, { useEffect, useCallback, memo } from 'react';
+import React, { useEffect, useCallback, useMemo, memo } from 'react';
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { AlertCircle } from "lucide-react";
 import Navbar from '@/components/layout/Navbar';
@@ -32,13 +32,13 @@ const Rooms = () => {
   }, [buildings, selectedBuilding, setSelectedBuilding]);
 
   // Memoize expensive calculations
-  const buildingRooms = React.useMemo(() => 
+  const buildingRooms = useMemo(() => 
     rooms.filter(room => room.buildingId === selectedBuilding),
     [rooms, selectedBuilding]
   );
   
   // Memoize room grouping by floor
-  const roomsByFloor = React.useMemo(() => {
+  const roomsByFloor = useMemo(() => {
     return buildingRooms.reduce((acc, room) => {
       if (!acc[room.floor]) {
         acc[room.floor] = [];
@@ -48,17 +48,56 @@ const Rooms = () => {
     }, {} as Record<number, typeof rooms>);
   }, [buildingRooms]);
 
-  // Get the floors for the selected building
-  const selectedBuildingData = React.useMemo(() => 
+  // Get the floors for the selected building - memoized
+  const selectedBuildingData = useMemo(() => 
     buildings.find(b => b.id === selectedBuilding),
     [buildings, selectedBuilding]
   );
   
-  const floors = selectedBuildingData?.floors || [];
+  const floors = useMemo(() => 
+    selectedBuildingData?.floors || [],
+    [selectedBuildingData]
+  );
 
   // Determine if the current user can modify room availability
   const authorizedRoles = ['faculty', 'admin', 'superadmin'];
   const canModifyRooms = user && authorizedRoles.includes(user.role);
+  
+  // Memoize building list to prevent re-renders
+  const buildingListMemo = useMemo(() => (
+    <BuildingList 
+      buildings={buildings}
+      selectedBuilding={selectedBuilding}
+      onBuildingChange={setSelectedBuilding}
+    />
+  ), [buildings, selectedBuilding, setSelectedBuilding]);
+  
+  // Create memoized floor content
+  const floorsContent = useMemo(() => (
+    floors.length === 0 ? (
+      <div className="text-center p-8 border rounded-lg">
+        <p className="text-muted-foreground">No floors found for this building.</p>
+      </div>
+    ) : (
+      <div className="mb-6">
+        <div className="grid grid-cols-1 gap-6">
+          {floors.map((floor) => {
+            const floorRooms = roomsByFloor[floor.number] || [];
+            return (
+              <MemoizedFloorRooms 
+                key={`${floor.id}-${floorRooms.length}`}
+                floor={floor.number}
+                rooms={floorRooms}
+                canModifyRooms={canModifyRooms}
+                onToggleAvailability={handleToggleRoomAvailability}
+                refetchRooms={refetchRooms}
+              />
+            );
+          })}
+        </div>
+      </div>
+    )
+  ), [floors, roomsByFloor, canModifyRooms, handleToggleRoomAvailability, refetchRooms]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -86,38 +125,11 @@ const Rooms = () => {
             onValueChange={setSelectedBuilding} 
             className="w-full"
           >
-            <BuildingList 
-              buildings={buildings}
-              selectedBuilding={selectedBuilding}
-              onBuildingChange={setSelectedBuilding}
-            />
+            {buildingListMemo}
 
             {buildings.map((building) => (
               <TabsContent key={building.id} value={building.id}>
-                {floors.length === 0 ? (
-                  <div className="text-center p-8 border rounded-lg">
-                    <p className="text-muted-foreground">No floors found for this building.</p>
-                  </div>
-                ) : (
-                  <div className="mb-6">
-                    <div className="grid grid-cols-1 gap-6">
-                      {floors.map((floor) => {
-                        // Use the floor.number to access the rooms for this floor
-                        const floorRooms = roomsByFloor[floor.number] || [];
-                        return (
-                          <MemoizedFloorRooms 
-                            key={`${floor.id}-${floorRooms.length}`}
-                            floor={floor.number}
-                            rooms={floorRooms}
-                            canModifyRooms={canModifyRooms}
-                            onToggleAvailability={handleToggleRoomAvailability}
-                            refetchRooms={refetchRooms}
-                          />
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+                {floorsContent}
               </TabsContent>
             ))}
           </Tabs>

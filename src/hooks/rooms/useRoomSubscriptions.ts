@@ -34,7 +34,6 @@ export function useRoomSubscriptions(
           const isAvailable = updatedStatus === 'available';
           
           console.log("Updating specific room in state:", updatedRoom);
-          console.log(`Room ${updatedRoomId} status: ${updatedStatus}, isAvailable: ${isAvailable}`);
           
           setRooms(prevRooms => 
             prevRooms.map(room => 
@@ -46,18 +45,13 @@ export function useRoomSubscriptions(
               } : room
             )
           );
-        } else {
+        } else if (!refreshInProgress.current) {
           // For other events like INSERT or DELETE, do a full refetch
-          // Only if no refresh is currently in progress
-          if (!refreshInProgress.current) {
-            console.log("Performing full refetch due to non-update room change");
-            refreshInProgress.current = true;
-            fetchRooms().finally(() => {
-              refreshInProgress.current = false;
-            });
-          } else {
-            console.log("Skipping redundant refetch, one already in progress");
-          }
+          console.log("Performing full refetch due to non-update room change");
+          refreshInProgress.current = true;
+          fetchRooms().finally(() => {
+            refreshInProgress.current = false;
+          });
         }
       })
       .subscribe((status) => {
@@ -91,7 +85,6 @@ export function useRoomSubscriptions(
           // Get the explicit status or derive from isAvailable
           let status: RoomStatus;
           
-          // Check if status exists in the payload
           if ('status' in payload.new && payload.new.status) {
             status = payload.new.status as RoomStatus;
           } else {
@@ -112,17 +105,13 @@ export function useRoomSubscriptions(
               } : room
             )
           );
-        } else {
-          // Only if no refresh is currently in progress
-          if (!refreshInProgress.current) {
-            console.log("Performing full refetch due to non-insert room availability change");
-            refreshInProgress.current = true;
-            fetchRooms().finally(() => {
-              refreshInProgress.current = false;
-            });
-          } else {
-            console.log("Skipping redundant refetch, one already in progress");
-          }
+        } else if (!refreshInProgress.current) {
+          // For other events, do a full refetch
+          console.log("Performing full refetch due to non-insert room availability change");
+          refreshInProgress.current = true;
+          fetchRooms().finally(() => {
+            refreshInProgress.current = false;
+          });
         }
       })
       .subscribe((status) => {
