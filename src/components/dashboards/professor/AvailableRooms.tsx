@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { BuildingWithFloors, Room } from '@/lib/types';
 
@@ -39,7 +40,7 @@ export const AvailableRooms: React.FC<AvailableRoomsProps> = ({
         </div>
       </CardContent>
       <CardFooter>
-        <a href="/rooms" className="text-sm text-primary hover:underline">View all rooms</a>
+        <Link to="/rooms" className="text-sm text-primary hover:underline">View all rooms</Link>
       </CardFooter>
     </Card>
   );
