@@ -74,7 +74,7 @@ export function useRooms() {
         unsubscribeAvailability();
       };
     }
-  }, []);
+  }, []);  // Empty dependency array to ensure this runs only once
 
   return {
     buildings,

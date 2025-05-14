@@ -12,6 +12,8 @@ export type Toast = {
   description?: React.ReactNode
   action?: ToastActionElement
   variant?: "default" | "destructive"
+  open?: boolean
+  duration?: number
 }
 
 const TOAST_LIMIT = 5
@@ -120,8 +122,9 @@ function dispatch(action: Action) {
 
 export function toast({
   variant = "default",
+  duration = 5000,
   ...props
-}: Omit<Toast, "id">) {
+}: Omit<Toast, "id"> & { duration?: number }) {
   const id = genId()
 
   const update = (props: Partial<Toast>) =>
@@ -141,6 +144,13 @@ export function toast({
       open: true,
     },
   })
+
+  // Auto-dismiss toast after duration
+  if (duration > 0) {
+    setTimeout(() => {
+      dismiss()
+    }, duration)
+  }
 
   return {
     id,

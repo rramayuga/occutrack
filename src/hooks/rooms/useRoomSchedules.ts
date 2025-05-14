@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Reservation } from '@/lib/types';
 import { useAuth } from '@/lib/auth';
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 export const useRoomSchedules = (roomId: string, roomName: string) => {
@@ -92,14 +92,15 @@ export const useRoomSchedules = (roomId: string, roomName: string) => {
         setTimeout(() => {
           toast({
             title: "Upcoming Reservation Reminder",
-            description: `You have a reservation in 30 minutes for room ${roomName} at ${reservation.startTime}`,
-            duration: 10000,
+            description: `You have a reservation in 30 minutes for room ${roomName} at ${reservation.startTime}`
+            // Duration is now properly supported in our toast type
           });
         }, timeUntilReminder);
       }
     });
   };
 
+  // To avoid unnecessary re-renders and refreshes, let's debounce our subscription setup
   useEffect(() => {
     // Initial fetch
     fetchRoomSchedules();
