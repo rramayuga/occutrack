@@ -169,6 +169,18 @@ export function useReservationStatusManager() {
     }
   }, []);
 
+  // Compare times in HH:MM format
+  const compareTimeStrings = useCallback((time1: string, time2: string): number => {
+    // Parse times to ensure proper comparison (handles formats like "09:30" vs "9:30")
+    const [hours1, minutes1] = time1.split(':').map(Number);
+    const [hours2, minutes2] = time2.split(':').map(Number);
+    
+    if (hours1 !== hours2) {
+      return hours1 - hours2;
+    }
+    return minutes1 - minutes2;
+  }, []);
+
   // Process active reservations to check for status changes
   const processReservations = useCallback(async () => {
     if (activeReservations.length === 0) return;
@@ -177,6 +189,7 @@ export function useReservationStatusManager() {
     const currentTime = now.toTimeString().substring(0, 5); // HH:MM format
     const today = now.toISOString().split('T')[0];
     
+    console.log(`Processing ${activeReservations.length} reservations at ${currentTime}`);
     let updated = false;
     
     for (const reservation of activeReservations) {
@@ -190,8 +203,11 @@ export function useReservationStatusManager() {
         continue;
       }
       
+      // FIX: Using proper time comparison function instead of string comparison
       // Check if start time has been reached - MARK AS OCCUPIED
-      if (currentTime >= reservation.startTime && reservation.status !== 'occupied') {
+      if (compareTimeStrings(currentTime, reservation.startTime) >= 0 && 
+          compareTimeStrings(currentTime, reservation.endTime) < 0 && 
+          reservation.status !== 'occupied') {
         console.log(`START TIME REACHED for reservation ${reservation.id} - marking room ${reservation.roomId} as OCCUPIED`);
         await updateRoomStatus(reservation.roomId, true);
         
@@ -203,8 +219,9 @@ export function useReservationStatusManager() {
         updated = true;
       }
       
+      // FIX: Using proper time comparison function
       // Check if end time has been reached - MARK AS AVAILABLE and COMPLETE reservation
-      if (currentTime >= reservation.endTime) {
+      if (compareTimeStrings(currentTime, reservation.endTime) >= 0) {
         console.log(`END TIME REACHED for reservation ${reservation.id} - completing reservation and marking room available`);
         await updateRoomStatus(reservation.roomId, false);
         
@@ -225,7 +242,7 @@ export function useReservationStatusManager() {
       setLastCheck(now);
       await fetchActiveReservations();
     }
-  }, [activeReservations, completedReservationIds, updateRoomStatus, markReservationAsCompleted, fetchActiveReservations, toast, lastCheck]);
+  }, [activeReservations, completedReservationIds, updateRoomStatus, markReservationAsCompleted, fetchActiveReservations, toast, lastCheck, compareTimeStrings]);
 
   // Setup up subscription to room_reservations with improved error handling
   useEffect(() => {
@@ -274,10 +291,10 @@ export function useReservationStatusManager() {
         }
       };
       
-      // Check for status changes more frequently - 30 seconds is more responsive
+      // Check for status changes frequently - more frequent checks for better responsiveness
       const intervalId = setInterval(() => {
         processReservations();
-      }, 30000); // Every 30 seconds for time-based checks
+      }, 20000); // Every 20 seconds for time-based checks
       
       return () => {
         clearInterval(intervalId);

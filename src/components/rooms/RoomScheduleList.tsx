@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { X } from 'lucide-react';
@@ -19,26 +18,35 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
 }) => {
   if (!showSchedules) return null;
   
+  // Compare times in HH:MM format
+  const compareTimeStrings = (time1: string, time2: string): number => {
+    // Parse times to ensure proper comparison
+    const [hours1, minutes1] = time1.split(':').map(Number);
+    const [hours2, minutes2] = time2.split(':').map(Number);
+    
+    if (hours1 !== hours2) {
+      return hours1 - hours2;
+    }
+    return minutes1 - minutes2;
+  };
+  
   // Filter out finished schedules more accurately
   const activeSchedules = roomSchedules.filter(schedule => {
     // Filter out completed reservations
     if (schedule.status === 'completed') return false;
     
-    // Parse date and time to check if the schedule is finished
-    const scheduleDate = new Date(schedule.date);
-    const today = new Date();
+    // Get current date and time
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    const currentTime = now.toTimeString().substring(0, 5); // HH:MM format
     
     // If schedule date is in the future, keep it
-    if (scheduleDate > today) return true;
+    if (schedule.date > today) return true;
     
     // If schedule date is today, check if end time has passed
-    if (scheduleDate.toDateString() === today.toDateString()) {
-      const [endHours, endMinutes] = schedule.endTime.split(':').map(Number);
-      const endScheduleTime = new Date();
-      endScheduleTime.setHours(endHours, endMinutes, 0, 0);
-      
-      // Only show if end time hasn't passed yet
-      return endScheduleTime > today;
+    if (schedule.date === today) {
+      // FIX: Using proper comparison instead of string comparison
+      return compareTimeStrings(currentTime, schedule.endTime) < 0;
     }
     
     // Schedule date is in the past

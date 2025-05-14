@@ -21,9 +21,41 @@ export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ reservations
   // Add cooldown for error toasts to prevent spam
   const ERROR_COOLDOWN_MS = 10000; // 10 seconds between error messages
   
-  // Use memoization to filter out completed reservations
+  // Compare times in HH:MM format
+  const compareTimeStrings = (time1: string, time2: string): number => {
+    // Parse times to ensure proper comparison
+    const [hours1, minutes1] = time1.split(':').map(Number);
+    const [hours2, minutes2] = time2.split(':').map(Number);
+    
+    if (hours1 !== hours2) {
+      return hours1 - hours2;
+    }
+    return minutes1 - minutes2;
+  };
+  
+  // Use memoization to filter out completed reservations and apply time-based filtering
   const filteredReservations = useMemo(() => {
-    return reservations.filter(res => res.status !== 'completed');
+    // Filter out completed reservations
+    const active = reservations.filter(res => res.status !== 'completed');
+    
+    // Additional filter for past reservations on the same day
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    const currentTime = now.toTimeString().substring(0, 5); // HH:MM format
+    
+    return active.filter(res => {
+      // Always include future dates
+      if (res.date > today) return true;
+      
+      // For today's reservations, only include current and upcoming
+      if (res.date === today) {
+        // Has the reservation's end time passed?
+        return compareTimeStrings(currentTime, res.endTime) < 0;
+      }
+      
+      // Filter out past dates
+      return false;
+    });
   }, [reservations]);
 
   const handleCancelClick = (reservation: Reservation) => {
@@ -111,16 +143,12 @@ export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ reservations
                               bookingDate.getMonth() === today.getMonth() && 
                               bookingDate.getFullYear() === today.getFullYear();
                 
-                const startTimeParts = booking.startTime.split(':').map(Number);
-                const endTimeParts = booking.endTime.split(':').map(Number);
+                const currentTime = now.toTimeString().substring(0, 5); // HH:MM format
                 
-                const startDateTime = new Date(bookingDate);
-                startDateTime.setHours(startTimeParts[0], startTimeParts[1], 0, 0);
-                
-                const endDateTime = new Date(bookingDate);
-                endDateTime.setHours(endTimeParts[0], endTimeParts[1], 0, 0);
-                
-                const isActive = now >= startDateTime && now < endDateTime;
+                // FIX: Using proper time comparison instead of date manipulation
+                const isActive = isToday && 
+                               compareTimeStrings(currentTime, booking.startTime) >= 0 && 
+                               compareTimeStrings(currentTime, booking.endTime) < 0;
                 
                 return (
                   <div key={booking.id} className="flex items-start gap-4 pb-4 border-b last:border-0">

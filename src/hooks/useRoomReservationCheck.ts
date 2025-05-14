@@ -11,6 +11,18 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
   // Use ref to track the last check time to prevent excessive checks
   const lastCheckTime = useRef<Date>(new Date());
   
+  // Compare times in HH:MM format
+  const compareTimeStrings = (time1: string, time2: string): number => {
+    // Parse times to ensure proper comparison (handles formats like "09:30" vs "9:30")
+    const [hours1, minutes1] = time1.split(':').map(Number);
+    const [hours2, minutes2] = time2.split(':').map(Number);
+    
+    if (hours1 !== hours2) {
+      return hours1 - hours2;
+    }
+    return minutes1 - minutes2;
+  };
+  
   // This effect will run only when active reservations change
   useEffect(() => {
     if (!user || activeReservations.length === 0) return;
@@ -39,9 +51,11 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
           const startTime = reservation.startTime;
           const endTime = reservation.endTime;
           
+          // FIX: Using a proper time comparison function instead of string comparison
           // Check if current time is between start and end times
-          const isActive = currentTime >= startTime && currentTime < endTime;
-          const hasEnded = currentTime >= endTime;
+          const isActive = compareTimeStrings(currentTime, startTime) >= 0 && 
+                          compareTimeStrings(currentTime, endTime) < 0;
+          const hasEnded = compareTimeStrings(currentTime, endTime) >= 0;
           
           // Find the room to update
           const roomToUpdate = rooms.find(r => r.id === reservation.roomId);
