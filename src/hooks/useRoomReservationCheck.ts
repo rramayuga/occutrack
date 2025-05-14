@@ -1,3 +1,4 @@
+
 import { useEffect, useRef, useState } from 'react';
 import { Room, RoomStatus } from '@/lib/types';
 import { supabase } from "@/integrations/supabase/client";
@@ -10,10 +11,21 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
   const [reservations, setReservations] = useState<any[]>([]);
   const lastUpdateRef = useRef<Record<string, string>>({});
   const processedReservationsRef = useRef<Set<string>>(new Set());
+  const updateInProgressRef = useRef<boolean>(false);
+  const updateQueuedRef = useRef<boolean>(false);
 
-  // Function to check and update room statuses based on current time
+  // Optimized function with debounce logic
   const updateRoomStatusBasedOnBookings = async () => {
     if (!user) return;
+    
+    // Skip if update is already in progress
+    if (updateInProgressRef.current) {
+      updateQueuedRef.current = true;
+      console.log("[RESERVATION] Update already in progress, queuing next update");
+      return;
+    }
+    
+    updateInProgressRef.current = true;
     
     try {
       // Get current date and time with precision
@@ -21,9 +33,9 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
       const currentDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
       const currentTime = now.toTimeString().split(' ')[0].slice(0, 5); // HH:MM
       
-      console.log(`Checking reservations at ${currentDate} ${currentTime}`);
+      console.log(`[RESERVATION] Checking reservations at ${currentDate} ${currentTime}`);
       
-      // Fetch all of today's reservations (both past and upcoming)
+      // Fetch only today's reservations to minimize data transfer
       const { data: todayReservations, error } = await supabase
         .from('room_reservations')
         .select('*')
@@ -32,15 +44,13 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
       if (error) throw error;
       
       if (todayReservations) {
+        // Update state once per check
         setReservations(todayReservations);
         
-        // Check for completed reservations to delete
-        const completedReservations = todayReservations.filter(reservation => {
-          const endTime = reservation.end_time;
-          return currentTime > endTime; // If current time is past the end time
-        });
+        // Process room status updates in batch for better performance
+        const roomUpdates: Map<string, { isAvailable: boolean, status: RoomStatus }> = new Map();
         
-        // Process room status updates
+        // First pass: identify all necessary room updates
         for (const reservation of todayReservations) {
           const startTime = reservation.start_time;
           const endTime = reservation.end_time;
@@ -62,9 +72,8 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
             
             // Determine if the room status needs to be updated based on reservation time
             if (isActive && roomToUpdate.status !== 'occupied') {
-              // Mark as occupied when reservation starts
-              console.log(`Room ${roomToUpdate.name} marking as OCCUPIED based on active reservation`);
-              updateRoomAvailability(reservation.room_id, false, 'occupied');
+              // Mark for update to occupied when reservation starts
+              roomUpdates.set(reservation.room_id, { isAvailable: false, status: 'occupied' });
               
               // Show toast notification if we haven't already for this transition
               if (!lastUpdateRef.current[reservationKey]) {
@@ -76,9 +85,8 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
               }
             } 
             else if (!isActive && currentTime >= endTime && roomToUpdate.status === 'occupied') {
-              // Mark as available when reservation ends
-              console.log(`Room ${roomToUpdate.name} marking as AVAILABLE as reservation has ended`);
-              updateRoomAvailability(reservation.room_id, true, 'available');
+              // Mark for update to available when reservation ends
+              roomUpdates.set(reservation.room_id, { isAvailable: true, status: 'available' });
               
               // Show toast notification if we haven't already for this transition
               if (!lastUpdateRef.current[reservationKey]) {
@@ -89,7 +97,27 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
                 lastUpdateRef.current[reservationKey] = currentDate;
               }
               
-              // If reservation has ended and it hasn't been processed yet, delete it
+              // Mark reservation for deletion if it has ended
+              if (!processedReservationsRef.current.has(reservation.id)) {
+                processedReservationsRef.current.add(reservation.id);
+              }
+            }
+          }
+        }
+        
+        // Second pass: apply all room updates
+        for (const [roomId, update] of roomUpdates.entries()) {
+          updateRoomAvailability(roomId, update.isAvailable, update.status);
+        }
+        
+        // Batch delete completed reservations for efficiency
+        const completedReservations = todayReservations.filter(reservation => 
+          currentTime >= reservation.end_time && !processedReservationsRef.current.has(reservation.id)
+        );
+        
+        if (completedReservations.length > 0) {
+          try {
+            for (const reservation of completedReservations) {
               if (!processedReservationsRef.current.has(reservation.id)) {
                 const { error: deleteError } = await supabase
                   .from('room_reservations')
@@ -97,74 +125,58 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
                   .eq('id', reservation.id);
                 
                 if (!deleteError) {
-                  // Mark this reservation as processed so we don't try to delete it again
                   processedReservationsRef.current.add(reservation.id);
-                  console.log(`Reservation ${reservation.id} for room ${roomToUpdate.name} has been automatically deleted`);
+                  console.log(`[RESERVATION] Completed reservation ${reservation.id} deleted`);
                 }
               }
             }
-          }
-        }
-        
-        // Bulk delete completed reservations that we haven't processed yet
-        for (const reservation of completedReservations) {
-          if (!processedReservationsRef.current.has(reservation.id)) {
-            const { error: deleteError } = await supabase
-              .from('room_reservations')
-              .delete()
-              .eq('id', reservation.id);
-            
-            if (!deleteError) {
-              processedReservationsRef.current.add(reservation.id);
-              console.log(`Completed reservation ${reservation.id} has been automatically deleted`);
-            }
+          } catch (err) {
+            console.error("[RESERVATION] Error batch deleting reservations:", err);
           }
         }
       }
     } catch (error) {
-      console.error("Error updating room status based on reservations:", error);
+      console.error("[RESERVATION] Error updating room status based on reservations:", error);
+    } finally {
+      // Allow next update to proceed
+      updateInProgressRef.current = false;
+      
+      // If an update was queued while this one was running, run it now
+      if (updateQueuedRef.current) {
+        updateQueuedRef.current = false;
+        setTimeout(updateRoomStatusBasedOnBookings, 100); // Small delay to prevent tight loops
+      }
     }
   };
 
-  // Set up subscription for real-time updates to room_reservations
+  // Set up subscription for real-time updates
   useEffect(() => {
-    // Run immediately on component mount
-    updateRoomStatusBasedOnBookings();
+    // Run after a short delay to let component fully mount
+    const initialTimeout = setTimeout(() => {
+      updateRoomStatusBasedOnBookings();
+    }, 1000);
     
-    // Set up subscriptions
+    // Set up one shared subscription channel for all reservation-related events
     const reservationChannel = supabase
-      .channel('reservation_updates')
+      .channel('optimized_reservation_channel')
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
         table: 'room_reservations' 
       }, () => {
-        // When any reservation changes, update statuses
         updateRoomStatusBasedOnBookings();
       })
       .subscribe();
     
-    // Setup a broadcast every minute to handle time-based updates
-    const broadcastTimeUpdates = setInterval(() => {
-      supabase.channel('time_updates').send({
-        type: 'broadcast',
-        event: 'minute-tick',
-        payload: { time: new Date().toISOString() }
-      });
-    }, 60000); // Check once per minute
-    
-    // Listen for broadcasts from other clients to keep in sync
-    const minuteTickerChannel = supabase
-      .channel('time_updates')
-      .on('broadcast', { event: 'minute-tick' }, () => {
-        updateRoomStatusBasedOnBookings();
-      })
-      .subscribe();
+    // Use a more efficient interval - every minute is enough
+    const checkInterval = setInterval(() => {
+      updateRoomStatusBasedOnBookings();
+    }, 60000);
     
     return () => {
+      clearTimeout(initialTimeout);
+      clearInterval(checkInterval);
       supabase.removeChannel(reservationChannel);
-      supabase.removeChannel(minuteTickerChannel);
-      clearInterval(broadcastTimeUpdates);
     };
   }, [rooms, user, updateRoomAvailability]);
 

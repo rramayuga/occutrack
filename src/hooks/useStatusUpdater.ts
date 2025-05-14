@@ -5,14 +5,27 @@ import { Room, RoomStatus } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
 /**
- * Hook specifically dedicated to checking and updating room status based on current time
+ * Optimized hook for checking and updating room status based on current time
+ * with debounce to avoid excessive updates
  */
 export function useStatusUpdater(rooms: Room[], updateRoomAvailability: (roomId: string, isAvailable: boolean, status: RoomStatus) => void) {
   const { toast } = useToast();
   const lastUpdateRef = useRef<Record<string, string>>({});
   const deletedReservationsRef = useRef<Set<string>>(new Set());
-
+  const updateInProgressRef = useRef<boolean>(false);
+  const updateQueuedRef = useRef<boolean>(false);
+  
+  // Optimized function with debounce logic
   const updateRoomStatuses = async () => {
+    // Skip if an update is already in progress
+    if (updateInProgressRef.current) {
+      updateQueuedRef.current = true;
+      console.log("[STATUS] Update already in progress, queuing next update");
+      return;
+    }
+    
+    updateInProgressRef.current = true;
+    
     try {
       // Get current date and time
       const now = new Date();
@@ -58,7 +71,7 @@ export function useStatusUpdater(rooms: Room[], updateRoomAvailability: (roomId:
             
             // Status needs to change to occupied
             if (shouldBeOccupied && roomToUpdate.status !== 'occupied') {
-              console.log(`[REAL-TIME] Room ${roomToUpdate.name} should now be OCCUPIED`);
+              console.log(`[STATUS] Room ${roomToUpdate.name} should now be OCCUPIED`);
               
               // Check if we've already shown this toast recently
               if (lastUpdateRef.current[updateKey] !== currentDate) {
@@ -76,7 +89,7 @@ export function useStatusUpdater(rooms: Room[], updateRoomAvailability: (roomId:
             else if (!shouldBeOccupied && 
                      roomToUpdate.status === 'occupied' && 
                      currentTime >= formattedEndTime) {
-              console.log(`[REAL-TIME] Room ${roomToUpdate.name} should now be AVAILABLE`);
+              console.log(`[STATUS] Room ${roomToUpdate.name} should now be AVAILABLE`);
               
               // Check if we've already shown this toast recently
               if (lastUpdateRef.current[updateKey] !== currentDate) {
@@ -88,46 +101,57 @@ export function useStatusUpdater(rooms: Room[], updateRoomAvailability: (roomId:
                 
                 // Remember we showed this toast today
                 lastUpdateRef.current[updateKey] = currentDate;
-                
-                // Delete the reservation that has ended
-                const { error: deleteError } = await supabase
-                  .from('room_reservations')
-                  .delete()
-                  .eq('id', reservation.id);
-                
-                if (!deleteError) {
-                  deletedReservationsRef.current.add(reservation.id);
-                  console.log(`Reservation ${reservation.id} deleted as it has ended`);
-                }
               }
             }
           }
         }
         
-        // Delete any completed reservations
-        for (const reservation of completedReservations) {
-          if (!deletedReservationsRef.current.has(reservation.id)) {
-            const { error: deleteError } = await supabase
-              .from('room_reservations')
-              .delete()
-              .eq('id', reservation.id);
-            
-            if (!deleteError) {
-              deletedReservationsRef.current.add(reservation.id);
-              const roomToUpdate = rooms.find(r => r.id === reservation.room_id);
-              console.log(`Completed reservation ${reservation.id} for room ${roomToUpdate?.name || 'unknown'} deleted`);
-            }
+        // Delete any completed reservations (batch for efficiency)
+        if (completedReservations.length > 0) {
+          const completedIds = completedReservations.map(r => r.id);
+          
+          try {
+            await Promise.all(completedReservations.map(async (reservation) => {
+              if (!deletedReservationsRef.current.has(reservation.id)) {
+                try {
+                  const { error: deleteError } = await supabase
+                    .from('room_reservations')
+                    .delete()
+                    .eq('id', reservation.id);
+                  
+                  if (!deleteError) {
+                    deletedReservationsRef.current.add(reservation.id);
+                    console.log(`[STATUS] Completed reservation ${reservation.id} deleted`);
+                  }
+                } catch (err) {
+                  console.error(`[STATUS] Error deleting reservation ${reservation.id}:`, err);
+                }
+              }
+            }));
+          } catch (batchError) {
+            console.error("[STATUS] Error in batch processing reservations:", batchError);
           }
         }
       }
     } catch (error) {
-      console.error("Error in useStatusUpdater:", error);
+      console.error("[STATUS] Error in useStatusUpdater:", error);
+    } finally {
+      // Allow next update to proceed
+      updateInProgressRef.current = false;
+      
+      // If an update was queued while this one was running, run it now
+      if (updateQueuedRef.current) {
+        updateQueuedRef.current = false;
+        setTimeout(updateRoomStatuses, 100); // Small delay to prevent tight loops
+      }
     }
   };
 
   useEffect(() => {
-    // Run immediately on mount
-    updateRoomStatuses();
+    // Run immediately on mount, but with a small delay to let other hooks initialize
+    const initialTimeout = setTimeout(() => {
+      updateRoomStatuses();
+    }, 500);
     
     // Set up real-time subscription for room_reservations table
     const roomReservationChannel = supabase
@@ -153,27 +177,15 @@ export function useStatusUpdater(rooms: Room[], updateRoomAvailability: (roomId:
       })
       .subscribe();
     
-    // Broadcast time updates every minute
+    // Use a more efficient interval for time updates - every 30 seconds instead of every minute
     const timeUpdateInterval = setInterval(() => {
-      supabase.channel('time_updates').send({
-        type: 'broadcast',
-        event: 'minute-tick',
-        payload: { time: new Date().toISOString() }
-      });
-    }, 60000);
-    
-    // Listen for broadcast time updates from other clients
-    const timeChannel = supabase
-      .channel('time_updates')
-      .on('broadcast', { event: 'minute-tick' }, () => {
-        updateRoomStatuses();
-      })
-      .subscribe();
+      updateRoomStatuses();
+    }, 30000);
     
     return () => {
+      clearTimeout(initialTimeout);
       supabase.removeChannel(roomReservationChannel);
       supabase.removeChannel(roomChannel);
-      supabase.removeChannel(timeChannel);
       clearInterval(timeUpdateInterval);
     };
   }, [rooms]);

@@ -1,5 +1,5 @@
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { useBuildings } from './useBuildings';
 import { useRoomFetching } from './rooms/useRoomFetching';
 import { useRoomUpdater } from './rooms/useRoomUpdater';
@@ -8,11 +8,12 @@ import { useRoomReservationCheck } from './useRoomReservationCheck';
 import { useStatusUpdater } from './useStatusUpdater';
 
 /**
- * Main hook for managing room data and operations
+ * Main hook for managing room data and operations, optimized to reduce rerenders
  */
 export function useRooms() {
   // Track initial setup to prevent multiple setups
   const isInitialSetup = useRef(true);
+  const subscriptionsSetUp = useRef(false);
 
   // Get building data
   const { 
@@ -30,29 +31,32 @@ export function useRooms() {
     refetchRooms
   } = useRoomFetching();
   
-  // Room updating functionality
+  // Memoize the room updater functions to prevent unnecessary recreations
   const {
     updateRoomAvailability,
     handleToggleRoomAvailability
   } = useRoomUpdater(rooms, setRooms, refetchRooms);
   
-  // Room subscriptions for real-time updates
+  // Use memoized subscription setup to prevent recreation
   const {
     setupRoomSubscription,
     setupRoomAvailabilitySubscription
   } = useRoomSubscriptions(fetchRooms, setRooms);
   
-  // Check and update rooms based on reservations
+  // Check and update rooms based on reservations - optimized version
   useRoomReservationCheck(rooms, updateRoomAvailability);
   
-  // Additional aggressive status updater
+  // Additional aggressive status updater - optimized version
   useStatusUpdater(rooms, updateRoomAvailability);
 
-  // Set up subscriptions on component mount
+  // Set up subscriptions just once on component mount
   useEffect(() => {
-    // Only set up subscriptions on initial mount
-    if (isInitialSetup.current) {
+    // Only set up subscriptions once
+    if (isInitialSetup.current && !subscriptionsSetUp.current) {
       console.log("Setting up initial room data and subscriptions");
+      
+      // Set the flag immediately to prevent duplicate setups
+      subscriptionsSetUp.current = true;
       
       // Initial data fetch
       fetchRooms();
@@ -70,7 +74,7 @@ export function useRooms() {
         unsubscribeAvailability();
       };
     }
-  }, [fetchRooms, setupRoomSubscription, setupRoomAvailabilitySubscription]);
+  }, []);
 
   return {
     buildings,

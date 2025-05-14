@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { CheckCircle, X } from 'lucide-react';
 import { Reservation } from '@/lib/types';
@@ -17,9 +17,10 @@ export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ reservations
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const { toast } = useToast();
   const [filteredReservations, setFilteredReservations] = useState<Reservation[]>(reservations);
+  const filterTimerRef = useRef<number | null>(null);
 
-  // Filter out completed reservations
-  const filterActiveReservations = () => {
+  // Filter out completed reservations - memoized to avoid unnecessary recalculations
+  const filterActiveReservations = useCallback(() => {
     const now = new Date();
     const active = reservations.filter(booking => {
       const bookingDate = new Date(booking.date);
@@ -32,50 +33,62 @@ export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ reservations
     });
     
     setFilteredReservations(active);
-  };
+  }, [reservations]);
+
+  // Debounced filter to avoid frequent updates
+  const debouncedFilterActiveReservations = useCallback(() => {
+    // Clear any existing timer
+    if (filterTimerRef.current !== null) {
+      window.clearTimeout(filterTimerRef.current);
+    }
+    
+    // Set a new timer
+    filterTimerRef.current = window.setTimeout(() => {
+      filterActiveReservations();
+      filterTimerRef.current = null;
+    }, 500);
+  }, [filterActiveReservations]);
 
   useEffect(() => {
-    // Initial filter
-    filterActiveReservations();
+    // Apply filter when reservations change
+    debouncedFilterActiveReservations();
     
-    // Set up real-time monitoring
-    const minuteUpdatesChannel = supabase
-      .channel('teaching_schedule_updates')
-      .on('broadcast', { event: 'minute-update' }, () => {
-        filterActiveReservations();
-      })
-      .subscribe();
-    
-    // Broadcast minute updates
-    const broadcastInterval = setInterval(() => {
-      supabase.channel('teaching_schedule_updates').send({
-        type: 'broadcast',
-        event: 'minute-update',
-        payload: { time: new Date().toISOString() }
-      });
-    }, 60000); // Update once per minute
-    
-    // Also listen for any changes to reservations
+    // Clean up the timer on unmount
+    return () => {
+      if (filterTimerRef.current !== null) {
+        window.clearTimeout(filterTimerRef.current);
+      }
+    };
+  }, [reservations, debouncedFilterActiveReservations]);
+
+  // Setup real-time updates with optimized channel management
+  useEffect(() => {
+    // Set up reservation changes subscription - single channel, optimized
     const reservationsChannel = supabase
-      .channel('teaching_reservations_updates')
+      .channel('teaching_schedule_optimized')
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'room_reservations'
       }, () => {
-        filterActiveReservations();
+        debouncedFilterActiveReservations();
       })
       .subscribe();
     
+    // Use a more reasonable interval for time-based checks - every minute
+    const periodicUpdateInterval = setInterval(() => {
+      debouncedFilterActiveReservations();
+    }, 60000);
+    
+    // Clean up subscriptions
     return () => {
-      clearInterval(broadcastInterval);
-      supabase.removeChannel(minuteUpdatesChannel);
       supabase.removeChannel(reservationsChannel);
+      clearInterval(periodicUpdateInterval);
     };
-  }, [reservations]);
+  }, [debouncedFilterActiveReservations]);
 
+  // Clean up completed reservations
   useEffect(() => {
-    // Clean up completed reservations automatically
     const checkAndDeleteCompletedReservations = async () => {
       const now = new Date();
       const expiredReservations = reservations.filter(booking => {
@@ -88,28 +101,34 @@ export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ reservations
         return endDateTime < now;
       });
       
-      // Delete expired reservations
-      for (const expired of expiredReservations) {
+      // Delete expired reservations efficiently with Promise.all
+      if (expiredReservations.length > 0) {
         try {
-          const { error } = await supabase
-            .from('room_reservations')
-            .delete()
-            .eq('id', expired.id);
-            
-          if (error) {
-            console.error(`Error automatically deleting expired reservation ${expired.id}:`, error);
-          } else {
-            console.log(`Automatically deleted expired reservation ${expired.id}`);
-          }
-        } catch (err) {
-          console.error(`Error processing expired reservation ${expired.id}:`, err);
+          await Promise.all(expiredReservations.map(async (expired) => {
+            try {
+              const { error } = await supabase
+                .from('room_reservations')
+                .delete()
+                .eq('id', expired.id);
+                
+              if (error) {
+                console.error(`Error automatically deleting expired reservation ${expired.id}:`, error);
+              } else {
+                console.log(`Automatically deleted expired reservation ${expired.id}`);
+              }
+            } catch (err) {
+              console.error(`Error processing expired reservation ${expired.id}:`, err);
+            }
+          }));
+        } catch (error) {
+          console.error("Error in batch reservation deletion:", error);
         }
       }
     };
     
-    // Run on mount and when reservations change
+    // Only run once when component mounts
     checkAndDeleteCompletedReservations();
-  }, [reservations]);
+  }, []); // Empty dependency array - run only on mount
 
   const handleCancelClick = (reservation: Reservation) => {
     setSelectedReservation(reservation);
@@ -134,11 +153,14 @@ export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ reservations
         description: "Your room reservation has been cancelled successfully.",
       });
       
+      // Update local state for immediate UI update (optimistic UI)
+      setFilteredReservations(prev => 
+        prev.filter(r => r.id !== selectedReservation.id)
+      );
+      
       // Close dialog
       setIsCancelDialogOpen(false);
       setSelectedReservation(null);
-      
-      // No need to refresh here as the parent component will handle this through realtime subscription
     } catch (error) {
       console.error("Error cancelling reservation:", error);
       toast({
