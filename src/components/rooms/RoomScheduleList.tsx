@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { X } from 'lucide-react';
@@ -24,21 +25,13 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
     const scheduleDate = new Date(schedule.date);
     const today = new Date();
     
-    // If schedule date is in the future, keep it
-    if (scheduleDate > today) return true;
+    // Date objects for comparison of the full date+time
+    const [endHours, endMinutes] = schedule.endTime.split(':').map(Number);
+    const endDateTime = new Date(scheduleDate);
+    endDateTime.setHours(endHours, endMinutes, 0, 0);
     
-    // If schedule date is today, check if end time has passed
-    if (scheduleDate.toDateString() === today.toDateString()) {
-      const [endHours, endMinutes] = schedule.endTime.split(':').map(Number);
-      const endScheduleTime = new Date();
-      endScheduleTime.setHours(endHours, endMinutes, 0, 0);
-      
-      // Only show if end time hasn't passed yet
-      return endScheduleTime > today;
-    }
-    
-    // Schedule date is in the past
-    return false;
+    // Only show if end time hasn't passed yet
+    return endDateTime > today;
   });
   
   // Handle click internally to manage the event

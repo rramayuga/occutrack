@@ -1,10 +1,10 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { CheckCircle, X } from 'lucide-react';
 import { Reservation } from '@/lib/types';
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
@@ -16,6 +16,40 @@ export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ reservations
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const { toast } = useToast();
+  const refreshIntervalRef = useRef<number | null>(null);
+  const [filteredReservations, setFilteredReservations] = useState<Reservation[]>(reservations);
+
+  // Filter out completed reservations
+  const filterActiveReservations = () => {
+    const now = new Date();
+    const active = reservations.filter(booking => {
+      const bookingDate = new Date(booking.date);
+      const [endHour, endMinute] = booking.endTime.split(':').map(Number);
+      
+      const endDateTime = new Date(bookingDate);
+      endDateTime.setHours(endHour, endMinute, 0, 0);
+      
+      return endDateTime > now;
+    });
+    
+    setFilteredReservations(active);
+  };
+
+  useEffect(() => {
+    // Initial filter
+    filterActiveReservations();
+    
+    // Set up interval to filter reservations every second
+    refreshIntervalRef.current = window.setInterval(() => {
+      filterActiveReservations();
+    }, 1000);
+    
+    return () => {
+      if (refreshIntervalRef.current !== null) {
+        clearInterval(refreshIntervalRef.current);
+      }
+    };
+  }, [reservations]);
 
   const handleCancelClick = (reservation: Reservation) => {
     setSelectedReservation(reservation);
@@ -64,8 +98,8 @@ export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ reservations
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {reservations.length > 0 ? (
-              reservations.map((booking) => {
+            {filteredReservations.length > 0 ? (
+              filteredReservations.map((booking) => {
                 // Determine if the booking is currently active
                 const now = new Date();
                 const bookingDate = new Date(booking.date);

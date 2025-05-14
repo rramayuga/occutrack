@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+
+import { useState, useEffect, useRef } from 'react';
 import { Reservation } from '@/lib/types';
 import { useAuth } from '@/lib/auth';
 import { useToast } from "@/hooks/use-toast";
@@ -9,6 +10,7 @@ export const useRoomSchedules = (roomId: string, roomName: string) => {
   const [showSchedules, setShowSchedules] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
+  const refreshIntervalRef = useRef<number | null>(null);
 
   const fetchRoomSchedules = async () => {
     try {
@@ -37,18 +39,32 @@ export const useRoomSchedules = (roomId: string, roomName: string) => {
       }
       
       if (data) {
-        const reservations: Reservation[] = data.map(item => ({
-          id: item.id,
-          roomId: roomId,
-          roomNumber: roomName,
-          building: '',
-          date: item.date,
-          startTime: item.start_time,
-          endTime: item.end_time,
-          purpose: item.purpose || '',
-          status: item.status,
-          faculty: item.profiles?.name || "Unknown Faculty"
-        }));
+        // Current date and time for filtering
+        const now = new Date();
+        
+        const reservations: Reservation[] = data
+          .map(item => ({
+            id: item.id,
+            roomId: roomId,
+            roomNumber: roomName,
+            building: '',
+            date: item.date,
+            startTime: item.start_time,
+            endTime: item.end_time,
+            purpose: item.purpose || '',
+            status: item.status,
+            faculty: item.profiles?.name || "Unknown Faculty"
+          }))
+          .filter(reservation => {
+            // Check if the reservation is still active (not ended)
+            const reservationDate = new Date(reservation.date);
+            const [endHour, endMinute] = reservation.endTime.split(':').map(Number);
+            
+            const endDateTime = new Date(reservationDate);
+            endDateTime.setHours(endHour, endMinute, 0, 0);
+            
+            return endDateTime > now;
+          });
         
         setRoomSchedules(reservations);
         
@@ -86,7 +102,35 @@ export const useRoomSchedules = (roomId: string, roomName: string) => {
   };
 
   useEffect(() => {
+    // Initial fetch
     fetchRoomSchedules();
+    
+    // Set up real-time subscription for this room's reservations
+    const roomReservationChannel = supabase
+      .channel(`room_${roomId}_reservations`)
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'room_reservations',
+        filter: `room_id=eq.${roomId}`
+      }, () => {
+        fetchRoomSchedules();
+      })
+      .subscribe();
+    
+    // Set up a frequent refresh interval (every 2 seconds)
+    // This catches any reservations that may have expired
+    refreshIntervalRef.current = window.setInterval(() => {
+      fetchRoomSchedules();
+    }, 2000);
+    
+    return () => {
+      // Clean up subscription and interval
+      supabase.removeChannel(roomReservationChannel);
+      if (refreshIntervalRef.current !== null) {
+        clearInterval(refreshIntervalRef.current);
+      }
+    };
   }, [roomId]);
 
   const handleToggleSchedules = () => {

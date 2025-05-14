@@ -1,5 +1,5 @@
 
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Room, RoomStatus } from '@/lib/types';
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/lib/auth';
@@ -8,88 +8,121 @@ import { useToast } from "@/hooks/use-toast";
 export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (roomId: string, isAvailable: boolean, status: RoomStatus) => void) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [reservations, setReservations] = useState<any[]>([]);
+  const refreshIntervalRef = useRef<number | null>(null);
 
-  useEffect(() => {
-    const updateRoomStatusBasedOnBookings = async () => {
-      if (!user) return;
+  // Function to check and update room statuses based on current time
+  const updateRoomStatusBasedOnBookings = async () => {
+    if (!user) return;
+    
+    try {
+      // Get current date and time with precision
+      const now = new Date();
+      const currentDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
+      const currentTime = now.toTimeString().split(' ')[0].slice(0, 5); // HH:MM
       
-      try {
-        // Get current date and time
-        const now = new Date();
-        const currentDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
-        const currentTime = now.toTimeString().split(' ')[0].slice(0, 5); // HH:MM
+      console.log(`Checking reservations at ${currentDate} ${currentTime}`);
+      
+      // Fetch all of today's reservations (both past and upcoming)
+      const { data: todayReservations, error } = await supabase
+        .from('room_reservations')
+        .select('*')
+        .eq('date', currentDate);
+      
+      if (error) throw error;
+      
+      if (todayReservations) {
+        setReservations(todayReservations);
+        console.log('Found reservations for today:', todayReservations.length);
         
-        console.log(`Checking reservations at ${currentDate} ${currentTime}`);
-        
-        // Fetch today's reservations
-        const { data: reservations, error } = await supabase
-          .from('room_reservations')
-          .select('*')
-          .eq('date', currentDate);
-        
-        if (error) throw error;
-        
-        if (reservations && reservations.length > 0) {
-          console.log('Found reservations for today:', reservations.length);
+        for (const reservation of todayReservations) {
+          const startTime = reservation.start_time;
+          const endTime = reservation.end_time;
           
-          for (const reservation of reservations) {
-            const startTime = reservation.start_time;
-            const endTime = reservation.end_time;
+          // Check if current time is between start and end times (inclusive of start time)
+          const isActive = currentTime >= startTime && currentTime < endTime;
+          
+          // Find the room
+          const roomToUpdate = rooms.find(r => r.id === reservation.room_id);
+          
+          if (roomToUpdate) {
+            // Skip rooms under maintenance - they should not be changed by reservations
+            if (roomToUpdate.status === 'maintenance') {
+              console.log(`Room ${roomToUpdate.name} is under maintenance, skipping status update`);
+              continue;
+            }
             
-            // Check if current time is between start and end times
-            const isActive = currentTime >= startTime && currentTime < endTime;
+            // Determine if the room status needs to be updated based on reservation time
+            const shouldBeOccupied = isActive;
+            const shouldBeAvailable = !isActive;
             
-            // Find the room
-            const roomToUpdate = rooms.find(r => r.id === reservation.room_id);
-            
-            if (roomToUpdate) {
-              // Skip rooms under maintenance - they should not be changed by reservations
-              if (roomToUpdate.status === 'maintenance') {
-                console.log(`Room ${roomToUpdate.name} is under maintenance, skipping status update`);
-                continue;
-              }
+            // Only update if status needs to change
+            if ((shouldBeOccupied && roomToUpdate.status !== 'occupied') || 
+                (shouldBeAvailable && roomToUpdate.status !== 'available')) {
               
-              // Determine if the room status needs to be updated based on reservation time
-              const shouldBeOccupied = isActive;
-              const shouldBeAvailable = !isActive;
+              const newStatus = shouldBeOccupied ? 'occupied' : 'available';
+              const isAvailable = newStatus === 'available';
               
-              // Only update if status needs to change
-              if ((shouldBeOccupied && roomToUpdate.status !== 'occupied') || 
-                  (shouldBeAvailable && roomToUpdate.status !== 'available')) {
-                
-                const newStatus = shouldBeOccupied ? 'occupied' : 'available';
-                const isAvailable = newStatus === 'available';
-                
-                console.log(`Room ${roomToUpdate.name} status automatically updating to ${newStatus} based on reservation time`);
-                updateRoomAvailability(reservation.room_id, isAvailable, newStatus);
-                
-                // Show toast notification for automatic status changes
-                if (shouldBeOccupied) {
-                  toast({
-                    title: "Room Now Occupied",
-                    description: `${roomToUpdate.name} is now occupied due to a scheduled reservation.`,
-                  });
-                } else {
-                  toast({
-                    title: "Room Now Available",
-                    description: `${roomToUpdate.name} is now available as the reservation period has ended.`,
-                  });
-                }
+              console.log(`Room ${roomToUpdate.name} status automatically updating to ${newStatus} based on reservation time`);
+              updateRoomAvailability(reservation.room_id, isAvailable, newStatus);
+              
+              // Show toast notification for automatic status changes
+              if (shouldBeOccupied) {
+                toast({
+                  title: "Room Now Occupied",
+                  description: `${roomToUpdate.name} is now occupied due to a scheduled reservation.`,
+                });
+              } else if (reservation.start_time < currentTime) {
+                // Only show "now available" toast if the reservation has actually ended
+                toast({
+                  title: "Room Now Available",
+                  description: `${roomToUpdate.name} is now available as the reservation period has ended.`,
+                });
               }
             }
           }
         }
-      } catch (error) {
-        console.error("Error updating room status based on reservations:", error);
+      }
+    } catch (error) {
+      console.error("Error updating room status based on reservations:", error);
+    }
+  };
+
+  // Set up subscription for real-time updates to room_reservations
+  useEffect(() => {
+    const reservationChannel = supabase
+      .channel('reservation_updates')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'room_reservations' 
+      }, () => {
+        // When any reservation changes, update statuses
+        updateRoomStatusBasedOnBookings();
+      })
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(reservationChannel);
+    };
+  }, [rooms, updateRoomAvailability]);
+
+  // Update room status on load and very frequently
+  useEffect(() => {
+    // Run immediately on component mount
+    updateRoomStatusBasedOnBookings();
+    
+    // Set a short interval (1 second) for precise status updates
+    refreshIntervalRef.current = window.setInterval(() => {
+      updateRoomStatusBasedOnBookings();
+    }, 1000);
+    
+    return () => {
+      if (refreshIntervalRef.current !== null) {
+        clearInterval(refreshIntervalRef.current);
       }
     };
+  }, [rooms, user, updateRoomAvailability]);
 
-    // Update room status on load and every minute
-    updateRoomStatusBasedOnBookings();
-    const intervalId = setInterval(updateRoomStatusBasedOnBookings, 60000);
-    
-    return () => clearInterval(intervalId);
-  }, [rooms, user, updateRoomAvailability, toast]);
-
-  return null; // This hook doesn't need to return anything
+  return { reservations };
 }

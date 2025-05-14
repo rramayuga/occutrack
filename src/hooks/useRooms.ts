@@ -5,6 +5,7 @@ import { useRoomFetching } from './rooms/useRoomFetching';
 import { useRoomUpdater } from './rooms/useRoomUpdater';
 import { useRoomSubscriptions } from './rooms/useRoomSubscriptions';
 import { useRoomReservationCheck } from './useRoomReservationCheck';
+import { useStatusUpdater } from './useStatusUpdater';
 
 /**
  * Main hook for managing room data and operations
@@ -43,6 +44,9 @@ export function useRooms() {
   
   // Check and update rooms based on reservations
   useRoomReservationCheck(rooms, updateRoomAvailability);
+  
+  // Additional aggressive status updater
+  useStatusUpdater(rooms, updateRoomAvailability);
 
   // Set up subscriptions on component mount
   useEffect(() => {
