@@ -21,7 +21,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user }
   useEffect(() => {
     // Set up real-time subscription for announcements
     const announcementsChannel = supabase
-      .channel('announcements_changes')
+      .channel('public:announcements')
       .on('postgres_changes', 
           { 
             event: '*', 

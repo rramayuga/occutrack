@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import Navbar from '@/components/layout/Navbar';
@@ -54,14 +53,15 @@ const AnnouncementsManager: React.FC = () => {
   useEffect(() => {
     fetchAnnouncements();
     
-    // Set up realtime subscription
+    // Set up realtime subscription with consistent channel name
     const announcementsChannel = supabase
-      .channel('announcements-changes')
+      .channel('public:announcements')
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
         table: 'announcements' 
       }, () => {
+        console.log('Realtime update for announcements detected');
         fetchAnnouncements();
       })
       .subscribe();
@@ -119,18 +119,20 @@ const AnnouncementsManager: React.FC = () => {
 
   const handleAddAnnouncement = async () => {
     if (user) {
+      console.log('Creating announcement:', { title, content, userId: user.id });
       const result = await createAnnouncement(title, content, user.id);
       if (result) {
+        console.log('Announcement created successfully:', result);
         setTitle('');
         setContent('');
         setIsAddDialogOpen(false);
-        fetchAnnouncements();
       }
     }
   };
 
   const handleEditAnnouncement = async () => {
     if (selectedAnnouncement) {
+      console.log('Updating announcement:', { id: selectedAnnouncement.id, title, content });
       const success = await updateAnnouncement(
         selectedAnnouncement.id,
         title,
@@ -138,23 +140,24 @@ const AnnouncementsManager: React.FC = () => {
       );
       
       if (success) {
+        console.log('Announcement updated successfully');
         setIsEditDialogOpen(false);
         setSelectedAnnouncement(null);
         setTitle('');
         setContent('');
-        fetchAnnouncements();
       }
     }
   };
 
   const handleDeleteConfirm = async () => {
     if (selectedAnnouncement) {
+      console.log('Deleting announcement:', selectedAnnouncement.id);
       const success = await deleteAnnouncement(selectedAnnouncement.id);
       
       if (success) {
+        console.log('Announcement deleted successfully');
         setIsDeleteDialogOpen(false);
         setSelectedAnnouncement(null);
-        fetchAnnouncements();
       }
     }
   };

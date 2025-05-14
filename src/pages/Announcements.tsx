@@ -32,7 +32,7 @@ const Announcements = () => {
   useEffect(() => {
     fetchAnnouncements();
     
-    // Set up realtime subscription to announcements table
+    // Set up realtime subscription to announcements table with consistent channel name
     const announcementsChannel = supabase
       .channel('public:announcements')
       .on('postgres_changes', { 
@@ -40,6 +40,7 @@ const Announcements = () => {
         schema: 'public', 
         table: 'announcements' 
       }, () => {
+        console.log('Realtime update for announcements detected in Announcements.tsx');
         fetchAnnouncements();
       })
       .subscribe();
