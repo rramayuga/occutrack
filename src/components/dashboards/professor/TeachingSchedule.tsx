@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { CheckCircle, X } from 'lucide-react';
 import { Reservation } from '@/lib/types';
@@ -15,7 +16,6 @@ export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ reservations
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const { toast } = useToast();
-  const refreshIntervalRef = useRef<number | null>(null);
   const [filteredReservations, setFilteredReservations] = useState<Reservation[]>(reservations);
 
   // Filter out completed reservations
@@ -38,15 +38,39 @@ export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ reservations
     // Initial filter
     filterActiveReservations();
     
-    // Set up interval to filter reservations every 5 seconds instead of every second
-    refreshIntervalRef.current = window.setInterval(() => {
-      filterActiveReservations();
-    }, 5000); // Changed from 1000 to 5000
+    // Set up real-time monitoring
+    const minuteUpdatesChannel = supabase
+      .channel('teaching_schedule_updates')
+      .on('broadcast', { event: 'minute-update' }, () => {
+        filterActiveReservations();
+      })
+      .subscribe();
+    
+    // Broadcast minute updates
+    const broadcastInterval = setInterval(() => {
+      supabase.channel('teaching_schedule_updates').send({
+        type: 'broadcast',
+        event: 'minute-update',
+        payload: { time: new Date().toISOString() }
+      });
+    }, 60000); // Update once per minute
+    
+    // Also listen for any changes to reservations
+    const reservationsChannel = supabase
+      .channel('teaching_reservations_updates')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'room_reservations'
+      }, () => {
+        filterActiveReservations();
+      })
+      .subscribe();
     
     return () => {
-      if (refreshIntervalRef.current !== null) {
-        clearInterval(refreshIntervalRef.current);
-      }
+      clearInterval(broadcastInterval);
+      supabase.removeChannel(minuteUpdatesChannel);
+      supabase.removeChannel(reservationsChannel);
     };
   }, [reservations]);
 

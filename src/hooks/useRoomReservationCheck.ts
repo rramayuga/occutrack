@@ -9,7 +9,6 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
   const { user } = useAuth();
   const { toast } = useToast();
   const [reservations, setReservations] = useState<any[]>([]);
-  const refreshIntervalRef = useRef<number | null>(null);
   const lastUpdateRef = useRef<Record<string, string>>({});
 
   // Function to check and update room statuses based on current time
@@ -101,6 +100,10 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
 
   // Set up subscription for real-time updates to room_reservations
   useEffect(() => {
+    // Run immediately on component mount
+    updateRoomStatusBasedOnBookings();
+    
+    // Set up subscriptions
     const reservationChannel = supabase
       .channel('reservation_updates')
       .on('postgres_changes', { 
@@ -113,25 +116,27 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
       })
       .subscribe();
     
+    // Set up subscription for current time changes
+    const minuteTickerChannel = supabase
+      .channel('time_updates')
+      .on('broadcast', { event: 'minute-tick' }, () => {
+        updateRoomStatusBasedOnBookings();
+      })
+      .subscribe();
+    
+    // Setup a broadcast every minute to handle time-based updates
+    const broadcastTimeUpdates = setInterval(() => {
+      supabase.channel('time_updates').send({
+        type: 'broadcast',
+        event: 'minute-tick',
+        payload: { time: new Date().toISOString() }
+      });
+    }, 60000); // Check once per minute
+    
     return () => {
       supabase.removeChannel(reservationChannel);
-    };
-  }, [rooms, updateRoomAvailability]);
-
-  // Update room status on load and less frequently
-  useEffect(() => {
-    // Run immediately on component mount
-    updateRoomStatusBasedOnBookings();
-    
-    // Set a longer interval (5 seconds) for status updates to prevent excessive refreshing
-    refreshIntervalRef.current = window.setInterval(() => {
-      updateRoomStatusBasedOnBookings();
-    }, 5000); // Changed from 1000 to 5000
-    
-    return () => {
-      if (refreshIntervalRef.current !== null) {
-        clearInterval(refreshIntervalRef.current);
-      }
+      supabase.removeChannel(minuteTickerChannel);
+      clearInterval(broadcastTimeUpdates);
     };
   }, [rooms, user, updateRoomAvailability]);
 

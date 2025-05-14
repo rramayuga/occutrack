@@ -8,7 +8,6 @@ import { useToast } from '@/components/ui/use-toast';
  * Hook specifically dedicated to checking and updating room status based on current time
  */
 export function useStatusUpdater(rooms: Room[], updateRoomAvailability: (roomId: string, isAvailable: boolean, status: RoomStatus) => void) {
-  const intervalRef = useRef<number | null>(null);
   const { toast } = useToast();
   const lastUpdateRef = useRef<Record<string, string>>({});
 
@@ -95,16 +94,33 @@ export function useStatusUpdater(rooms: Room[], updateRoomAvailability: (roomId:
     // Run immediately on mount
     updateRoomStatuses();
     
-    // Set interval to run every 5 seconds instead of every 1 second
-    intervalRef.current = window.setInterval(() => {
-      updateRoomStatuses();
-    }, 5000); // Changed from 1000 to 5000
+    // Set up real-time subscription for room_reservations table
+    const roomReservationChannel = supabase
+      .channel('room_status_updates')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'room_reservations'
+      }, () => {
+        updateRoomStatuses();
+      })
+      .subscribe();
+    
+    // Set up real-time subscription for room table
+    const roomChannel = supabase
+      .channel('status_room_updates')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'rooms'
+      }, () => {
+        updateRoomStatuses();
+      })
+      .subscribe();
     
     return () => {
-      if (intervalRef.current !== null) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
+      supabase.removeChannel(roomReservationChannel);
+      supabase.removeChannel(roomChannel);
     };
   }, [rooms]);
 }

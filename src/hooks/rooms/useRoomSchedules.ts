@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Reservation } from '@/lib/types';
 import { useAuth } from '@/lib/auth';
 import { useToast } from "@/components/ui/use-toast";
@@ -10,7 +10,6 @@ export const useRoomSchedules = (roomId: string, roomName: string) => {
   const [showSchedules, setShowSchedules] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
-  const refreshIntervalRef = useRef<number | null>(null);
 
   const fetchRoomSchedules = async () => {
     try {
@@ -118,17 +117,9 @@ export const useRoomSchedules = (roomId: string, roomName: string) => {
       })
       .subscribe();
     
-    // Set up a less frequent refresh interval (5 seconds)
-    refreshIntervalRef.current = window.setInterval(() => {
-      fetchRoomSchedules();
-    }, 5000); // Changed from 2000 to 5000
-    
     return () => {
-      // Clean up subscription and interval
+      // Clean up subscription
       supabase.removeChannel(roomReservationChannel);
-      if (refreshIntervalRef.current !== null) {
-        clearInterval(refreshIntervalRef.current);
-      }
     };
   }, [roomId]);
 
