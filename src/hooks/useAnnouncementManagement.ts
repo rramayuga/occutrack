@@ -31,7 +31,12 @@ export const useAnnouncementManagement = () => {
         .select('*')
         .single();
         
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error creating announcement:', error);
+        throw error;
+      }
+      
+      console.log('Announcement created successfully:', data);
       
       toast({
         title: "Success",
@@ -74,7 +79,12 @@ export const useAnnouncementManagement = () => {
         })
         .eq('id', id);
         
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error updating announcement:', error);
+        throw error;
+      }
+      
+      console.log('Announcement updated successfully');
       
       toast({
         title: "Success",
@@ -104,7 +114,12 @@ export const useAnnouncementManagement = () => {
         .delete()
         .eq('id', id);
         
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error deleting announcement:', error);
+        throw error;
+      }
+      
+      console.log('Announcement deleted successfully');
       
       toast({
         title: "Success",
