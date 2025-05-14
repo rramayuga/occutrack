@@ -1,8 +1,9 @@
+
 import * as React from "react"
 import { ToastActionElement, ToastProps } from "@/components/ui/toast"
 
-const TOAST_LIMIT = 5
-const TOAST_REMOVE_DELAY = 1000000
+const TOAST_LIMIT = 1  // Limit to just 1 toast at a time to prevent stacking
+const TOAST_REMOVE_DELAY = 5000  // 5 seconds auto-dismiss time
 
 type ToasterToastProps = ToastProps & {
   id: string
@@ -145,6 +146,13 @@ function toast(props: Toast) {
     })
   const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id })
 
+  // Automatically dismiss toast after the specified delay
+  const autoDismiss = () => {
+    setTimeout(() => {
+      dismiss();
+    }, TOAST_REMOVE_DELAY - 1000); // Dismiss slightly before removal
+  };
+
   dispatch({
     type: "ADD_TOAST",
     toast: {
@@ -156,6 +164,9 @@ function toast(props: Toast) {
       },
     },
   })
+  
+  // Start auto-dismiss timer
+  autoDismiss();
 
   return {
     id,
