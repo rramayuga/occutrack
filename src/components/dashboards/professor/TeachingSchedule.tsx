@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { CheckCircle, X } from 'lucide-react';
 import { Reservation } from '@/lib/types';
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
@@ -39,10 +38,10 @@ export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ reservations
     // Initial filter
     filterActiveReservations();
     
-    // Set up interval to filter reservations every second
+    // Set up interval to filter reservations every 5 seconds instead of every second
     refreshIntervalRef.current = window.setInterval(() => {
       filterActiveReservations();
-    }, 1000);
+    }, 5000); // Changed from 1000 to 5000
     
     return () => {
       if (refreshIntervalRef.current !== null) {

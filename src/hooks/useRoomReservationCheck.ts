@@ -3,13 +3,14 @@ import { useEffect, useRef, useState } from 'react';
 import { Room, RoomStatus } from '@/lib/types';
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/lib/auth';
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from '@/components/ui/use-toast';
 
 export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (roomId: string, isAvailable: boolean, status: RoomStatus) => void) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [reservations, setReservations] = useState<any[]>([]);
   const refreshIntervalRef = useRef<number | null>(null);
+  const lastUpdateRef = useRef<Record<string, string>>({});
 
   // Function to check and update room statuses based on current time
   const updateRoomStatusBasedOnBookings = async () => {
@@ -56,6 +57,9 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
             const shouldBeOccupied = isActive;
             const shouldBeAvailable = !isActive;
             
+            // Generate a key for this room status update
+            const updateKey = `${roomToUpdate.id}-${shouldBeOccupied ? 'occupied' : 'available'}`;
+            
             // Only update if status needs to change
             if ((shouldBeOccupied && roomToUpdate.status !== 'occupied') || 
                 (shouldBeAvailable && roomToUpdate.status !== 'available')) {
@@ -64,20 +68,27 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
               const isAvailable = newStatus === 'available';
               
               console.log(`Room ${roomToUpdate.name} status automatically updating to ${newStatus} based on reservation time`);
-              updateRoomAvailability(reservation.room_id, isAvailable, newStatus);
               
-              // Show toast notification for automatic status changes
-              if (shouldBeOccupied) {
-                toast({
-                  title: "Room Now Occupied",
-                  description: `${roomToUpdate.name} is now occupied due to a scheduled reservation.`,
-                });
-              } else if (reservation.start_time < currentTime) {
-                // Only show "now available" toast if the reservation has actually ended
-                toast({
-                  title: "Room Now Available",
-                  description: `${roomToUpdate.name} is now available as the reservation period has ended.`,
-                });
+              // Check if we've already shown this toast today
+              if (lastUpdateRef.current[updateKey] !== currentDate) {
+                updateRoomAvailability(reservation.room_id, isAvailable, newStatus);
+                
+                // Show toast notification for automatic status changes
+                if (shouldBeOccupied) {
+                  toast({
+                    title: "Room Now Occupied",
+                    description: `${roomToUpdate.name} is now occupied due to a scheduled reservation.`,
+                  });
+                } else if (reservation.start_time < currentTime) {
+                  // Only show "now available" toast if the reservation has actually ended
+                  toast({
+                    title: "Room Now Available",
+                    description: `${roomToUpdate.name} is now available as the reservation period has ended.`,
+                  });
+                }
+                
+                // Remember we showed this toast today
+                lastUpdateRef.current[updateKey] = currentDate;
               }
             }
           }
@@ -107,15 +118,15 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
     };
   }, [rooms, updateRoomAvailability]);
 
-  // Update room status on load and very frequently
+  // Update room status on load and less frequently
   useEffect(() => {
     // Run immediately on component mount
     updateRoomStatusBasedOnBookings();
     
-    // Set a short interval (1 second) for precise status updates
+    // Set a longer interval (5 seconds) for status updates to prevent excessive refreshing
     refreshIntervalRef.current = window.setInterval(() => {
       updateRoomStatusBasedOnBookings();
-    }, 1000);
+    }, 5000); // Changed from 1000 to 5000
     
     return () => {
       if (refreshIntervalRef.current !== null) {

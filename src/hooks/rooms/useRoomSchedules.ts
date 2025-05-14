@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Reservation } from '@/lib/types';
 import { useAuth } from '@/lib/auth';
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 export const useRoomSchedules = (roomId: string, roomName: string) => {
@@ -118,11 +118,10 @@ export const useRoomSchedules = (roomId: string, roomName: string) => {
       })
       .subscribe();
     
-    // Set up a frequent refresh interval (every 2 seconds)
-    // This catches any reservations that may have expired
+    // Set up a less frequent refresh interval (5 seconds)
     refreshIntervalRef.current = window.setInterval(() => {
       fetchRoomSchedules();
-    }, 2000);
+    }, 5000); // Changed from 2000 to 5000
     
     return () => {
       // Clean up subscription and interval
