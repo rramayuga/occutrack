@@ -1,254 +1,235 @@
-
-import React from 'react';
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import React, { useState, useEffect } from 'react';
+import { Building, Room, ReservationFormValues } from '@/lib/types';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { BookOpen } from 'lucide-react';
-import { BuildingWithFloors, Room, ReservationFormValues } from '@/lib/types';
-
-// Define the booking form schema with building and room selection
-const bookingFormSchema = z.object({
-  building: z.string().min(1, { message: "Building is required" }),
-  roomNumber: z.string().min(1, { message: "Room number is required" }),
-  date: z.string().min(1, { message: "Date is required" }),
-  startTime: z.string().min(1, { message: "Start time is required" }),
-  endTime: z.string().min(1, { message: "End time is required" }),
-  purpose: z.string().min(1, { message: "Purpose is required" }).max(200, { message: "Purpose must be 200 characters or less" }),
-});
-
-type BookingFormValues = z.infer<typeof bookingFormSchema>;
+import { useToast } from "@/hooks/use-toast";
 
 interface RoomBookingDialogProps {
-  buildings: BuildingWithFloors[];
+  buildings: Building[];
   rooms: Room[];
-  createReservation: (data: ReservationFormValues, roomId: string) => Promise<any>;
+  createReservation: (values: ReservationFormValues, roomId: string) => Promise<any>;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({ 
-  buildings, 
-  rooms, 
-  createReservation, 
-  isOpen, 
-  onOpenChange 
+export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
+  buildings,
+  rooms,
+  createReservation,
+  isOpen,
+  onOpenChange
 }) => {
-  const [selectedBuilding, setSelectedBuilding] = React.useState("");
-  const [selectedRoomId, setSelectedRoomId] = React.useState("");
+  const [selectedBuilding, setSelectedBuilding] = useState<string>('');
+  const [selectedRoom, setSelectedRoom] = useState<string>('');
+  const [date, setDate] = useState<string>('');
+  const [startTime, setStartTime] = useState<string>('');
+  const [endTime, setEndTime] = useState<string>('');
+  const [purpose, setPurpose] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
   
-  const form = useForm<BookingFormValues>({
-    resolver: zodResolver(bookingFormSchema),
-    defaultValues: {
-      building: "",
-      roomNumber: "",
-      date: "",
-      startTime: "",
-      endTime: "",
-      purpose: "",
-    },
-  });
-
-  // Handle building selection
-  const handleBuildingChange = (value: string) => {
-    const building = buildings.find(b => b.name === value);
-    if (building) {
-      form.setValue('building', value);
-      setSelectedBuilding(building.id);
-      // Reset room selection when building changes
-      form.setValue('roomNumber', '');
-      setSelectedRoomId("");
+  // Reset form when dialog opens or closes
+  useEffect(() => {
+    if (!isOpen) {
+      // Reset form after closing
+      setTimeout(() => {
+        setSelectedBuilding('');
+        setSelectedRoom('');
+        setDate('');
+        setStartTime('');
+        setEndTime('');
+        setPurpose('');
+      }, 200);
     }
-  };
+  }, [isOpen]);
+  
+  // Sort rooms alphabetically/numerically for display
+  const sortedRooms = React.useMemo(() => {
+    return [...rooms]
+      .filter(room => room.buildingId === selectedBuilding)
+      .sort((a, b) => {
+        // Extract numeric part if room names follow a pattern like "Room 101"
+        const aMatch = a.name.match(/(\d+)/);
+        const bMatch = b.name.match(/(\d+)/);
+        
+        if (aMatch && bMatch) {
+          // If both room names contain numbers, sort numerically
+          const aNum = parseInt(aMatch[0], 10);
+          const bNum = parseInt(bMatch[0], 10);
+          return aNum - bNum;
+        }
+        
+        // Otherwise sort alphabetically
+        return a.name.localeCompare(b.name);
+      });
+  }, [rooms, selectedBuilding]);
 
-  // Handle room selection
-  const handleRoomChange = (roomName: string) => {
-    const room = getBuildingRooms().find(r => r.name === roomName);
-    if (room) {
-      form.setValue('roomNumber', roomName);
-      setSelectedRoomId(room.id);
-    }
-  };
+  // Sort buildings for display
+  const sortedBuildings = React.useMemo(() => {
+    return [...buildings].sort((a, b) => a.name.localeCompare(b.name));
+  }, [buildings]);
 
-  // Get room options for selected building
-  const getBuildingRooms = () => {
-    // If no building is selected, return empty array
-    if (!selectedBuilding) return [];
+  const selectedBuildingName = buildings.find(b => b.id === selectedBuilding)?.name || '';
+  const selectedRoomName = rooms.find(r => r.id === selectedRoom)?.name || '';
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     
-    // Get rooms for the building
-    return rooms.filter(room => room.buildingId === selectedBuilding);
-  };
-
-  const onSubmit = async (data: BookingFormValues) => {
-    console.log("Booking submitted:", data, "Room ID:", selectedRoomId);
-    
-    if (!selectedRoomId) {
-      form.setError("roomNumber", { 
-        type: "manual", 
-        message: "Invalid room selection" 
+    if (!selectedBuilding || !selectedRoom || !date || !startTime || !endTime) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields.",
+        variant: "destructive"
       });
       return;
     }
     
-    // Ensure we're passing a complete ReservationFormValues object
-    const reservationData: ReservationFormValues = {
-      building: data.building,
-      roomNumber: data.roomNumber,
-      date: data.date,
-      startTime: data.startTime,
-      endTime: data.endTime,
-      purpose: data.purpose
-    };
+    // Simple validation for time format
+    const timePattern = /^([01][0-9]|2[0-3]):[0-5][0-9]$/; // HH:MM format
+    if (!timePattern.test(startTime) || !timePattern.test(endTime)) {
+      toast({
+        title: "Time Format Error",
+        description: "Please use HH:MM format for times, e.g. 09:30",
+        variant: "destructive"
+      });
+      return;
+    }
     
-    const result = await createReservation(reservationData, selectedRoomId);
-    if (result) {
-      onOpenChange(false);
-      form.reset();
+    // Ensure start time is before end time
+    if (startTime >= endTime) {
+      toast({
+        title: "Time Error",
+        description: "End time must be after start time",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      const result = await createReservation({
+        building: selectedBuildingName,
+        roomNumber: selectedRoomName,
+        date,
+        startTime,
+        endTime,
+        purpose
+      }, selectedRoom);
+      
+      if (result) {
+        onOpenChange(false);
+      }
+    } catch (error) {
+      console.error("Room booking error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to book the room. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
-
+  
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
-        <Button className="mt-4 md:mt-0" size="lg">
-          <BookOpen className="mr-2 h-4 w-4" /> Book a Classroom
-        </Button>
+        <Button className="bg-primary">Book a Room</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Book a Classroom</DialogTitle>
-          <DialogDescription>
-            Enter the details of the room you want to book and the time slot.
-          </DialogDescription>
+          <DialogTitle>Book a Room</DialogTitle>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="building"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Building</FormLabel>
-                  <Select
-                    onValueChange={(value) => handleBuildingChange(value)}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a building" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {buildings.map((building) => (
-                        <SelectItem key={building.id} value={building.name}>
-                          {building.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="building">Building</Label>
+            <Select
+              value={selectedBuilding}
+              onValueChange={setSelectedBuilding}
+            >
+              <SelectTrigger id="building">
+                <SelectValue placeholder="Select building" />
+              </SelectTrigger>
+              <SelectContent>
+                {sortedBuildings.map((building) => (
+                  <SelectItem key={building.id} value={building.id}>
+                    {building.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="room">Room</Label>
+            <Select
+              value={selectedRoom}
+              onValueChange={setSelectedRoom}
+              disabled={!selectedBuilding}
+            >
+              <SelectTrigger id="room">
+                <SelectValue placeholder="Select room" />
+              </SelectTrigger>
+              <SelectContent>
+                {sortedRooms.map((room) => (
+                  <SelectItem key={room.id} value={room.id}>
+                    {room.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="date">Date</Label>
+            <Input
+              id="date"
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              min={new Date().toISOString().split('T')[0]}
             />
-            <FormField
-              control={form.control}
-              name="roomNumber"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Room</FormLabel>
-                  <Select
-                    onValueChange={(value) => handleRoomChange(value)}
-                    defaultValue={field.value}
-                    disabled={!selectedBuilding}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a room" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {getBuildingRooms().map((room) => (
-                        <SelectItem key={room.id} value={room.name}>
-                          {room.name} ({room.type})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="date"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Date</FormLabel>
-                  <FormControl>
-                    <Input type="date" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="startTime"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Start Time</FormLabel>
-                    <FormControl>
-                      <Input type="time" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="endTime"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>End Time</FormLabel>
-                    <FormControl>
-                      <Input type="time" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="startTime">Start Time</Label>
+              <Input
+                id="startTime"
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
               />
             </div>
-            <FormField
-              control={form.control}
-              name="purpose"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Purpose</FormLabel>
-                  <FormControl>
-                    <Textarea 
-                      placeholder="Describe why you need this room" 
-                      className="resize-none" 
-                      {...field} 
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Briefly describe the purpose of your booking.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
+            <div className="space-y-2">
+              <Label htmlFor="endTime">End Time</Label>
+              <Input
+                id="endTime"
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+              />
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="purpose">Purpose</Label>
+            <Input
+              id="purpose"
+              placeholder="e.g. Lecture, Meeting, Study Group"
+              value={purpose}
+              onChange={(e) => setPurpose(e.target.value)}
             />
-            <DialogFooter>
-              <Button type="submit">Book Room</Button>
-            </DialogFooter>
-          </form>
-        </Form>
+          </div>
+          
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? "Booking..." : "Book Room"}
+          </Button>
+        </form>
       </DialogContent>
     </Dialog>
   );
