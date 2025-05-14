@@ -1,12 +1,11 @@
-
 import * as React from "react"
-import { 
-  ToastActionElement, 
-  ToastProps 
+import {
+  type ToastActionElement,
+  type ToastProps,
 } from "@/components/ui/toast"
 
-const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 5000 // 5 seconds for auto-dismiss
+const TOAST_LIMIT = 5
+const TOAST_REMOVE_DELAY = 1000 * 60 * 5 // 5 minutes
 
 type ToasterToast = ToastProps & {
   id: string
@@ -34,11 +33,11 @@ type ActionType = typeof actionTypes
 type Action =
   | {
       type: ActionType["ADD_TOAST"]
-      toast: ToasterToast
+      toast: Omit<ToasterToast, "id">
     }
   | {
       type: ActionType["UPDATE_TOAST"]
-      toast: Partial<ToasterToast>
+      toast: Partial<ToasterToast> & { id: string }
     }
   | {
       type: ActionType["DISMISS_TOAST"]
@@ -74,16 +73,12 @@ const addToRemoveQueue = (toastId: string) => {
 export const reducer = (state: State, action: Action): State => {
   switch (action.type) {
     case "ADD_TOAST":
-      // Dismiss the existing toast if we're at the limit
-      if (state.toasts.length >= TOAST_LIMIT) {
-        state.toasts.forEach(toast => {
-          dispatch({ type: "DISMISS_TOAST", toastId: toast.id })
-        })
-      }
-      
       return {
         ...state,
-        toasts: [action.toast, ...state.toasts].slice(0, TOAST_LIMIT),
+        toasts: [
+          { id: genId(), ...action.toast },
+          ...state.toasts,
+        ].slice(0, TOAST_LIMIT),
       }
 
     case "UPDATE_TOAST":
@@ -133,7 +128,7 @@ export const reducer = (state: State, action: Action): State => {
   }
 }
 
-const listeners: ((state: State) => void)[] = []
+const listeners: Array<(state: State) => void> = []
 
 let memoryState: State = { toasts: [] }
 
@@ -149,13 +144,11 @@ type Toast = Omit<ToasterToast, "id">
 function toast({ ...props }: Toast) {
   const id = genId()
 
-  // Create the toast
   const update = (props: ToasterToast) =>
     dispatch({
       type: "UPDATE_TOAST",
       toast: { ...props, id },
     })
-  
   const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id })
 
   dispatch({
@@ -169,13 +162,6 @@ function toast({ ...props }: Toast) {
       },
     },
   })
-
-  // Auto-dismiss toast after a delay - NEW!
-  // We set this timeout slightly before the TOAST_REMOVE_DELAY to trigger
-  // the dismiss animation before the toast is removed from the DOM
-  setTimeout(() => {
-    dispatch({ type: "DISMISS_TOAST", toastId: id })
-  }, TOAST_REMOVE_DELAY - 300)
 
   return {
     id: id,
@@ -198,9 +184,9 @@ function useToast() {
   }, [state])
 
   return {
-    ...state,
     toast,
     dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
+    toasts: state.toasts,
   }
 }
 

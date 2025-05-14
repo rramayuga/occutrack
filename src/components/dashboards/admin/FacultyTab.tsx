@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { format } from 'date-fns';
 import {
   Table,
@@ -11,6 +11,19 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Trash } from 'lucide-react';
+import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface FacultyMember {
   id: string;
@@ -26,15 +39,69 @@ interface FacultyTabProps {
   isLoadingFaculty: boolean;
   facultyMembers: FacultyMember[];
   handleViewFaculty: (facultyId: string) => void;
-  handleEditFaculty: (facultyId: string) => void;
+  refreshFacultyData?: () => void; // Optional callback to refresh data after deletion
 }
 
 const FacultyTab: React.FC<FacultyTabProps> = ({
   isLoadingFaculty,
   facultyMembers,
   handleViewFaculty,
-  handleEditFaculty,
+  refreshFacultyData,
 }) => {
+  const [selectedFaculty, setSelectedFaculty] = useState<FacultyMember | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteClick = (faculty: FacultyMember) => {
+    setSelectedFaculty(faculty);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteFaculty = async () => {
+    if (!selectedFaculty) return;
+    
+    try {
+      setIsDeleting(true);
+      
+      // 1. Delete from faculty_requests table
+      const { error: facultyRequestError } = await supabase
+        .from('faculty_requests')
+        .delete()
+        .eq('id', selectedFaculty.id);
+        
+      if (facultyRequestError) throw facultyRequestError;
+      
+      // 2. Delete from profiles table
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', selectedFaculty.user_id);
+        
+      if (profileError) throw profileError;
+      
+      toast({
+        title: "Faculty deleted",
+        description: `${selectedFaculty.name} has been removed successfully.`,
+      });
+      
+      // Close dialog and refresh data
+      setIsDeleteDialogOpen(false);
+      if (refreshFacultyData) {
+        refreshFacultyData();
+      }
+      
+    } catch (error) {
+      console.error('Error deleting faculty:', error);
+      toast({
+        title: "Deletion failed",
+        description: "There was a problem deleting this faculty member.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div>
       {isLoadingFaculty ? (
@@ -83,10 +150,12 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
                     </Button>
                     <Button 
                       variant="outline" 
-                      size="sm" 
-                      onClick={() => handleEditFaculty(faculty.user_id)}
+                      size="sm"
+                      className="text-red-500 hover:bg-red-50"
+                      onClick={() => handleDeleteClick(faculty)}
                     >
-                      Edit
+                      <Trash className="h-4 w-4 mr-1" />
+                      Delete
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -100,6 +169,28 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
           <p className="text-sm text-muted-foreground">New faculty registrations will appear here.</p>
         </div>
       )}
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete {selectedFaculty?.name}'s account. 
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteFaculty}
+              disabled={isDeleting}
+              className="bg-red-500 hover:bg-red-600"
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
