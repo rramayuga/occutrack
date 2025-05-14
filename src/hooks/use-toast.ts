@@ -1,11 +1,12 @@
+
 import * as React from "react"
 import {
   type ToastActionElement,
   type ToastProps,
 } from "@/components/ui/toast"
 
-const TOAST_LIMIT = 5
-const TOAST_REMOVE_DELAY = 1000 * 60 * 5 // 5 minutes
+const TOAST_LIMIT = 1 // Reducing to 1 to prevent stacking
+const TOAST_REMOVE_DELAY = 3000 // 3 seconds auto-dismiss
 
 type ToasterToast = ToastProps & {
   id: string
@@ -149,8 +150,10 @@ function toast({ ...props }: Toast) {
       type: "UPDATE_TOAST",
       toast: { ...props, id },
     })
+    
+  // Auto-dismiss all toasts after TOAST_REMOVE_DELAY
   const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id })
-
+  
   dispatch({
     type: "ADD_TOAST",
     toast: {
@@ -161,6 +164,9 @@ function toast({ ...props }: Toast) {
       },
     },
   })
+  
+  // Auto-dismiss after TOAST_REMOVE_DELAY
+  setTimeout(dismiss, TOAST_REMOVE_DELAY)
 
   // Fix: Don't include id in the return object directly as it's not part of Toast type
   return {
