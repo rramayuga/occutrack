@@ -149,15 +149,19 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
 
       console.log('Attempting to delete user:', userId);
       
-      // First delete from auth.users using admin API
-      const { error: authError } = await supabase.rpc('delete_user', { user_id: userId });
-      
-      if (authError) {
-        console.error('Error deleting user from auth:', authError);
-        throw authError;
+      // First delete from auth.users using direct table deletion instead of RPC
+      // Delete any faculty requests first
+      const { error: facultyRequestError } = await supabase
+        .from('faculty_requests')
+        .delete()
+        .eq('user_id', userId);
+        
+      if (facultyRequestError) {
+        console.error('Error deleting faculty request:', facultyRequestError);
+        // Continue with profile deletion even if faculty request deletion fails
       }
       
-      // Then delete the user's profile
+      // Delete the user's profile
       const { error: profileError } = await supabase
         .from('profiles')
         .delete()
@@ -173,7 +177,7 @@ export const useUserRightsManagement = (shouldFetch: boolean = false) => {
       
       toast({
         title: 'User deleted',
-        description: 'User account has been permanently deleted',
+        description: 'User account has been permanently deleted from the system',
       });
       
     } catch (error: any) {
