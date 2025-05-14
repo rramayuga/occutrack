@@ -1,10 +1,8 @@
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { BuildingWithFloors, Room } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { RefreshCw } from 'lucide-react';
-import { supabase } from "@/integrations/supabase/client";
 
 interface AvailableRoomsProps {
   rooms: Room[];
@@ -17,107 +15,14 @@ export const AvailableRooms: React.FC<AvailableRoomsProps> = ({
   buildings,
   onReserveClick 
 }) => {
-  const [availableRooms, setAvailableRooms] = useState<Room[]>([]);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  // Update available rooms list when rooms prop changes
-  useEffect(() => {
-    updateAvailableRooms();
-    
-    // Subscribe to room status changes
-    const roomsChannel = supabase
-      .channel('available-rooms-status')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'rooms'
-        },
-        () => {
-          updateAvailableRooms();
-        }
-      )
-      .subscribe();
-      
-    // Subscribe to room availability changes
-    const availabilityChannel = supabase
-      .channel('available-rooms-availability')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'room_availability'
-        },
-        () => {
-          updateAvailableRooms();
-        }
-      )
-      .subscribe();
-    
-    // Subscribe to reservation changes
-    const reservationsChannel = supabase
-      .channel('available-rooms-reservations')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'room_reservations'
-        },
-        () => {
-          updateAvailableRooms();
-        }
-      )
-      .subscribe();
-    
-    // Refresh the list every 10 seconds
-    const intervalId = setInterval(updateAvailableRooms, 10000);
-    
-    return () => {
-      clearInterval(intervalId);
-      supabase.removeChannel(roomsChannel);
-      supabase.removeChannel(availabilityChannel);
-      supabase.removeChannel(reservationsChannel);
-    };
-  }, [rooms]);
-
-  // Filter available rooms
-  const updateAvailableRooms = () => {
-    const filtered = rooms.filter(room => 
-      room.isAvailable && room.status === 'available'
-    ).slice(0, 3);
-    
-    setAvailableRooms(filtered);
-  };
-
-  // Handle manual refresh
-  const handleRefresh = () => {
-    setIsRefreshing(true);
-    updateAvailableRooms();
-    
-    // Visual feedback for refresh action
-    setTimeout(() => {
-      setIsRefreshing(false);
-    }, 500);
-  };
+  // Get available rooms
+  const availableRooms = rooms.filter(room => room.isAvailable && room.status === 'available').slice(0, 3);
   
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <div>
-          <CardTitle>Room Availability</CardTitle>
-          <CardDescription>Currently available rooms</CardDescription>
-        </div>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          className="h-8 w-8 p-0" 
-          onClick={handleRefresh}
-        >
-          <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-        </Button>
+      <CardHeader>
+        <CardTitle>Room Availability</CardTitle>
+        <CardDescription>Currently available rooms</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">

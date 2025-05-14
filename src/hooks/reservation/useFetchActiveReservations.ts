@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/auth';
 export function useFetchActiveReservations() {
   const { user } = useAuth();
 
-  // Fetch all active and upcoming reservations (non-completed)
+  // Fetch all current and upcoming reservations
   const fetchActiveReservations = async () => {
     if (!user) return [];
     
@@ -27,6 +27,7 @@ export function useFetchActiveReservations() {
           status,
           faculty_id
         `)
+        .eq('faculty_id', user.id)
         .eq('date', today)
         .neq('status', 'completed')
         .order('start_time');
@@ -72,22 +73,10 @@ export function useFetchActiveReservations() {
       const roomMap = Object.fromEntries(roomsData.map(room => [room.id, room]));
       const buildingMap = Object.fromEntries(buildingsData.map(building => [building.id, building.name]));
       
-      // Get faculty names
-      const facultyIds = Array.from(new Set(reservationData.map(item => item.faculty_id)));
-      const { data: facultyData, error: facultyError } = await supabase
-        .from('profiles')
-        .select('id, name')
-        .in('id', facultyIds);
-        
-      if (facultyError) throw facultyError;
-      
-      const facultyMap = Object.fromEntries(facultyData.map(f => [f.id, f.name]));
-      
       // Transform the data
       return reservationData.map(item => {
         const room = roomMap[item.room_id] || { name: 'Unknown Room', building_id: null };
         const buildingName = room.building_id ? buildingMap[room.building_id] : 'Unknown Building';
-        const facultyName = facultyMap[item.faculty_id] || 'Unknown Faculty';
         
         return {
           id: item.id,
@@ -99,7 +88,7 @@ export function useFetchActiveReservations() {
           endTime: item.end_time,
           purpose: item.purpose || '',
           status: item.status,
-          faculty: facultyName
+          faculty: user?.name || ''
         };
       });
     } catch (error) {

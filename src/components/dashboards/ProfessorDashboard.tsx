@@ -8,7 +8,6 @@ import { RoomBookingDialog } from './professor/RoomBookingDialog';
 import { TeachingSchedule } from './professor/TeachingSchedule';
 import { AvailableRooms } from './professor/AvailableRooms';
 import { useReservationTimeTracker } from '@/hooks/useReservationTimeTracker';
-import { useToast } from '@/hooks/use-toast';
 
 interface ProfessorDashboardProps {
   user: User;
@@ -18,15 +17,12 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { buildings, rooms, refreshRooms } = useRooms();
   const { reservations, createReservation, fetchReservations } = useReservations();
-  const { toast } = useToast();
   
   // Initialize the reservation time tracker to handle automatic status updates
   const { activeReservations, fetchActiveReservations } = useReservationTimeTracker();
   
   // Fetch active reservations and refresh rooms on mount and periodically
   useEffect(() => {
-    console.log("Setting up dashboard refresh intervals");
-    
     // Initial fetch
     fetchActiveReservations();
     refreshRooms();
@@ -34,10 +30,9 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
     
     // Set up interval for periodic refresh - more frequent updates for real-time status changes
     const intervalId = setInterval(() => {
-      console.log("Running periodic dashboard refresh");
       fetchReservations();
       refreshRooms();
-    }, 5000); // Every 5 seconds for more real-time updates
+    }, 10000); // Every 10 seconds for more real-time updates
     
     return () => clearInterval(intervalId);
   }, []);
@@ -55,10 +50,8 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
   // Handler for when a user clicks "Reserve" on an available room
   const handleReserveClick = (buildingId: string, roomId: string, buildingName: string, roomName: string) => {
     setIsDialogOpen(true);
-    toast({
-      title: "Reserve a Room",
-      description: `You are about to reserve ${roomName} in ${buildingName}`,
-    });
+    // We'll need to pre-populate the form in the RoomBookingDialog component
+    // This will be passed down to the component
   };
   
   // Filter out completed reservations from the display
@@ -88,9 +81,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
 
       {/* Teaching Schedule & Room Management */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <TeachingSchedule 
-          reservations={activeReservationsForDisplay} 
-        />
+        <TeachingSchedule reservations={reservations} />
         <AvailableRooms 
           rooms={rooms} 
           buildings={buildings} 

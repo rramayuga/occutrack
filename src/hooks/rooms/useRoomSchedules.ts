@@ -1,15 +1,16 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Reservation } from '@/lib/types';
 import { useAuth } from '@/lib/auth';
-import { toast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 export const useRoomSchedules = (roomId: string, roomName: string) => {
   const [roomSchedules, setRoomSchedules] = useState<Reservation[]>([]);
   const [showSchedules, setShowSchedules] = useState(false);
   const { user } = useAuth();
+  const { toast } = useToast();
 
-  const fetchRoomSchedules = useCallback(async () => {
+  const fetchRoomSchedules = async () => {
     try {
       const today = new Date().toISOString().split('T')[0];
       
@@ -27,7 +28,6 @@ export const useRoomSchedules = (roomId: string, roomName: string) => {
         `)
         .eq('room_id', roomId)
         .gte('date', today)
-        .neq('status', 'completed') // Only fetch non-completed reservations
         .order('date', { ascending: true })
         .order('start_time', { ascending: true });
       
@@ -37,37 +37,19 @@ export const useRoomSchedules = (roomId: string, roomName: string) => {
       }
       
       if (data) {
-        const now = new Date();
-        const currentHour = now.getHours();
-        const currentMinute = now.getMinutes();
+        const reservations: Reservation[] = data.map(item => ({
+          id: item.id,
+          roomId: roomId,
+          roomNumber: roomName,
+          building: '',
+          date: item.date,
+          startTime: item.start_time,
+          endTime: item.end_time,
+          purpose: item.purpose || '',
+          status: item.status,
+          faculty: item.profiles?.name || "Unknown Faculty"
+        }));
         
-        const reservations: Reservation[] = data
-          .map(item => ({
-            id: item.id,
-            roomId: roomId,
-            roomNumber: roomName,
-            building: '',
-            date: item.date,
-            startTime: item.start_time,
-            endTime: item.end_time,
-            purpose: item.purpose || '',
-            status: item.status,
-            faculty: item.profiles?.name || "Unknown Faculty"
-          }))
-          .filter(reservation => {
-            // Extremely aggressive filtering of past reservation times
-            if (reservation.date === today) {
-              const [endHours, endMinutes] = reservation.endTime.split(':').map(Number);
-              // Only keep reservations that haven't ended yet
-              return (endHours > currentHour) || 
-                     (endHours === currentHour && endMinutes > currentMinute);
-            }
-            
-            // Keep all future dates
-            return true;
-          });
-        
-        console.log(`Fetched ${reservations.length} active schedules for room ${roomName}`);
         setRoomSchedules(reservations);
         
         if (user && user.role === 'faculty') {
@@ -77,7 +59,7 @@ export const useRoomSchedules = (roomId: string, roomName: string) => {
     } catch (error) {
       console.error("Error in fetchRoomSchedules:", error);
     }
-  }, [roomId, roomName, user]);
+  };
 
   const setRemindersForFacultyReservations = (facultyReservations: Reservation[]) => {
     facultyReservations.forEach(reservation => {
@@ -103,48 +85,17 @@ export const useRoomSchedules = (roomId: string, roomName: string) => {
     });
   };
 
-  // Setup real-time subscription for reservation changes with more frequent refresh
   useEffect(() => {
     fetchRoomSchedules();
-
-    // Subscribe to changes in room_reservations table for this room
-    const channel = supabase
-      .channel(`room-schedules-${roomId}`)
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'room_reservations',
-        filter: `room_id=eq.${roomId}`
-      }, () => {
-        console.log(`Detected change in reservations for room ${roomId}, refreshing schedules`);
-        fetchRoomSchedules();
-      })
-      .subscribe();
-
-    // Add a frequent refresh interval (every 5 seconds) to ensure schedules are current
-    const intervalId = setInterval(() => {
-      console.log(`Refreshing schedules for room ${roomId}`);
-      fetchRoomSchedules();
-    }, 5000);
-
-    return () => {
-      supabase.removeChannel(channel);
-      clearInterval(intervalId);
-    };
-  }, [roomId, fetchRoomSchedules]);
+  }, [roomId]);
 
   const handleToggleSchedules = () => {
-    if (!showSchedules) {
-      // Refresh schedules when opening the list
-      fetchRoomSchedules();
-    }
     setShowSchedules(!showSchedules);
   };
 
   return {
     roomSchedules,
     showSchedules,
-    handleToggleSchedules,
-    fetchRoomSchedules
+    handleToggleSchedules
   };
 };

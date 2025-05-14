@@ -15,10 +15,10 @@ export function useReservationTimeTracker() {
   const { updateRoomStatus } = useRoomStatusManager();
   const { completedReservations, markReservationAsCompleted } = useReservationCompleter();
   const { toast } = useToast();
-  
+
   // Function to fetch and update the active reservations
   const fetchAndUpdateActiveReservations = useCallback(async () => {
-    if (!user) return [];
+    if (!user) return;
     
     const reservations = await fetchActiveReservations();
     console.log("Fetched active reservations:", reservations.length);
@@ -31,66 +31,55 @@ export function useReservationTimeTracker() {
     if (!user || activeReservations.length === 0) return;
     
     const now = new Date();
+    const currentTime = now.toTimeString().substring(0, 5); // HH:MM format
     const today = now.toISOString().split('T')[0];
     
-    console.log(`Checking ${activeReservations.length} reservations at ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`);
+    console.log(`Checking ${activeReservations.length} reservations at ${today} ${currentTime}`);
     
     let reservationsUpdated = false;
     
     for (const reservation of activeReservations) {
-      // Skip if already completed
+      // Skip if already in completed list
       if (completedReservations.includes(reservation.id)) {
+        console.log(`Reservation ${reservation.id} already marked as completed, skipping`);
         continue;
       }
       
       // Check if reservation is for today
       if (reservation.date !== today) {
+        console.log(`Reservation ${reservation.id} not for today (${reservation.date}), skipping`);
         continue;
       }
       
-      // Parse start and end times for comparison
-      const [startHours, startMinutes] = reservation.startTime.split(':').map(Number);
-      const [endHours, endMinutes] = reservation.endTime.split(':').map(Number);
+      console.log(`Processing reservation ${reservation.id} - Start: ${reservation.startTime}, End: ${reservation.endTime}, Current: ${currentTime}`);
       
-      const nowHours = now.getHours();
-      const nowMinutes = now.getMinutes();
-      const nowSeconds = now.getSeconds();
-      
-      console.log(`Reservation ${reservation.id}: Time now ${nowHours}:${nowMinutes}:${nowSeconds}, Start ${startHours}:${startMinutes}, End ${endHours}:${endMinutes}`);
-      
-      // More precise check for reservation start/end times
-      const hasStarted = (nowHours > startHours) || (nowHours === startHours && nowMinutes >= startMinutes);
-      const hasEnded = (nowHours > endHours) || (nowHours === endHours && nowMinutes >= endMinutes);
-      
-      // Check if start time has been reached but not end time - MARK AS OCCUPIED
-      if (hasStarted && !hasEnded && reservation.status !== 'completed') {
+      // Check if start time has been reached - MARK AS OCCUPIED
+      if (currentTime >= reservation.startTime && reservation.status !== 'occupied') {
         console.log(`START TIME REACHED for reservation ${reservation.id} - marking room ${reservation.roomId} as OCCUPIED`);
-        const success = await updateRoomStatus(reservation.roomId, true);
-        if (success) {
-          toast({
-            title: "Room Now Occupied",
-            description: `${reservation.roomNumber} is now occupied for the scheduled reservation.`,
-          });
-          reservationsUpdated = true;
-        }
+        await updateRoomStatus(reservation.roomId, true);
+        toast({
+          title: "Room Now Occupied",
+          description: `${reservation.roomNumber} is now occupied for your scheduled reservation.`,
+        });
+        reservationsUpdated = true;
       }
       
       // Check if end time has been reached - MARK AS AVAILABLE and COMPLETE reservation
-      if (hasEnded && reservation.status !== 'completed') {
+      if (currentTime >= reservation.endTime) {
         console.log(`END TIME REACHED for reservation ${reservation.id} - completing reservation and marking room available`);
-        const success = await updateRoomStatus(reservation.roomId, false);
+        await updateRoomStatus(reservation.roomId, false);
         
         // Mark reservation as completed
+        const success = await markReservationAsCompleted(reservation.id);
         if (success) {
-          const completionSuccess = await markReservationAsCompleted(reservation.id);
-          if (completionSuccess) {
-            console.log(`Successfully marked reservation ${reservation.id} as completed`);
-            toast({
-              title: "Reservation Completed",
-              description: `Reservation in ${reservation.roomNumber} has ended and the room is now available.`,
-            });
-            reservationsUpdated = true;
-          }
+          console.log(`Successfully marked reservation ${reservation.id} as completed`);
+          toast({
+            title: "Reservation Completed",
+            description: `Your reservation in ${reservation.roomNumber} has ended and the room is now available.`,
+          });
+          reservationsUpdated = true;
+        } else {
+          console.error(`Failed to mark reservation ${reservation.id} as completed`);
         }
       }
     }
@@ -111,43 +100,25 @@ export function useReservationTimeTracker() {
     // Check status immediately and then set interval
     checkReservationTimes();
     
-    // Setup interval to check reservation times every second for real-time updates
-    const intervalId = setInterval(() => {
-      checkReservationTimes();
-    }, 1000);
+    // Setup interval to check reservation times more frequently (every 5 seconds for more real-time updates)
+    const intervalId = setInterval(checkReservationTimes, 5000);
     
-    // Subscribe to reservation changes
-    const reservationChannel = supabase
+    // Also set up a subscription to reservation changes
+    const channel = supabase
       .channel('room_reservations_changes')
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
         table: 'room_reservations'
-      }, () => {
-        console.log("Detected changes in reservations table, refreshing");
+      }, (payload) => {
+        console.log("Reservation change detected:", payload);
         fetchAndUpdateActiveReservations();
-        checkReservationTimes();
-      })
-      .subscribe();
-      
-    // Subscribe to room status changes  
-    const roomsChannel = supabase
-      .channel('room_status_changes')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'rooms'
-      }, () => {
-        console.log("Detected changes in rooms table, refreshing");
-        fetchAndUpdateActiveReservations();
-        checkReservationTimes();
       })
       .subscribe();
     
     return () => {
       clearInterval(intervalId);
-      supabase.removeChannel(reservationChannel);
-      supabase.removeChannel(roomsChannel);
+      supabase.removeChannel(channel);
     };
   }, [user, fetchAndUpdateActiveReservations, checkReservationTimes]);
 
