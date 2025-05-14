@@ -1,14 +1,12 @@
 
-import { useEffect, useRef } from 'react';
-import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useRef, useState } from 'react';
 import { Room, RoomStatus } from '@/lib/types';
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
 
-/**
- * Optimized hook for checking and updating room status based on current time
- * with debounce to avoid excessive updates
- */
 export function useStatusUpdater(rooms: Room[], updateRoomAvailability: (roomId: string, isAvailable: boolean, status: RoomStatus) => void) {
+  const { user } = useAuth();
   const { toast } = useToast();
   const lastUpdateRef = useRef<Record<string, string>>({});
   const deletedReservationsRef = useRef<Set<string>>(new Set());
@@ -27,13 +25,15 @@ export function useStatusUpdater(rooms: Room[], updateRoomAvailability: (roomId:
     updateInProgressRef.current = true;
     
     try {
-      // Get current date and time
+      // Get current date and time with precision
       const now = new Date();
       const currentDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
       const currentHour = now.getHours().toString().padStart(2, '0');
       const currentMinute = now.getMinutes().toString().padStart(2, '0');
       const currentSecond = now.getSeconds().toString().padStart(2, '0');
       const currentTime = `${currentHour}:${currentMinute}:${currentSecond}`;
+      
+      console.log(`[STATUS-CHECK] Running status check at ${currentDate} ${currentTime}`);
       
       // Fetch all of today's reservations
       const { data: todayReservations, error } = await supabase
@@ -43,12 +43,19 @@ export function useStatusUpdater(rooms: Room[], updateRoomAvailability: (roomId:
       
       if (error) throw error;
       
+      // Process status changes and handle reservations
       if (todayReservations && todayReservations.length > 0) {
+        console.log(`[STATUS-CHECK] Found ${todayReservations.length} reservations for today`);
+        
         // Find ended reservations that need to be removed
         const completedReservations = todayReservations.filter(reservation => {
           const endTime = `${reservation.end_time}:00`;
           return currentTime > endTime && !deletedReservationsRef.current.has(reservation.id);
         });
+        
+        if (completedReservations.length > 0) {
+          console.log(`[STATUS-CHECK] Found ${completedReservations.length} completed reservations to delete`);
+        }
         
         // Process each reservation
         for (const reservation of todayReservations) {
@@ -71,7 +78,7 @@ export function useStatusUpdater(rooms: Room[], updateRoomAvailability: (roomId:
             
             // Status needs to change to occupied
             if (shouldBeOccupied && roomToUpdate.status !== 'occupied') {
-              console.log(`[STATUS] Room ${roomToUpdate.name} should now be OCCUPIED`);
+              console.log(`[STATUS-TRANSITION] Room ${roomToUpdate.name} should now be OCCUPIED`);
               
               // Check if we've already shown this toast recently
               if (lastUpdateRef.current[updateKey] !== currentDate) {
@@ -89,7 +96,7 @@ export function useStatusUpdater(rooms: Room[], updateRoomAvailability: (roomId:
             else if (!shouldBeOccupied && 
                      roomToUpdate.status === 'occupied' && 
                      currentTime >= formattedEndTime) {
-              console.log(`[STATUS] Room ${roomToUpdate.name} should now be AVAILABLE`);
+              console.log(`[STATUS-TRANSITION] Room ${roomToUpdate.name} should now be AVAILABLE`);
               
               // Check if we've already shown this toast recently
               if (lastUpdateRef.current[updateKey] !== currentDate) {
@@ -108,12 +115,11 @@ export function useStatusUpdater(rooms: Room[], updateRoomAvailability: (roomId:
         
         // Delete any completed reservations (batch for efficiency)
         if (completedReservations.length > 0) {
-          const completedIds = completedReservations.map(r => r.id);
-          
           try {
             await Promise.all(completedReservations.map(async (reservation) => {
               if (!deletedReservationsRef.current.has(reservation.id)) {
                 try {
+                  console.log(`[STATUS-DELETE] Deleting completed reservation ${reservation.id}`);
                   const { error: deleteError } = await supabase
                     .from('room_reservations')
                     .delete()
@@ -121,20 +127,31 @@ export function useStatusUpdater(rooms: Room[], updateRoomAvailability: (roomId:
                   
                   if (!deleteError) {
                     deletedReservationsRef.current.add(reservation.id);
-                    console.log(`[STATUS] Completed reservation ${reservation.id} deleted`);
+                    console.log(`[STATUS-DELETE] Successfully deleted reservation ${reservation.id}`);
+                    
+                    // Show toast notification for deleted reservation
+                    const room = rooms.find(r => r.id === reservation.room_id);
+                    if (room) {
+                      toast({
+                        title: "Reservation Completed",
+                        description: `Your reservation for ${room.name} has ended and been automatically removed.`,
+                      });
+                    }
+                  } else {
+                    console.error(`[STATUS-DELETE] Error deleting reservation ${reservation.id}:`, deleteError);
                   }
                 } catch (err) {
-                  console.error(`[STATUS] Error deleting reservation ${reservation.id}:`, err);
+                  console.error(`[STATUS-DELETE] Error deleting reservation ${reservation.id}:`, err);
                 }
               }
             }));
           } catch (batchError) {
-            console.error("[STATUS] Error in batch processing reservations:", batchError);
+            console.error("[STATUS-DELETE] Error in batch processing reservations:", batchError);
           }
         }
       }
     } catch (error) {
-      console.error("[STATUS] Error in useStatusUpdater:", error);
+      console.error("[STATUS-CHECK] Error in useStatusUpdater:", error);
     } finally {
       // Allow next update to proceed
       updateInProgressRef.current = false;
@@ -177,10 +194,10 @@ export function useStatusUpdater(rooms: Room[], updateRoomAvailability: (roomId:
       })
       .subscribe();
     
-    // Use a more efficient interval for time updates - every 30 seconds instead of every minute
+    // Use a more efficient interval for time updates - every 15 seconds to catch transitions more reliably
     const timeUpdateInterval = setInterval(() => {
       updateRoomStatuses();
-    }, 30000);
+    }, 15000);
     
     return () => {
       clearTimeout(initialTimeout);
