@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -10,7 +11,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BookOpen } from 'lucide-react';
 import { BuildingWithFloors, Room, ReservationFormValues } from '@/lib/types';
-import { sortRoomsByName } from '@/lib/utils';
 
 // Define the booking form schema with building and room selection
 const bookingFormSchema = z.object({
@@ -80,9 +80,8 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
     // If no building is selected, return empty array
     if (!selectedBuilding) return [];
     
-    // Get rooms for the building and sort them by name
-    const buildingRooms = rooms.filter(room => room.buildingId === selectedBuilding);
-    return sortRoomsByName(buildingRooms);
+    // Get rooms for the building
+    return rooms.filter(room => room.buildingId === selectedBuilding);
   };
 
   const onSubmit = async (data: BookingFormValues) => {
