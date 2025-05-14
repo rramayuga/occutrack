@@ -13,6 +13,7 @@ export const useFacultyManagement = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedFaculty, setSelectedFaculty] = useState<FacultyMember | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false); // New state for delete dialog
   const [notes, setNotes] = useState('');
   const { toast } = useToast();
   const location = useLocation();
@@ -163,6 +164,54 @@ export const useFacultyManagement = () => {
     }
   };
 
+  // New delete faculty function
+  const handleDeleteFaculty = async (faculty: FacultyMember) => {
+    try {
+      setIsLoading(true);
+      
+      // First delete from faculty_requests
+      const { error: facultyRequestError } = await supabase
+        .from('faculty_requests')
+        .delete()
+        .eq('id', faculty.id);
+        
+      if (facultyRequestError) throw facultyRequestError;
+
+      // Then delete from profiles
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', faculty.user_id);
+        
+      if (profileError) {
+        console.error('Warning: Error deleting profile', profileError);
+        // We still continue as profile might not exist or be managed separately
+      }
+
+      toast({
+        title: 'Faculty Deleted',
+        description: `${faculty.name} has been successfully removed from the system`,
+      });
+      
+      // Refresh the faculty members list
+      fetchFacultyMembers();
+      
+      // Close any open dialogs
+      setIsDeleteDialogOpen(false);
+      setSelectedFaculty(null);
+      
+    } catch (error: any) {
+      console.error('Error deleting faculty:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete faculty member',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleConfirmReject = () => {
     if (selectedFaculty) {
       handleUpdateStatus(selectedFaculty, 'rejected');
@@ -186,9 +235,12 @@ export const useFacultyManagement = () => {
     setSelectedFaculty,
     isDialogOpen,
     setIsDialogOpen,
+    isDeleteDialogOpen,
+    setIsDeleteDialogOpen,
     notes,
     setNotes,
     handleUpdateStatus,
+    handleDeleteFaculty,
     handleConfirmReject,
     formatDate
   };
