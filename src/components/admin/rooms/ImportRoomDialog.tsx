@@ -34,7 +34,7 @@ const ImportRoomDialog: React.FC<ImportRoomDialogProps> = ({
         <DialogHeader>
           <DialogTitle>Import Rooms from CSV</DialogTitle>
           <DialogDescription>
-            Upload a CSV file to import or update rooms. The file should include columns for name, type, floor, buildingId, and isAvailable.
+            Upload a CSV file containing room data organized by buildings. Each building section should start with <code>### BUILDING: Building Name ###</code> followed by the room data.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
@@ -48,7 +48,20 @@ const ImportRoomDialog: React.FC<ImportRoomDialogProps> = ({
             }} 
           />
           <p className="text-xs text-muted-foreground">
-            Existing rooms with matching names in the same building will be updated.
+            CSV Format Example:
+          </p>
+          <pre className="text-xs bg-muted p-2 rounded-md overflow-x-auto">
+            ### BUILDING: Main Building ###<br />
+            name,type,floor,capacity,status<br />
+            101,Classroom,1,30,available<br />
+            102,Lab,1,25,occupied<br />
+            <br />
+            ### BUILDING: Science Building ###<br />
+            name,type,floor,capacity,status<br />
+            S101,Lab,1,40,available
+          </pre>
+          <p className="text-xs text-muted-foreground">
+            Existing rooms with matching names will be updated.
           </p>
         </div>
         <DialogFooter>
