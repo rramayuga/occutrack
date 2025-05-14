@@ -19,7 +19,7 @@ export function useReservations() {
       setLoading(true);
       
       // Get all reservations for the current faculty
-      const { data: reservationData, error: reservationError } = await supabase
+      const { data, error } = await supabase
         .from('room_reservations')
         .select(`
           id,
@@ -29,27 +29,16 @@ export function useReservations() {
           end_time,
           purpose,
           status,
-          faculty_id
+          rooms (name, building_id),
+          buildings:rooms!inner (building_id)
         `)
-        .eq('faculty_id', user.id)
-        .neq('status', 'completed') // Don't get completed reservations by default
-        .order('date', { ascending: true })
-        .order('start_time', { ascending: true });
+        .eq('faculty_id', user.id);
       
-      if (reservationError) throw reservationError;
+      if (error) throw error;
       
-      if (reservationData && reservationData.length > 0) {
-        // Get room information for all reservations
-        const roomIds = reservationData.map(item => item.room_id);
-        const { data: roomsData, error: roomsError } = await supabase
-          .from('rooms')
-          .select('id, name, building_id')
-          .in('id', roomIds);
-          
-        if (roomsError) throw roomsError;
-        
-        // Get building information for all rooms
-        const buildingIds = roomsData.map(room => room.building_id);
+      if (data && data.length > 0) {
+        // Additional query to get building names
+        const buildingIds = [...new Set(data.map(item => item.rooms.building_id))];
         const { data: buildingsData, error: buildingsError } = await supabase
           .from('buildings')
           .select('id, name')
@@ -57,36 +46,27 @@ export function useReservations() {
           
         if (buildingsError) throw buildingsError;
         
-        // Create a mapping of room ids to room data
-        const roomMap = roomsData.reduce((acc, room) => {
-          acc[room.id] = room;
-          return acc;
-        }, {} as Record<string, any>);
-        
-        // Create a mapping of building ids to building names
-        const buildingMap = buildingsData.reduce((acc, building) => {
-          acc[building.id] = building.name;
-          return acc;
-        }, {} as Record<string, string>);
+        // Create a mapping of building ids to names
+        const buildingNames: {[key: string]: string} = {};
+        if (buildingsData) {
+          buildingsData.forEach(building => {
+            buildingNames[building.id] = building.name;
+          });
+        }
         
         // Transform the data
-        const transformedReservations: Reservation[] = reservationData.map(item => {
-          const room = roomMap[item.room_id] || { name: 'Unknown Room', building_id: null };
-          const buildingName = room.building_id ? buildingMap[room.building_id] : 'Unknown Building';
-          
-          return {
-            id: item.id,
-            roomId: item.room_id,
-            roomNumber: room.name,
-            building: buildingName,
-            date: item.date,
-            startTime: item.start_time,
-            endTime: item.end_time,
-            purpose: item.purpose || '',
-            status: item.status,
-            faculty: user.name
-          };
-        });
+        const transformedReservations: Reservation[] = data.map(item => ({
+          id: item.id,
+          roomId: item.room_id,
+          roomNumber: item.rooms.name,
+          building: buildingNames[item.rooms.building_id] || 'Unknown Building',
+          date: item.date,
+          startTime: item.start_time,
+          endTime: item.end_time,
+          purpose: item.purpose || '',
+          status: item.status,
+          faculty: user.name
+        }));
         
         setReservations(transformedReservations);
         console.log("Fetched reservations:", transformedReservations);
@@ -149,8 +129,7 @@ export function useReservations() {
         .from('room_reservations')
         .select('*')
         .eq('room_id', roomId)
-        .eq('date', values.date)
-        .neq('status', 'completed');
+        .eq('date', values.date);
       
       if (conflictError) throw conflictError;
 

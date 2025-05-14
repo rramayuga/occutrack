@@ -78,7 +78,6 @@ export const handleFacultyRegistration = async (
 };
 
 export const handleGoogleSignIn = async () => {
-  // Ensure Google auth only allows NEU domain
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
@@ -86,7 +85,6 @@ export const handleGoogleSignIn = async () => {
       queryParams: {
         access_type: 'offline',
         prompt: 'consent',
-        hd: 'neu.edu.ph' // Restrict to NEU domain emails only
       }
     }
   });

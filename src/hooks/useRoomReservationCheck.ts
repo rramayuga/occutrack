@@ -25,13 +25,9 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
         const { data: reservations, error } = await supabase
           .from('room_reservations')
           .select('*')
-          .eq('date', currentDate)
-          .neq('status', 'completed'); // Don't check completed reservations
+          .eq('date', currentDate);
         
-        if (error) {
-          console.error("Error fetching reservations:", error);
-          throw error;
-        }
+        if (error) throw error;
         
         if (reservations && reservations.length > 0) {
           console.log('Found reservations for today:', reservations.length);
@@ -42,7 +38,6 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
             
             // Check if current time is between start and end times
             const isActive = currentTime >= startTime && currentTime < endTime;
-            const hasEnded = currentTime >= endTime;
             
             // Find the room
             const roomToUpdate = rooms.find(r => r.id === reservation.room_id);
@@ -54,35 +49,30 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
                 continue;
               }
               
-              // Determine status and make updates
-              if (isActive && roomToUpdate.status !== 'occupied') {
-                // Start time reached but room not yet marked occupied
-                console.log(`START TIME REACHED: Room ${roomToUpdate.name} should be occupied now`);
-                updateRoomAvailability(reservation.room_id, false, 'occupied');
+              // Determine if the room status needs to be updated based on reservation time
+              const shouldBeOccupied = isActive;
+              const shouldBeAvailable = !isActive;
+              
+              // Only update if status needs to change
+              if ((shouldBeOccupied && roomToUpdate.status !== 'occupied') || 
+                  (shouldBeAvailable && roomToUpdate.status !== 'available')) {
                 
-                toast({
-                  title: "Room Now Occupied",
-                  description: `${roomToUpdate.name} is now marked as occupied for the scheduled reservation.`,
-                });
-              } 
-              else if (hasEnded && roomToUpdate.status !== 'available') {
-                // End time reached but room not yet marked available
-                console.log(`END TIME REACHED: Room ${roomToUpdate.name} should be available now`);
-                updateRoomAvailability(reservation.room_id, true, 'available');
+                const newStatus = shouldBeOccupied ? 'occupied' : 'available';
+                const isAvailable = newStatus === 'available';
                 
-                // Mark the reservation as completed
-                const { error: updateError } = await supabase
-                  .from('room_reservations')
-                  .update({ status: 'completed' })
-                  .eq('id', reservation.id);
+                console.log(`Room ${roomToUpdate.name} status automatically updating to ${newStatus} based on reservation time`);
+                updateRoomAvailability(reservation.room_id, isAvailable, newStatus);
                 
-                if (updateError) {
-                  console.error("Error marking reservation as completed:", updateError);
-                } else {
-                  console.log(`Successfully marked reservation ${reservation.id} as completed`);
+                // Show toast notification for automatic status changes
+                if (shouldBeOccupied) {
                   toast({
-                    title: "Reservation Completed",
-                    description: `The reservation for ${roomToUpdate.name} has ended and the room is now available.`,
+                    title: "Room Now Occupied",
+                    description: `${roomToUpdate.name} is now occupied due to a scheduled reservation.`,
+                  });
+                } else {
+                  toast({
+                    title: "Room Now Available",
+                    description: `${roomToUpdate.name} is now available as the reservation period has ended.`,
                   });
                 }
               }
@@ -94,12 +84,12 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
       }
     };
 
-    // Update room status on load and every 5 seconds (for more real-time updates)
+    // Update room status on load and every minute
     updateRoomStatusBasedOnBookings();
-    const intervalId = setInterval(updateRoomStatusBasedOnBookings, 5000);
+    const intervalId = setInterval(updateRoomStatusBasedOnBookings, 60000);
     
     return () => clearInterval(intervalId);
   }, [rooms, user, updateRoomAvailability, toast]);
 
-  return null;
+  return null; // This hook doesn't need to return anything
 }

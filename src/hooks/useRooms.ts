@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useBuildings } from './useBuildings';
 import { useRoomFetching } from './rooms/useRoomFetching';
 import { useRoomUpdater } from './rooms/useRoomUpdater';
@@ -12,27 +12,28 @@ import { useRoomReservationCheck } from './useRoomReservationCheck';
 export function useRooms() {
   // Track initial setup to prevent multiple setups
   const isInitialSetup = useRef(true);
-  const [selectedBuilding, setSelectedBuilding] = useState<string>('');
 
   // Get building data
   const { 
-    buildings
+    buildings, 
+    selectedBuilding, 
+    setSelectedBuilding,
   } = useBuildings();
   
   // Room fetching functionality
   const {
     rooms,
     setRooms,
-    loading: isLoading,
+    loading,
     fetchRooms,
-    refetchRooms: refreshRooms
+    refetchRooms
   } = useRoomFetching();
   
   // Room updating functionality
   const {
     updateRoomAvailability,
     handleToggleRoomAvailability
-  } = useRoomUpdater(rooms, setRooms, refreshRooms);
+  } = useRoomUpdater(rooms, setRooms, refetchRooms);
   
   // Room subscriptions for real-time updates
   const {
@@ -70,10 +71,10 @@ export function useRooms() {
   return {
     buildings,
     rooms,
-    isLoading,
+    loading,
     selectedBuilding,
     setSelectedBuilding,
     handleToggleRoomAvailability,
-    refreshRooms
+    refetchRooms
   };
 }

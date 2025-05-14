@@ -65,8 +65,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return null;
       }
       
+      // Add cache busting parameter to avoid cached responses
+      const cacheKey = forceRefresh ? `?_=${new Date().getTime()}` : '';
+      
       // Use a transaction-level isolation to prevent stale reads
-      console.log('Fetching profile data');
+      console.log('Fetching fresh profile data with cache busting:', cacheKey);
       
       // Use direct database query with cache control headers
       const { data: profile, error } = await supabase
@@ -90,6 +93,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           avatarUrl: profile.avatar
         };
         
+        console.log('Setting user data in state:', userData);
         setUser(userData);
         return userData;
       }
@@ -126,7 +130,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     let mounted = true;
-    let visibilityChangeHandler: null | ((e: Event) => void) = null;
     
     // Initial auth check
     const checkAuth = async () => {
@@ -139,9 +142,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (sessionData.session?.user && mounted) {
           console.log('Found existing session, auth provider:', sessionData.session.user.app_metadata?.provider);
           console.log('User ID from session:', sessionData.session.user.id);
+          console.log('User email from session:', sessionData.session.user.email);
           
-          // Initial fetch of user profile
-          await fetchUserProfile(sessionData.session.user.id);
+          // Force a fresh fetch on initial load
+          await fetchUserProfile(sessionData.session.user.id, true);
         } else {
           console.log('No session found during initial check');
           setUser(null);
@@ -161,15 +165,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         console.log('Auth state changed:', event, session ? 'session exists' : 'no session');
+        console.log('Auth provider:', session?.user?.app_metadata?.provider || 'none');
         
         if (session?.user && mounted) {
           // To avoid potential Supabase auth deadlocks, use setTimeout for async operations
           setTimeout(async () => {
             if (mounted) {
-              console.log('Auth state changed to logged in, fetching profile');
+              console.log('Auth state changed to logged in, fetching fresh profile');
               console.log('User ID from auth state change:', session.user.id);
+              console.log('Email from auth state change:', session.user.email);
               
-              await fetchUserProfile(session.user.id);
+              // Always force a fresh fetch on auth state change
+              // This ensures we always get the latest data regardless of auth method
+              setUser(null); // Clear any cached data first
+              await fetchUserProfile(session.user.id, true);
               setIsLoading(false);
             }
           }, 0);
@@ -181,17 +190,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     );
 
-    // Don't refresh on tab visibility change
-    // This prevents the unnecessary refreshes when changing tabs
-
     return () => {
       console.log('Cleaning up AuthProvider');
       mounted = false;
       subscription.unsubscribe();
-      
-      if (visibilityChangeHandler) {
-        document.removeEventListener('visibilitychange', visibilityChangeHandler);
-      }
     };
   }, [fetchUserProfile]);
 

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { X } from 'lucide-react';
@@ -21,9 +20,6 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
   
   // Filter out finished schedules more accurately
   const activeSchedules = roomSchedules.filter(schedule => {
-    // Filter out completed reservations
-    if (schedule.status === 'completed') return false;
-    
     // Parse date and time to check if the schedule is finished
     const scheduleDate = new Date(schedule.date);
     const today = new Date();
