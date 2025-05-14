@@ -2,20 +2,26 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { NavItem } from './navData';
 
-interface NavLinkProps {
-  item: NavItem;
+export interface NavLinkProps {
+  path?: string;
+  href?: string;
+  name?: string;
+  label?: string;
+  icon?: React.ReactNode;
   isMobile?: boolean;
 }
 
-const NavLink = ({ item, isMobile = false }: NavLinkProps) => {
+const NavLink = ({ path, href, name, label, icon, isMobile = false }: NavLinkProps) => {
   const { pathname } = useLocation();
-  const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+  const linkHref = href || path || '/';
+  const linkLabel = label || name || '';
+  
+  const isActive = pathname === linkHref || pathname.startsWith(`${linkHref}/`);
   
   return (
     <Link
-      to={item.href}
+      to={linkHref}
       className={cn(
         "transition-colors",
         isActive
@@ -24,12 +30,12 @@ const NavLink = ({ item, isMobile = false }: NavLinkProps) => {
         isMobile && "flex items-center py-2"
       )}
     >
-      {item.icon && (
+      {icon && (
         <span className={cn("mr-2", isMobile ? "h-5 w-5" : "h-4 w-4")}>
-          {React.createElement(item.icon)}
+          {icon}
         </span>
       )}
-      {item.label}
+      {linkLabel}
     </Link>
   );
 };

@@ -9,14 +9,14 @@ import { StudentDashboard } from '../components/dashboards/StudentDashboard';
 import { SuperAdminDashboard } from '../components/dashboards/SuperAdminDashboard';
 
 const Dashboard = () => {
-  const { user, loading } = useAuth();
+  const { user, isLoading } = useAuth();
 
   // Improved SEO
   useEffect(() => {
     document.title = 'Dashboard | Campus Room Management';
   }, []);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
