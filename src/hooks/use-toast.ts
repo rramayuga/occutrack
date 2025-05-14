@@ -155,7 +155,6 @@ function toast({ ...props }: Toast) {
     type: "ADD_TOAST",
     toast: {
       ...props,
-      id,
       open: true,
       onOpenChange: (open) => {
         if (!open) dismiss()
@@ -163,10 +162,11 @@ function toast({ ...props }: Toast) {
     },
   })
 
+  // Fix: Don't include id in the return object directly as it's not part of Toast type
   return {
-    id: id,
     dismiss,
     update,
+    id, // This is still returned but as a separate property, not as part of the Toast type
   }
 }
 
