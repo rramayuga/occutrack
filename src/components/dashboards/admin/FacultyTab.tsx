@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Trash2 } from 'lucide-react';
 
 interface FacultyMember {
   id: string;
@@ -27,6 +28,7 @@ interface FacultyTabProps {
   facultyMembers: FacultyMember[];
   handleViewFaculty: (facultyId: string) => void;
   handleEditFaculty: (facultyId: string) => void;
+  handleDeleteFaculty?: (facultyId: string) => void; // Added delete handler
 }
 
 const FacultyTab: React.FC<FacultyTabProps> = ({
@@ -34,6 +36,7 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
   facultyMembers,
   handleViewFaculty,
   handleEditFaculty,
+  handleDeleteFaculty,
 }) => {
   return (
     <div>
@@ -88,6 +91,16 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
                     >
                       Edit
                     </Button>
+                    {handleDeleteFaculty && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="text-red-500 hover:bg-red-50"
+                        onClick={() => handleDeleteFaculty(faculty.user_id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -16,9 +16,11 @@ import FacultyList from '@/components/admin/faculty/FacultyList';
 import FacultyRejectionDialog from '@/components/admin/faculty/FacultyRejectionDialog';
 import FacultyDeleteDialog from '@/components/admin/faculty/FacultyDeleteDialog';
 import { useFacultyManagement } from '@/components/admin/faculty/useFacultyManagement';
+import { useLocation } from 'react-router-dom';
 
 const FacultyManagement = () => {
   const [isRightsManagementOpen, setIsRightsManagementOpen] = useState(false);
+  const location = useLocation();
   
   const {
     isLoading,
@@ -38,8 +40,21 @@ const FacultyManagement = () => {
     handleUpdateStatus,
     handleConfirmReject,
     handleDeleteFaculty,
-    formatDate
+    formatDate,
+    facultyMembers
   } = useFacultyManagement();
+
+  useEffect(() => {
+    // Check if we need to open delete dialog based on navigation state
+    const state = location.state as { selectedFacultyId?: string; isDeleting?: boolean } | null;
+    if (state?.selectedFacultyId && state.isDeleting) {
+      const faculty = facultyMembers.find(f => f.user_id === state.selectedFacultyId);
+      if (faculty) {
+        setSelectedFaculty(faculty);
+        setIsDeleteDialogOpen(true);
+      }
+    }
+  }, [location.state, facultyMembers, setSelectedFaculty, setIsDeleteDialogOpen]);
 
   const onRejectClick = (faculty: React.SetStateAction<import("@/lib/types").FacultyMember | null>) => {
     setSelectedFaculty(faculty);

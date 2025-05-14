@@ -109,6 +109,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
       state: { selectedFacultyId: facultyId, isEditing: true } 
     });
   };
+  
+  const handleDeleteFaculty = (facultyId: string) => {
+    navigate('/faculty-management', { 
+      state: { selectedFacultyId: facultyId, isDeleting: true } 
+    });
+  };
 
   const filteredBuildings = buildings.filter(building => {
     if (!searchTerm) return true;
@@ -166,6 +172,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
             facultyMembers={facultyMembers}
             handleViewFaculty={handleViewFaculty}
             handleEditFaculty={handleEditFaculty}
+            handleDeleteFaculty={handleDeleteFaculty}
           />
         </TabsContent>
         
