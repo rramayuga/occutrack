@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { User } from '@/lib/types';
 import { useRooms } from '@/hooks/useRooms';
@@ -19,7 +18,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
   const { reservations, createReservation, fetchReservations } = useReservations();
   
   // Use our centralized reservation status manager
-  const { activeReservations } = useReservationStatusManager();
+  const { activeReservations, fetchActiveReservations } = useReservationStatusManager();
   
   // Initial data fetch on mount - only once
   useEffect(() => {
@@ -27,6 +26,19 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
     refreshRooms();
     fetchReservations();
   }, [refreshRooms, fetchReservations]);
+  
+  // Set up auto-refresh to keep the data current
+  useEffect(() => {
+    // Refresh data every 60 seconds to stay current
+    const intervalId = setInterval(() => {
+      console.log("ProfessorDashboard - Auto refresh");
+      refreshRooms();
+      fetchReservations();
+      fetchActiveReservations();
+    }, 60000); // Every minute
+    
+    return () => clearInterval(intervalId);
+  }, [refreshRooms, fetchReservations, fetchActiveReservations]);
   
   // Memoize today's schedule to prevent unnecessary re-renders
   const todaySchedule = useMemo(() => {

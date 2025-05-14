@@ -9,6 +9,7 @@ export function useReservationStatusManager() {
   const [activeReservations, setActiveReservations] = useState<Reservation[]>([]);
   const [completedReservationIds, setCompletedReservationIds] = useState<string[]>([]);
   const [lastError, setLastError] = useState<Date | null>(null);
+  const [lastCheck, setLastCheck] = useState<Date>(new Date());
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -95,8 +96,7 @@ export function useReservationStatusManager() {
       if (!lastError || now.getTime() - lastError.getTime() > ERROR_COOLDOWN_MS) {
         toast({
           title: "Error loading reservations",
-          description: "Could not load reservation status data. Will retry automatically.",
-          variant: "destructive"
+          description: "Could not load reservation status data. Will retry automatically."
         });
         setLastError(now);
       }
@@ -220,11 +220,12 @@ export function useReservationStatusManager() {
       }
     }
     
-    // If any updates were made, refresh the reservations
-    if (updated) {
+    // If any updates were made or enough time has passed, refresh the reservations
+    if (updated || (now.getTime() - lastCheck.getTime() > 300000)) { // Force refresh every 5 minutes
+      setLastCheck(now);
       await fetchActiveReservations();
     }
-  }, [activeReservations, completedReservationIds, updateRoomStatus, markReservationAsCompleted, fetchActiveReservations, toast]);
+  }, [activeReservations, completedReservationIds, updateRoomStatus, markReservationAsCompleted, fetchActiveReservations, toast, lastCheck]);
 
   // Setup up subscription to room_reservations with improved error handling
   useEffect(() => {
@@ -273,7 +274,7 @@ export function useReservationStatusManager() {
         }
       };
       
-      // Check for status changes less frequently - 30 seconds is sufficient
+      // Check for status changes more frequently - 30 seconds is more responsive
       const intervalId = setInterval(() => {
         processReservations();
       }, 30000); // Every 30 seconds for time-based checks

@@ -15,10 +15,10 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
   useEffect(() => {
     if (!user || activeReservations.length === 0) return;
     
-    // Check if it's been at least 30 seconds since the last check
+    // Check if it's been at least 15 seconds since the last check
     const now = new Date();
     const timeSinceLastCheck = now.getTime() - lastCheckTime.current.getTime();
-    if (timeSinceLastCheck < 30000) { // 30 seconds minimum between checks
+    if (timeSinceLastCheck < 15000) { // 15 seconds minimum between checks
       return;
     }
     

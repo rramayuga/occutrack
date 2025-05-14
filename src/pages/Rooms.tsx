@@ -30,6 +30,16 @@ const Rooms = () => {
       setSelectedBuilding(buildings[0].id);
     }
   }, [buildings, selectedBuilding, setSelectedBuilding]);
+  
+  // Auto-refresh room data every 45 seconds to stay current with reservation changes
+  useEffect(() => {
+    const autoRefreshInterval = setInterval(() => {
+      console.log("Auto-refreshing room data");
+      refetchRooms();
+    }, 45000);
+    
+    return () => clearInterval(autoRefreshInterval);
+  }, [refetchRooms]);
 
   // Memoize expensive calculations
   const buildingRooms = useMemo(() => 
