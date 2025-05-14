@@ -1,15 +1,15 @@
-
 import { useEffect, useRef, useState } from 'react';
 import { Room, RoomStatus } from '@/lib/types';
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/lib/auth';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 
 export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (roomId: string, isAvailable: boolean, status: RoomStatus) => void) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [reservations, setReservations] = useState<any[]>([]);
   const lastUpdateRef = useRef<Record<string, string>>({});
+  const processedReservationsRef = useRef<Set<string>>(new Set());
 
   // Function to check and update room statuses based on current time
   const updateRoomStatusBasedOnBookings = async () => {
@@ -33,13 +33,19 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
       
       if (todayReservations) {
         setReservations(todayReservations);
-        console.log('Found reservations for today:', todayReservations.length);
         
+        // Check for completed reservations to delete
+        const completedReservations = todayReservations.filter(reservation => {
+          const endTime = reservation.end_time;
+          return currentTime > endTime; // If current time is past the end time
+        });
+        
+        // Process room status updates
         for (const reservation of todayReservations) {
           const startTime = reservation.start_time;
           const endTime = reservation.end_time;
           
-          // Check if current time is between start and end times (inclusive of start time)
+          // Check if current time is between start and end times
           const isActive = currentTime >= startTime && currentTime < endTime;
           
           // Find the room
@@ -48,47 +54,69 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
           if (roomToUpdate) {
             // Skip rooms under maintenance - they should not be changed by reservations
             if (roomToUpdate.status === 'maintenance') {
-              console.log(`Room ${roomToUpdate.name} is under maintenance, skipping status update`);
               continue;
             }
             
+            // Generate a status key for this reservation
+            const reservationKey = `${reservation.id}-${isActive ? 'active' : 'inactive'}`;
+            
             // Determine if the room status needs to be updated based on reservation time
-            const shouldBeOccupied = isActive;
-            const shouldBeAvailable = !isActive;
-            
-            // Generate a key for this room status update
-            const updateKey = `${roomToUpdate.id}-${shouldBeOccupied ? 'occupied' : 'available'}`;
-            
-            // Only update if status needs to change
-            if ((shouldBeOccupied && roomToUpdate.status !== 'occupied') || 
-                (shouldBeAvailable && roomToUpdate.status !== 'available')) {
+            if (isActive && roomToUpdate.status !== 'occupied') {
+              // Mark as occupied when reservation starts
+              console.log(`Room ${roomToUpdate.name} marking as OCCUPIED based on active reservation`);
+              updateRoomAvailability(reservation.room_id, false, 'occupied');
               
-              const newStatus = shouldBeOccupied ? 'occupied' : 'available';
-              const isAvailable = newStatus === 'available';
-              
-              console.log(`Room ${roomToUpdate.name} status automatically updating to ${newStatus} based on reservation time`);
-              
-              // Check if we've already shown this toast today
-              if (lastUpdateRef.current[updateKey] !== currentDate) {
-                updateRoomAvailability(reservation.room_id, isAvailable, newStatus);
-                
-                // Show toast notification for automatic status changes
-                if (shouldBeOccupied) {
-                  toast({
-                    title: "Room Now Occupied",
-                    description: `${roomToUpdate.name} is now occupied due to a scheduled reservation.`,
-                  });
-                } else if (reservation.start_time < currentTime) {
-                  // Only show "now available" toast if the reservation has actually ended
-                  toast({
-                    title: "Room Now Available",
-                    description: `${roomToUpdate.name} is now available as the reservation period has ended.`,
-                  });
-                }
-                
-                // Remember we showed this toast today
-                lastUpdateRef.current[updateKey] = currentDate;
+              // Show toast notification if we haven't already for this transition
+              if (!lastUpdateRef.current[reservationKey]) {
+                toast({
+                  title: "Room Now Occupied",
+                  description: `${roomToUpdate.name} is now occupied for a scheduled reservation.`,
+                });
+                lastUpdateRef.current[reservationKey] = currentDate;
               }
+            } 
+            else if (!isActive && currentTime >= endTime && roomToUpdate.status === 'occupied') {
+              // Mark as available when reservation ends
+              console.log(`Room ${roomToUpdate.name} marking as AVAILABLE as reservation has ended`);
+              updateRoomAvailability(reservation.room_id, true, 'available');
+              
+              // Show toast notification if we haven't already for this transition
+              if (!lastUpdateRef.current[reservationKey]) {
+                toast({
+                  title: "Room Now Available",
+                  description: `${roomToUpdate.name} is now available as the reservation has ended.`,
+                });
+                lastUpdateRef.current[reservationKey] = currentDate;
+              }
+              
+              // If reservation has ended and it hasn't been processed yet, delete it
+              if (!processedReservationsRef.current.has(reservation.id)) {
+                const { error: deleteError } = await supabase
+                  .from('room_reservations')
+                  .delete()
+                  .eq('id', reservation.id);
+                
+                if (!deleteError) {
+                  // Mark this reservation as processed so we don't try to delete it again
+                  processedReservationsRef.current.add(reservation.id);
+                  console.log(`Reservation ${reservation.id} for room ${roomToUpdate.name} has been automatically deleted`);
+                }
+              }
+            }
+          }
+        }
+        
+        // Bulk delete completed reservations that we haven't processed yet
+        for (const reservation of completedReservations) {
+          if (!processedReservationsRef.current.has(reservation.id)) {
+            const { error: deleteError } = await supabase
+              .from('room_reservations')
+              .delete()
+              .eq('id', reservation.id);
+            
+            if (!deleteError) {
+              processedReservationsRef.current.add(reservation.id);
+              console.log(`Completed reservation ${reservation.id} has been automatically deleted`);
             }
           }
         }
@@ -116,14 +144,6 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
       })
       .subscribe();
     
-    // Set up subscription for current time changes
-    const minuteTickerChannel = supabase
-      .channel('time_updates')
-      .on('broadcast', { event: 'minute-tick' }, () => {
-        updateRoomStatusBasedOnBookings();
-      })
-      .subscribe();
-    
     // Setup a broadcast every minute to handle time-based updates
     const broadcastTimeUpdates = setInterval(() => {
       supabase.channel('time_updates').send({
@@ -132,6 +152,14 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
         payload: { time: new Date().toISOString() }
       });
     }, 60000); // Check once per minute
+    
+    // Listen for broadcasts from other clients to keep in sync
+    const minuteTickerChannel = supabase
+      .channel('time_updates')
+      .on('broadcast', { event: 'minute-tick' }, () => {
+        updateRoomStatusBasedOnBookings();
+      })
+      .subscribe();
     
     return () => {
       supabase.removeChannel(reservationChannel);

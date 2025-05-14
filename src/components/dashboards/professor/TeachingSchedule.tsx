@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { CheckCircle, X } from 'lucide-react';
 import { Reservation } from '@/lib/types';
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
@@ -72,6 +72,43 @@ export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ reservations
       supabase.removeChannel(minuteUpdatesChannel);
       supabase.removeChannel(reservationsChannel);
     };
+  }, [reservations]);
+
+  useEffect(() => {
+    // Clean up completed reservations automatically
+    const checkAndDeleteCompletedReservations = async () => {
+      const now = new Date();
+      const expiredReservations = reservations.filter(booking => {
+        const bookingDate = new Date(booking.date);
+        const [endHour, endMinute] = booking.endTime.split(':').map(Number);
+        
+        const endDateTime = new Date(bookingDate);
+        endDateTime.setHours(endHour, endMinute, 0, 0);
+        
+        return endDateTime < now;
+      });
+      
+      // Delete expired reservations
+      for (const expired of expiredReservations) {
+        try {
+          const { error } = await supabase
+            .from('room_reservations')
+            .delete()
+            .eq('id', expired.id);
+            
+          if (error) {
+            console.error(`Error automatically deleting expired reservation ${expired.id}:`, error);
+          } else {
+            console.log(`Automatically deleted expired reservation ${expired.id}`);
+          }
+        } catch (err) {
+          console.error(`Error processing expired reservation ${expired.id}:`, err);
+        }
+      }
+    };
+    
+    // Run on mount and when reservations change
+    checkAndDeleteCompletedReservations();
   }, [reservations]);
 
   const handleCancelClick = (reservation: Reservation) => {

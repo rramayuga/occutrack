@@ -2,7 +2,7 @@
 import { useEffect, useRef } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { Room, RoomStatus } from '@/lib/types';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 
 /**
  * Hook specifically dedicated to checking and updating room status based on current time
@@ -10,6 +10,7 @@ import { useToast } from '@/components/ui/use-toast';
 export function useStatusUpdater(rooms: Room[], updateRoomAvailability: (roomId: string, isAvailable: boolean, status: RoomStatus) => void) {
   const { toast } = useToast();
   const lastUpdateRef = useRef<Record<string, string>>({});
+  const deletedReservationsRef = useRef<Set<string>>(new Set());
 
   const updateRoomStatuses = async () => {
     try {
@@ -30,6 +31,13 @@ export function useStatusUpdater(rooms: Room[], updateRoomAvailability: (roomId:
       if (error) throw error;
       
       if (todayReservations && todayReservations.length > 0) {
+        // Find ended reservations that need to be removed
+        const completedReservations = todayReservations.filter(reservation => {
+          const endTime = `${reservation.end_time}:00`;
+          return currentTime > endTime && !deletedReservationsRef.current.has(reservation.id);
+        });
+        
+        // Process each reservation
         for (const reservation of todayReservations) {
           const startTime = reservation.start_time;
           const endTime = reservation.end_time;
@@ -80,7 +88,34 @@ export function useStatusUpdater(rooms: Room[], updateRoomAvailability: (roomId:
                 
                 // Remember we showed this toast today
                 lastUpdateRef.current[updateKey] = currentDate;
+                
+                // Delete the reservation that has ended
+                const { error: deleteError } = await supabase
+                  .from('room_reservations')
+                  .delete()
+                  .eq('id', reservation.id);
+                
+                if (!deleteError) {
+                  deletedReservationsRef.current.add(reservation.id);
+                  console.log(`Reservation ${reservation.id} deleted as it has ended`);
+                }
               }
+            }
+          }
+        }
+        
+        // Delete any completed reservations
+        for (const reservation of completedReservations) {
+          if (!deletedReservationsRef.current.has(reservation.id)) {
+            const { error: deleteError } = await supabase
+              .from('room_reservations')
+              .delete()
+              .eq('id', reservation.id);
+            
+            if (!deleteError) {
+              deletedReservationsRef.current.add(reservation.id);
+              const roomToUpdate = rooms.find(r => r.id === reservation.room_id);
+              console.log(`Completed reservation ${reservation.id} for room ${roomToUpdate?.name || 'unknown'} deleted`);
             }
           }
         }
@@ -118,9 +153,28 @@ export function useStatusUpdater(rooms: Room[], updateRoomAvailability: (roomId:
       })
       .subscribe();
     
+    // Broadcast time updates every minute
+    const timeUpdateInterval = setInterval(() => {
+      supabase.channel('time_updates').send({
+        type: 'broadcast',
+        event: 'minute-tick',
+        payload: { time: new Date().toISOString() }
+      });
+    }, 60000);
+    
+    // Listen for broadcast time updates from other clients
+    const timeChannel = supabase
+      .channel('time_updates')
+      .on('broadcast', { event: 'minute-tick' }, () => {
+        updateRoomStatuses();
+      })
+      .subscribe();
+    
     return () => {
       supabase.removeChannel(roomReservationChannel);
       supabase.removeChannel(roomChannel);
+      supabase.removeChannel(timeChannel);
+      clearInterval(timeUpdateInterval);
     };
   }, [rooms]);
 }
