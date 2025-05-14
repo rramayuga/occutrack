@@ -1,9 +1,8 @@
-
 import { useState } from 'react';
 import { Room } from '@/lib/types';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
-import { createMultiSheetCsv, parseMultiSheetCsv } from '@/lib/utils';
+import { createMultiSheetExcel, parseMultiSheetExcel } from '@/lib/utils';
 
 export const useRoomsManagement = () => {
   const [isUploading, setIsUploading] = useState(false);
@@ -128,18 +127,16 @@ export const useRoomsManagement = () => {
     }
   };
 
-  const handleRoomCsvUpload = async (file: File) => {
+  const handleRoomExcelUpload = async (file: File) => {
     setIsUploading(true);
     try {
-      const text = await file.text();
-      
-      // Parse the multi-sheet CSV
-      const buildingsWithRooms = parseMultiSheetCsv(text);
+      // Parse the multi-sheet Excel
+      const buildingsWithRooms = await parseMultiSheetExcel(file);
       
       if (buildingsWithRooms.length === 0) {
         toast({
-          title: "Invalid CSV Format",
-          description: "Could not find any building data in the CSV file. Please check the format.",
+          title: "Invalid Excel Format",
+          description: "Could not find any building data in the Excel file. Please check the format.",
           variant: "destructive"
         });
         setIsUploading(false);
@@ -274,15 +271,15 @@ export const useRoomsManagement = () => {
       
       // Show final summary toast
       toast({
-        title: "CSV Import Complete",
+        title: "Excel Import Complete",
         description: `Successfully added ${totalSuccessCount} rooms, updated ${totalUpdateCount} rooms across ${buildingsWithRooms.length} buildings. ${totalErrorCount} errors occurred.`,
         variant: totalErrorCount > 0 ? "default" : "default"
       });
     } catch (error) {
-      console.error("Error processing CSV file:", error);
+      console.error("Error processing Excel file:", error);
       toast({
         title: "Error",
-        description: "Error processing CSV file.",
+        description: "Error processing Excel file.",
         variant: "destructive"
       });
     } finally {
@@ -290,7 +287,7 @@ export const useRoomsManagement = () => {
     }
   };
 
-  const exportRoomsToCsv = async () => {
+  const exportRoomsToExcel = async () => {
     try {
       // First fetch all buildings
       const { data: buildingsData, error: buildingsError } = await supabase
@@ -373,12 +370,12 @@ export const useRoomsManagement = () => {
         }
       });
       
-      // Create multi-sheet CSV file
-      const blob = createMultiSheetCsv(buildingsMap);
+      // Create multi-sheet Excel file
+      const blob = createMultiSheetExcel(buildingsMap);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.setAttribute('href', url);
-      a.setAttribute('download', 'rooms_by_building.csv');
+      a.setAttribute('download', 'rooms_by_building.xlsx');
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -386,13 +383,13 @@ export const useRoomsManagement = () => {
 
       toast({
         title: "Success",
-        description: "Rooms exported to CSV successfully.",
+        description: "Rooms exported to Excel successfully.",
       });
     } catch (error) {
-      console.error("Error exporting rooms to CSV:", error);
+      console.error("Error exporting rooms to Excel:", error);
       toast({
         title: "Error",
-        description: "Failed to export rooms to CSV.",
+        description: "Failed to export rooms to Excel.",
         variant: "destructive"
       });
     }
@@ -401,8 +398,8 @@ export const useRoomsManagement = () => {
   return {
     addRoom,
     deleteRoom,
-    handleRoomCsvUpload,
-    exportRoomsToCsv,
+    handleRoomCsvUpload: handleRoomExcelUpload, // Keep the original function name for backward compatibility
+    exportRoomsToCsv: exportRoomsToExcel, // Keep the original function name for backward compatibility
     isUploading
   };
 };

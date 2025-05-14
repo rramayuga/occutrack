@@ -1,9 +1,97 @@
-
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import * as XLSX from 'xlsx';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
+}
+
+/**
+ * Creates an Excel file with separate sheets for each building
+ * @param buildingsData Map of building names to their room data arrays
+ * @returns Blob object containing the Excel data
+ */
+export function createMultiSheetExcel(buildingsData: Map<string, any[]>): Blob {
+  // Create a new workbook
+  const workbook = XLSX.utils.book_new();
+  
+  // Process each building and its rooms
+  buildingsData.forEach((rooms, buildingName) => {
+    // Clean building name for sheet name (Excel has restrictions on sheet names)
+    const sheetName = buildingName.replace(/[*?:/\\[\]]/g, '').substring(0, 31);
+    
+    if (rooms.length === 0) {
+      // Create an empty sheet with just headers
+      const worksheet = XLSX.utils.aoa_to_sheet([['name', 'type', 'floor', 'capacity', 'status']]);
+      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+      return;
+    }
+    
+    // Process room data - without buildingId and buildingName
+    const roomsData = rooms.map(room => ({
+      name: room.name,
+      type: room.type,
+      floor: room.floor,
+      capacity: room.capacity || '',
+      status: room.status || 'available'
+    }));
+    
+    // Create worksheet from the rooms data
+    const worksheet = XLSX.utils.json_to_sheet(roomsData);
+    
+    // Add the worksheet to the workbook
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+  });
+  
+  // Generate Excel file as array buffer
+  const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+  
+  // Convert to Blob
+  return new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+
+/**
+ * Parses an Excel file that contains room data with separate sheets for buildings
+ * @param file The Excel file to parse
+ * @returns Promise resolving to array of objects containing building name and room data
+ */
+export async function parseMultiSheetExcel(file: File): Promise<{ buildingName: string; rooms: any[] }[]> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        
+        const result: { buildingName: string; rooms: any[] }[] = [];
+        
+        // Process each sheet in the workbook
+        workbook.SheetNames.forEach(sheetName => {
+          const worksheet = workbook.Sheets[sheetName];
+          
+          // Convert sheet data to JSON
+          const roomsData = XLSX.utils.sheet_to_json(worksheet);
+          
+          // Add building and its rooms to result
+          result.push({
+            buildingName: sheetName,
+            rooms: roomsData
+          });
+        });
+        
+        resolve(result);
+      } catch (error) {
+        console.error('Error parsing Excel file:', error);
+        reject(error);
+      }
+    };
+    
+    reader.onerror = (error) => reject(error);
+    
+    // Read the file as an array buffer
+    reader.readAsArrayBuffer(file);
+  });
 }
 
 /**

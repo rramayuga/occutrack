@@ -20,10 +20,10 @@ const RoomActionsToolbar: React.FC<RoomActionsToolbarProps> = ({
     <div className="flex flex-col md:flex-row gap-4 justify-between">
       <div className="flex gap-2">
         <Button variant="outline" onClick={onExport}>
-          <Download className="h-4 w-4 mr-2" /> Export CSV
+          <Download className="h-4 w-4 mr-2" /> Export Excel
         </Button>
         <Button variant="outline" onClick={onImport}>
-          <Upload className="h-4 w-4 mr-2" /> Import CSV
+          <Upload className="h-4 w-4 mr-2" /> Import Excel
         </Button>
       </div>
       <Button
