@@ -3,6 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { BuildingWithFloors, Room } from '@/lib/types';
 import { Button } from '@/components/ui/button';
+import { sortRoomsByName } from '@/lib/utils';
 
 interface AvailableRoomsProps {
   rooms: Room[];
@@ -15,8 +16,10 @@ export const AvailableRooms: React.FC<AvailableRoomsProps> = ({
   buildings,
   onReserveClick 
 }) => {
-  // Get available rooms
-  const availableRooms = rooms.filter(room => room.isAvailable && room.status === 'available').slice(0, 3);
+  // Get available rooms and sort them by name
+  const availableRooms = sortRoomsByName(
+    rooms.filter(room => room.isAvailable && room.status === 'available')
+  ).slice(0, 3);
   
   return (
     <Card>
