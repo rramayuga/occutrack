@@ -8,8 +8,12 @@ import { useToast } from "@/hooks/use-toast";
 export function useReservationStatusManager() {
   const [activeReservations, setActiveReservations] = useState<Reservation[]>([]);
   const [completedReservationIds, setCompletedReservationIds] = useState<string[]>([]);
+  const [lastError, setLastError] = useState<Date | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
+
+  // Add cooldown for error toasts to prevent spam
+  const ERROR_COOLDOWN_MS = 10000; // 10 seconds between error messages
 
   // Fetch active reservations that aren't completed yet
   const fetchActiveReservations = useCallback(async () => {
@@ -85,9 +89,21 @@ export function useReservationStatusManager() {
       return reservations;
     } catch (error) {
       console.error("Error in fetchActiveReservations:", error);
+      
+      // Only show error toast if we haven't shown one recently
+      const now = new Date();
+      if (!lastError || now.getTime() - lastError.getTime() > ERROR_COOLDOWN_MS) {
+        toast({
+          title: "Error loading reservations",
+          description: "Could not load reservation status data. Will retry automatically.",
+          variant: "destructive"
+        });
+        setLastError(now);
+      }
+      
       return [];
     }
-  }, [user]);
+  }, [user, toast, lastError]);
 
   // Update room status based on reservation time
   const updateRoomStatus = useCallback(async (roomId: string, isOccupied: boolean) => {
@@ -210,36 +226,73 @@ export function useReservationStatusManager() {
     }
   }, [activeReservations, completedReservationIds, updateRoomStatus, markReservationAsCompleted, fetchActiveReservations, toast]);
 
-  // Setup up subscriptions to room_reservations
+  // Setup up subscription to room_reservations with improved error handling
   useEffect(() => {
     if (!user) return;
     
     // Do initial fetch of active reservations
     fetchActiveReservations();
     
-    // Setup subscription to room_reservations changes
-    const channel = supabase
-      .channel('reservation-status-changes')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'room_reservations',
-      }, (payload) => {
-        console.log("Reservation change detected:", payload);
+    try {
+      // Setup subscription to room_reservations changes
+      const channel = supabase
+        .channel('reservation-status-changes')
+        .on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'room_reservations',
+        }, (payload) => {
+          console.log("Reservation change detected:", payload);
+          fetchActiveReservations();
+        })
+        .subscribe((status) => {
+          console.log("Reservation status subscription status:", status);
+          
+          // If subscription fails, try again after delay
+          if (status !== 'SUBSCRIBED') {
+            setTimeout(() => setupSubscription(), 5000);
+          }
+        });
+      
+      // Function to setup subscription (for retries)
+      const setupSubscription = () => {
+        try {
+          return supabase
+            .channel('reservation-status-retry')
+            .on('postgres_changes', { 
+              event: '*', 
+              schema: 'public', 
+              table: 'room_reservations',
+            }, () => {
+              fetchActiveReservations();
+            })
+            .subscribe();
+        } catch (error) {
+          console.error("Error setting up subscription retry:", error);
+          return null;
+        }
+      };
+      
+      // Check for status changes less frequently - 30 seconds is sufficient
+      const intervalId = setInterval(() => {
+        processReservations();
+      }, 30000); // Every 30 seconds for time-based checks
+      
+      return () => {
+        clearInterval(intervalId);
+        supabase.removeChannel(channel);
+      };
+    } catch (error) {
+      console.error("Error setting up reservation status subscription:", error);
+      
+      // Setup a fallback checking mechanism in case subscriptions fail
+      const fallbackIntervalId = setInterval(() => {
         fetchActiveReservations();
-      })
-      .subscribe();
-    
-    // Check for status changes on a less frequent interval - 30 seconds is sufficient
-    // for time-based changes since we're also using realtime subscriptions for DB changes
-    const intervalId = setInterval(() => {
-      processReservations();
-    }, 30000); // Every 30 seconds for time-based checks
-    
-    return () => {
-      clearInterval(intervalId);
-      supabase.removeChannel(channel);
-    };
+        processReservations();
+      }, 60000); // Check every minute as fallback
+      
+      return () => clearInterval(fallbackIntervalId);
+    }
   }, [user, fetchActiveReservations, processReservations]);
 
   return {

@@ -15,7 +15,11 @@ interface TeachingScheduleProps {
 export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ reservations }) => {
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
+  const [lastError, setLastError] = useState<Date | null>(null);
   const { toast } = useToast();
+  
+  // Add cooldown for error toasts to prevent spam
+  const ERROR_COOLDOWN_MS = 10000; // 10 seconds between error messages
   
   // Use memoization to filter out completed reservations
   const filteredReservations = useMemo(() => {
@@ -50,30 +54,42 @@ export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ reservations
       setSelectedReservation(null);
     } catch (error) {
       console.error("Error cancelling reservation:", error);
-      toast({
-        title: "Error",
-        description: "Failed to cancel reservation. Please try again.",
-        variant: "destructive"
-      });
+      
+      // Only show error toast if we haven't shown one recently
+      const now = new Date();
+      if (!lastError || now.getTime() - lastError.getTime() > ERROR_COOLDOWN_MS) {
+        toast({
+          title: "Error",
+          description: "Failed to cancel reservation. Please try again.",
+          variant: "destructive"
+        });
+        setLastError(now);
+      }
     }
   };
   
-  // Setup realtime subscription to reservation changes
+  // Setup realtime subscription to reservation changes with improved error handling
   useEffect(() => {
-    const channel = supabase
-      .channel('teaching-schedule-changes')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'room_reservations'
-      }, (payload) => {
-        console.log("Reservation change detected in TeachingSchedule:", payload);
-      })
-      .subscribe();
-      
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    try {
+      const channel = supabase
+        .channel('teaching-schedule-changes')
+        .on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'room_reservations'
+        }, (payload) => {
+          console.log("Reservation change detected in TeachingSchedule:", payload);
+        })
+        .subscribe((status) => {
+          console.log("TeachingSchedule subscription status:", status);
+        });
+        
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    } catch (error) {
+      console.error("Error setting up teaching schedule subscription:", error);
+    }
   }, []);
 
   return (

@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/lib/auth';
@@ -8,11 +7,15 @@ import { Reservation, ReservationFormValues } from '@/lib/types';
 export function useReservations() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [lastError, setLastError] = useState<Date | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
+  
+  // Add cooldown for error toasts to prevent spam
+  const ERROR_COOLDOWN_MS = 10000; // 10 seconds between error messages
 
   // Fetch user's reservations
-  const fetchReservations = async () => {
+  const fetchReservations = useCallback(async () => {
     if (!user) return;
     
     try {
@@ -95,15 +98,21 @@ export function useReservations() {
       }
     } catch (error) {
       console.error("Error fetching reservations:", error);
-      toast({
-        title: "Error loading reservations",
-        description: "Could not load your reservation data.",
-        variant: "destructive"
-      });
+      
+      // Only show error toast if we haven't shown one recently
+      const now = new Date();
+      if (!lastError || now.getTime() - lastError.getTime() > ERROR_COOLDOWN_MS) {
+        toast({
+          title: "Error loading reservations",
+          description: "Could not load your reservation data. Will retry automatically.",
+          variant: "destructive"
+        });
+        setLastError(now);
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, toast, lastError]);
 
   // Create a new reservation
   const createReservation = async (values: ReservationFormValues, roomId: string) => {
@@ -221,30 +230,47 @@ export function useReservations() {
     return hours * 60 + minutes;
   };
 
-  // Setup real-time subscription for reservation updates
-  const setupReservationsSubscription = () => {
+  // Setup real-time subscription for reservation updates with better error handling
+  const setupReservationsSubscription = useCallback(() => {
     if (!user) return () => {};
     
-    const channel = supabase
-      .channel('public:room_reservations')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'room_reservations',
-        filter: `faculty_id=eq.${user.id}`
-      }, (payload) => {
-        console.log('Reservation change received:', payload);
-        fetchReservations();
-      })
-      .subscribe();
+    try {
+      const channel = supabase
+        .channel('public:room_reservations')
+        .on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'room_reservations',
+          filter: `faculty_id=eq.${user.id}`
+        }, (payload) => {
+          console.log('Reservation change received:', payload);
+          fetchReservations();
+        })
+        .subscribe((status) => {
+          console.log('Reservation subscription status:', status);
+          
+          // If subscription fails, retry after a delay
+          if (status !== 'SUBSCRIBED') {
+            setTimeout(() => {
+              console.log('Retrying reservation subscription...');
+              setupReservationsSubscription();
+            }, 5000); // 5 second retry delay
+          }
+        });
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  };
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    } catch (error) {
+      console.error('Error setting up reservation subscription:', error);
+      // Return empty cleanup function in case of error
+      return () => {};
+    }
+  }, [user?.id, fetchReservations]);
 
   useEffect(() => {
     if (user) {
+      // Only fetch once on initial load
       fetchReservations();
       
       const unsubscribe = setupReservationsSubscription();
@@ -253,7 +279,7 @@ export function useReservations() {
         unsubscribe();
       };
     }
-  }, [user?.id]);
+  }, [user?.id, fetchReservations, setupReservationsSubscription]);
 
   return {
     reservations,

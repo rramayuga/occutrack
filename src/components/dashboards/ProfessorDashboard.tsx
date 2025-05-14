@@ -23,6 +23,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
   
   // Initial data fetch on mount - only once
   useEffect(() => {
+    console.log("ProfessorDashboard - Initial data fetch");
     refreshRooms();
     fetchReservations();
   }, [refreshRooms, fetchReservations]);
@@ -30,12 +31,10 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
   // Memoize today's schedule to prevent unnecessary re-renders
   const todaySchedule = useMemo(() => {
     const today = new Date();
+    const todayString = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+    
     return reservations.filter(booking => {
-      const bookingDate = new Date(booking.date);
-      return bookingDate.getDate() === today.getDate() && 
-             bookingDate.getMonth() === today.getMonth() && 
-             bookingDate.getFullYear() === today.getFullYear() &&
-             booking.status !== 'completed'; // Don't show completed reservations
+      return booking.date === todayString && booking.status !== 'completed';
     });
   }, [reservations]);
 
