@@ -1,210 +1,113 @@
+
 import React, { useEffect, useState } from 'react';
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Link } from 'react-router-dom';
+import { Bell } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { 
+  Popover, 
+  PopoverContent,
+  PopoverTrigger 
+} from '@/components/ui/popover';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/lib/auth';
+import { supabase } from '@/integrations/supabase/client';
 
-export const FacultyRegistrationNotifier = () => {
-  const [pendingFaculty, setPendingFaculty] = useState<any[]>([]);
-  const { toast } = useToast();
+const FacultyRegistrationNotifier = () => {
+  const [pendingCount, setPendingCount] = useState(0);
+  const [isOpen, setIsOpen] = useState(false);
   const { user } = useAuth();
+  const { toast } = useToast();
 
-  // Fetch pending faculty registrations
-  const fetchPendingFaculty = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('role', 'faculty')
-        .eq('status', 'pending');
-      
-      if (error) throw error;
-      
-      if (data) {
-        setPendingFaculty(data);
-      }
-    } catch (error) {
-      console.error("Error fetching pending faculty:", error);
-    }
-  };
-
-  // Approve a faculty member
-  const approveFaculty = async (facultyId: string, facultyName: string) => {
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ status: 'active' })
-        .eq('id', facultyId);
-      
-      if (error) throw error;
-      
-      // Update local state
-      setPendingFaculty(prev => prev.filter(f => f.id !== facultyId));
-      
-      toast({
-        title: "Faculty Approved",
-        description: `${facultyName} has been approved and can now access the system.`,
-        duration: 5000,
-      });
-    } catch (error) {
-      console.error("Error approving faculty:", error);
-      toast({
-        title: "Error",
-        description: "Failed to approve faculty member.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Reject a faculty member
-  const rejectFaculty = async (facultyId: string, facultyName: string) => {
-    try {
-      // First, delete the user from auth
-      const { data: userData, error: userError } = await supabase
-        .from('profiles')
-        .select('auth_id')
-        .eq('id', facultyId)
-        .single();
-      
-      if (userError) throw userError;
-      
-      if (userData?.auth_id) {
-        // Delete the user from auth
-        const { error: deleteAuthError } = await supabase.auth.admin.deleteUser(
-          userData.auth_id
-        );
-        
-        if (deleteAuthError) {
-          console.error("Error deleting auth user:", deleteAuthError);
-          // Continue anyway to delete the profile
-        }
-      }
-      
-      // Delete the profile
-      const { error } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', facultyId);
-      
-      if (error) throw error;
-      
-      // Update local state
-      setPendingFaculty(prev => prev.filter(f => f.id !== facultyId));
-      
-      toast({
-        title: "Faculty Rejected",
-        description: `${facultyName}'s registration has been rejected.`,
-        duration: 5000,
-      });
-    } catch (error) {
-      console.error("Error rejecting faculty:", error);
-      toast({
-        title: "Error",
-        description: "Failed to reject faculty member.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Set up real-time subscription for new faculty registrations
   useEffect(() => {
-    // Only admins and superadmins should see this
+    // Only run this for admin and superadmin users
     if (!user || (user.role !== 'admin' && user.role !== 'superadmin')) {
       return;
     }
-    
-    fetchPendingFaculty();
-    
-    // Subscribe to changes in the profiles table
-    const profilesChannel = supabase
-      .channel('faculty_registration_changes')
-      .on('postgres_changes', { 
-        event: 'INSERT', 
-        schema: 'public', 
-        table: 'profiles',
-        filter: 'role=eq.faculty' 
-      }, (payload) => {
-        console.log('New faculty registration:', payload);
-        
-        // Check if the new profile is pending
-        if (payload.new && payload.new.status === 'pending') {
-          // Add to the list
-          setPendingFaculty(prev => [...prev, payload.new]);
+
+    // Fetch pending faculty requests
+    const fetchPendingRequests = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('faculty_requests')
+          .select('id')
+          .eq('status', 'pending');
           
-          // Show notification
-          const facultyName = payload.new.name || 'A new faculty member';
+        if (error) throw error;
+        
+        setPendingCount(data?.length || 0);
+
+        // Show a toast notification if there are pending requests
+        if (data && data.length > 0) {
           toast({
-            title: "New Faculty Registration",
-            description: `${facultyName} has registered and is awaiting confirmation.`,
-            duration: 10000,
+            title: "Faculty Requests Pending",
+            description: `${data.length} faculty registration requests await your approval.`,
+            duration: 5000,
           });
         }
-      })
+      } catch (error) {
+        console.error('Error fetching pending faculty requests:', error);
+      }
+    };
+
+    fetchPendingRequests();
+
+    // Set up a subscription for real-time updates
+    const facultyChannel = supabase
+      .channel('faculty_requests_changes')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'faculty_requests' 
+      }, fetchPendingRequests)
       .subscribe();
-    
+
     return () => {
-      supabase.removeChannel(profilesChannel);
+      supabase.removeChannel(facultyChannel);
     };
   }, [user]);
 
-  // If no pending faculty, don't render anything
-  if (pendingFaculty.length === 0) {
+  // Don't render anything if user is not admin/superadmin or if there are no pending requests
+  if (!user || (user.role !== 'admin' && user.role !== 'superadmin') || pendingCount === 0) {
     return null;
   }
 
   return (
-    <Card className="mb-6">
-      <CardHeader className="bg-amber-50">
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>Faculty Registration Requests</CardTitle>
-            <CardDescription>
-              New faculty members awaiting approval
-            </CardDescription>
-          </div>
-          <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-200">
-            {pendingFaculty.length} Pending
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <PopoverTrigger asChild>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="relative mr-2"
+          aria-label="Notifications"
+        >
+          <Bell className="h-[1.2rem] w-[1.2rem]" />
+          <Badge 
+            className="absolute -top-1 -right-1 px-1 min-w-[1.2rem] h-[1.2rem] flex items-center justify-center"
+            variant="destructive"
+          >
+            {pendingCount}
           </Badge>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-0">
+        <div className="p-4 border-b">
+          <div className="font-medium">Faculty Registration Requests</div>
+          <div className="text-sm text-muted-foreground">
+            {pendingCount} {pendingCount === 1 ? 'request' : 'requests'} pending approval
+          </div>
         </div>
-      </CardHeader>
-      <CardContent className="pt-6">
-        <div className="space-y-4">
-          {pendingFaculty.map((faculty) => (
-            <div key={faculty.id} className="flex items-center justify-between border-b pb-4 last:border-0">
-              <div>
-                <h4 className="font-medium">{faculty.name}</h4>
-                <p className="text-sm text-muted-foreground">{faculty.email}</p>
-              </div>
-              <div className="flex gap-2">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="border-red-200 text-red-600 hover:bg-red-50"
-                  onClick={() => rejectFaculty(faculty.id, faculty.name)}
-                >
-                  Reject
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="border-green-200 text-green-600 hover:bg-green-50"
-                  onClick={() => approveFaculty(faculty.id, faculty.name)}
-                >
-                  Approve
-                </Button>
-              </div>
-            </div>
-          ))}
+        <div className="p-4">
+          <Link 
+            to="/faculty-management"
+            className="block w-full"
+            onClick={() => setIsOpen(false)}
+          >
+            <Button className="w-full">Review Requests</Button>
+          </Link>
         </div>
-      </CardContent>
-      <CardFooter className="bg-muted/50 flex justify-between">
-        <p className="text-xs text-muted-foreground">
-          Approved faculty will gain immediate access to the system
-        </p>
-      </CardFooter>
-    </Card>
+      </PopoverContent>
+    </Popover>
   );
 };
 

@@ -1,5 +1,5 @@
 
-import React, { useEffect, useCallback, memo, useMemo } from 'react';
+import React, { useEffect, useCallback, memo } from 'react';
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { AlertCircle } from "lucide-react";
 import Navbar from '@/components/layout/Navbar';
@@ -15,34 +15,30 @@ const Rooms = () => {
   const { 
     buildings, 
     rooms, 
-    loading, 
+    isLoading: loading, 
     selectedBuilding, 
     setSelectedBuilding, 
     handleToggleRoomAvailability,
-    refetchRooms
+    refreshRooms: refetchRooms
   } = useRooms();
   
   const { user } = useAuth();
 
-  // Set a default building if none is selected and buildings are available - use callback to prevent unnecessary re-renders
-  const setInitialBuilding = useCallback(() => {
+  // Set a default building if none is selected and buildings are available
+  useEffect(() => {
     if (buildings.length > 0 && !selectedBuilding) {
       setSelectedBuilding(buildings[0].id);
     }
   }, [buildings, selectedBuilding, setSelectedBuilding]);
-  
-  useEffect(() => {
-    setInitialBuilding();
-  }, [setInitialBuilding]);
 
   // Memoize expensive calculations
-  const buildingRooms = useMemo(() => 
+  const buildingRooms = React.useMemo(() => 
     rooms.filter(room => room.buildingId === selectedBuilding),
     [rooms, selectedBuilding]
   );
   
   // Memoize room grouping by floor
-  const roomsByFloor = useMemo(() => {
+  const roomsByFloor = React.useMemo(() => {
     return buildingRooms.reduce((acc, room) => {
       if (!acc[room.floor]) {
         acc[room.floor] = [];
@@ -52,41 +48,17 @@ const Rooms = () => {
     }, {} as Record<number, typeof rooms>);
   }, [buildingRooms]);
 
-  // Get the floors for the selected building - memoized
-  const selectedBuildingData = useMemo(() => 
+  // Get the floors for the selected building
+  const selectedBuildingData = React.useMemo(() => 
     buildings.find(b => b.id === selectedBuilding),
     [buildings, selectedBuilding]
   );
   
   const floors = selectedBuildingData?.floors || [];
 
-  // Determine if the current user can modify room availability - memoized
-  const canModifyRooms = useMemo(() => {
-    const authorizedRoles = ['faculty', 'admin', 'superadmin'];
-    return user && authorizedRoles.includes(user.role);
-  }, [user]);
-
-  // Prevent refreshes when changing tab by memoizing the tab change handler
-  const handleTabChange = useCallback((value: string) => {
-    setSelectedBuilding(value);
-  }, [setSelectedBuilding]);
-
-  // If we're still loading, show a simple loading state instead of refreshing
-  if (loading) {
-    return (
-      <div className="min-h-screen flex flex-col">
-        <Navbar />
-        <div className="container mx-auto px-4 py-8 flex-grow">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-3xl font-bold">Campus Rooms</h1>
-          </div>
-          <div className="flex justify-center items-center h-64">
-            <p>Loading rooms data...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Determine if the current user can modify room availability
+  const authorizedRoles = ['faculty', 'admin', 'superadmin'];
+  const canModifyRooms = user && authorizedRoles.includes(user.role);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -96,7 +68,11 @@ const Rooms = () => {
           <h1 className="text-3xl font-bold">Campus Rooms</h1>
         </div>
 
-        {buildings.length === 0 ? (
+        {loading ? (
+          <div className="flex justify-center items-center h-64">
+            <p>Loading rooms data...</p>
+          </div>
+        ) : buildings.length === 0 ? (
           <div className="text-center p-8 border rounded-lg">
             <AlertCircle className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">No Buildings Available</h3>
@@ -107,13 +83,13 @@ const Rooms = () => {
         ) : (
           <Tabs 
             value={selectedBuilding} 
-            onValueChange={handleTabChange} 
+            onValueChange={setSelectedBuilding} 
             className="w-full"
           >
             <BuildingList 
               buildings={buildings}
               selectedBuilding={selectedBuilding}
-              onBuildingChange={handleTabChange}
+              onBuildingChange={setSelectedBuilding}
             />
 
             {buildings.map((building) => (
@@ -151,5 +127,4 @@ const Rooms = () => {
   );
 };
 
-// Memoize the entire component to prevent unnecessary re-renders
 export default memo(Rooms);

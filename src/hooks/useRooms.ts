@@ -1,62 +1,53 @@
 
-import { useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useBuildings } from './useBuildings';
 import { useRoomFetching } from './rooms/useRoomFetching';
 import { useRoomUpdater } from './rooms/useRoomUpdater';
 import { useRoomSubscriptions } from './rooms/useRoomSubscriptions';
 import { useRoomReservationCheck } from './useRoomReservationCheck';
-import { useStatusUpdater } from './useStatusUpdater';
 
 /**
- * Main hook for managing room data and operations, optimized to reduce rerenders
+ * Main hook for managing room data and operations
  */
 export function useRooms() {
   // Track initial setup to prevent multiple setups
   const isInitialSetup = useRef(true);
-  const subscriptionsSetUp = useRef(false);
+  const [selectedBuilding, setSelectedBuilding] = useState<string>('');
 
   // Get building data
   const { 
-    buildings, 
-    selectedBuilding, 
-    setSelectedBuilding,
+    buildings
   } = useBuildings();
   
   // Room fetching functionality
   const {
     rooms,
     setRooms,
-    loading,
+    loading: isLoading,
     fetchRooms,
-    refetchRooms
+    refetchRooms: refreshRooms
   } = useRoomFetching();
   
-  // Memoize the room updater functions to prevent unnecessary recreations
+  // Room updating functionality
   const {
     updateRoomAvailability,
     handleToggleRoomAvailability
-  } = useRoomUpdater(rooms, setRooms, refetchRooms);
+  } = useRoomUpdater(rooms, setRooms, refreshRooms);
   
-  // Use memoized subscription setup to prevent recreation
+  // Room subscriptions for real-time updates
   const {
     setupRoomSubscription,
     setupRoomAvailabilitySubscription
   } = useRoomSubscriptions(fetchRooms, setRooms);
   
-  // Check and update rooms based on reservations - optimized version
+  // Check and update rooms based on reservations
   useRoomReservationCheck(rooms, updateRoomAvailability);
-  
-  // Additional aggressive status updater - optimized version
-  useStatusUpdater(rooms, updateRoomAvailability);
 
-  // Set up subscriptions just once on component mount
+  // Set up subscriptions on component mount
   useEffect(() => {
-    // Only set up subscriptions once
-    if (isInitialSetup.current && !subscriptionsSetUp.current) {
+    // Only set up subscriptions on initial mount
+    if (isInitialSetup.current) {
       console.log("Setting up initial room data and subscriptions");
-      
-      // Set the flag immediately to prevent duplicate setups
-      subscriptionsSetUp.current = true;
       
       // Initial data fetch
       fetchRooms();
@@ -74,15 +65,15 @@ export function useRooms() {
         unsubscribeAvailability();
       };
     }
-  }, []);  // Empty dependency array to ensure this runs only once
+  }, [fetchRooms, setupRoomSubscription, setupRoomAvailabilitySubscription]);
 
   return {
     buildings,
     rooms,
-    loading,
+    isLoading,
     selectedBuilding,
     setSelectedBuilding,
     handleToggleRoomAvailability,
-    refetchRooms
+    refreshRooms
   };
 }

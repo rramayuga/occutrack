@@ -1,42 +1,36 @@
 
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { cn } from '@/lib/utils';
 
-export interface NavLinkProps {
-  path?: string;
-  href?: string;
-  name?: string;
-  label?: string;
-  icon?: React.ReactNode;
-  isMobile?: boolean;
+interface NavLinkProps {
+  path: string;
+  name: string;
+  icon: React.ReactNode;
+  isActive?: boolean;
 }
 
-const NavLink = ({ path, href, name, label, icon, isMobile = false }: NavLinkProps) => {
-  const { pathname } = useLocation();
-  const linkHref = href || path || '/';
-  const linkLabel = label || name || '';
+const NavLink: React.FC<NavLinkProps> = ({ path, name, icon, isActive }) => {
+  const location = useLocation();
+  const activeNavClass = "text-primary font-medium";
+  const inactiveNavClass = "text-foreground hover:text-primary transition-colors";
   
-  const isActive = pathname === linkHref || pathname.startsWith(`${linkHref}/`);
-  
+  // If isActive is provided, use it; otherwise, determine based on path
+  const isActiveLink = isActive !== undefined 
+    ? isActive 
+    : location.pathname === path;
+
   return (
-    <Link
-      to={linkHref}
-      className={cn(
-        "transition-colors",
-        isActive
-          ? "text-primary font-medium"
-          : "text-muted-foreground hover:text-foreground",
-        isMobile && "flex items-center py-2"
-      )}
-    >
-      {icon && (
-        <span className={cn("mr-2", isMobile ? "h-5 w-5" : "h-4 w-4")}>
-          {icon}
-        </span>
-      )}
-      {linkLabel}
-    </Link>
+    <li className="my-1">
+      <Link 
+        to={path}
+        className={`flex items-center px-4 py-2 rounded-md transition-all ${
+          isActiveLink ? activeNavClass : inactiveNavClass
+        }`}
+      >
+        <span className="mr-2">{icon}</span>
+        {name}
+      </Link>
+    </li>
   );
 };
 

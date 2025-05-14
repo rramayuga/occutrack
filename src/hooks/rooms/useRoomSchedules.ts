@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Reservation } from '@/lib/types';
 import { useAuth } from '@/lib/auth';
@@ -38,32 +37,18 @@ export const useRoomSchedules = (roomId: string, roomName: string) => {
       }
       
       if (data) {
-        // Current date and time for filtering
-        const now = new Date();
-        
-        const reservations: Reservation[] = data
-          .map(item => ({
-            id: item.id,
-            roomId: roomId,
-            roomNumber: roomName,
-            building: '',
-            date: item.date,
-            startTime: item.start_time,
-            endTime: item.end_time,
-            purpose: item.purpose || '',
-            status: item.status,
-            faculty: item.profiles?.name || "Unknown Faculty"
-          }))
-          .filter(reservation => {
-            // Check if the reservation is still active (not ended)
-            const reservationDate = new Date(reservation.date);
-            const [endHour, endMinute] = reservation.endTime.split(':').map(Number);
-            
-            const endDateTime = new Date(reservationDate);
-            endDateTime.setHours(endHour, endMinute, 0, 0);
-            
-            return endDateTime > now;
-          });
+        const reservations: Reservation[] = data.map(item => ({
+          id: item.id,
+          roomId: roomId,
+          roomNumber: roomName,
+          building: '',
+          date: item.date,
+          startTime: item.start_time,
+          endTime: item.end_time,
+          purpose: item.purpose || '',
+          status: item.status,
+          faculty: item.profiles?.name || "Unknown Faculty"
+        }));
         
         setRoomSchedules(reservations);
         
@@ -92,36 +77,16 @@ export const useRoomSchedules = (roomId: string, roomName: string) => {
         setTimeout(() => {
           toast({
             title: "Upcoming Reservation Reminder",
-            description: `You have a reservation in 30 minutes for room ${roomName} at ${reservation.startTime}`
-            // Duration is now properly supported in our toast type
+            description: `You have a reservation in 30 minutes for room ${roomName} at ${reservation.startTime}`,
+            duration: 10000,
           });
         }, timeUntilReminder);
       }
     });
   };
 
-  // To avoid unnecessary re-renders and refreshes, let's debounce our subscription setup
   useEffect(() => {
-    // Initial fetch
     fetchRoomSchedules();
-    
-    // Set up real-time subscription for this room's reservations
-    const roomReservationChannel = supabase
-      .channel(`room_${roomId}_reservations`)
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'room_reservations',
-        filter: `room_id=eq.${roomId}`
-      }, () => {
-        fetchRoomSchedules();
-      })
-      .subscribe();
-    
-    return () => {
-      // Clean up subscription
-      supabase.removeChannel(roomReservationChannel);
-    };
   }, [roomId]);
 
   const handleToggleSchedules = () => {

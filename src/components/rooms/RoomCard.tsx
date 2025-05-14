@@ -65,8 +65,7 @@ const RoomCard: React.FC<RoomCardProps> = ({
       <Card 
         className={`hover:shadow-md transition-shadow ${onSelectRoom && (status !== 'maintenance' || isSuperAdmin) ? 'cursor-pointer' : ''} ${
           status === 'maintenance' ? 'border-amber-200 bg-amber-50' : 
-          status === 'occupied' ? 'border-red-200 bg-red-50' : 
-          'border-green-200 bg-green-50'
+          status === 'occupied' ? 'border-red-200' : ''
         }`}
         onClick={handleCardClick}
       >

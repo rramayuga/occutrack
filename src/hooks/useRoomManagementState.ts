@@ -11,7 +11,7 @@ export const useRoomManagementState = () => {
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const { addRoom, deleteRoom, handleRoomCsvUpload, exportRoomsToCsv, isUploading } = useRoomsManagement();
-  const { rooms: fetchedRooms, loading: roomsLoading, refetchRooms } = useRooms();
+  const { rooms: fetchedRooms, isLoading: roomsLoading, refreshRooms: refetchRooms } = useRooms();
   const { toast } = useToast();
 
   const handleAddRoom = async (formData: any) => {
