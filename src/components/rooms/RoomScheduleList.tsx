@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { Button } from "@/components/ui/button";
-import { X } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Reservation } from '@/lib/types';
+import { Button } from "@/components/ui/button";
 
 interface RoomScheduleListProps {
   roomSchedules: Reservation[];
@@ -17,56 +17,39 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
   isUserFaculty,
   onCancelClick
 }) => {
-  if (!showSchedules) return null;
-  
-  // Filter out finished schedules more accurately
-  const activeSchedules = roomSchedules.filter(schedule => {
-    // Parse date and time to check if the schedule is finished
-    const scheduleDate = new Date(schedule.date);
-    const today = new Date();
-    
-    // Date objects for comparison of the full date+time
-    const [endHours, endMinutes] = schedule.endTime.split(':').map(Number);
-    const endDateTime = new Date(scheduleDate);
-    endDateTime.setHours(endHours, endMinutes, 0, 0);
-    
-    // Only show if end time hasn't passed yet
-    return endDateTime > today;
-  });
-  
-  // Handle click internally to manage the event
-  const handleCancelButtonClick = (e: React.MouseEvent, reservation: Reservation) => {
-    e.stopPropagation();
-    onCancelClick(reservation);
-  };
-  
+  if (!showSchedules) {
+    return null;
+  }
+
   return (
-    <div className="px-4 pb-4 text-sm">
-      <h4 className="font-medium text-xs mb-2 text-muted-foreground">Upcoming Reservations:</h4>
-      {activeSchedules.length > 0 ? (
-        <div className="space-y-2 max-h-40 overflow-y-auto">
-          {activeSchedules.map(schedule => (
-            <div key={schedule.id} className="p-2 bg-accent rounded text-xs flex justify-between items-center">
-              <div>
-                <p className="font-medium">{new Date(schedule.date).toLocaleDateString()} ({schedule.startTime}-{schedule.endTime})</p>
-                <p className="text-muted-foreground">{schedule.faculty}</p>
-                <p className="text-muted-foreground">{schedule.purpose}</p>
+    <div className="p-4 pt-0">
+      <h3 className="text-sm font-medium mb-2">Room Schedule</h3>
+      {roomSchedules.length > 0 ? (
+        <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
+          {roomSchedules.map((schedule) => (
+            <div key={schedule.id} className="text-xs border rounded-md p-2 bg-muted/50">
+              <div className="font-medium flex justify-between items-center">
+                <span>{new Date(schedule.date).toLocaleDateString()} • {schedule.startTime}-{schedule.endTime}</span>
+                {isUserFaculty(schedule) && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-5 w-5 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => onCancelClick(schedule)}
+                  >
+                    ×
+                  </Button>
+                )}
               </div>
-              {isUserFaculty(schedule) && (
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  className="h-6 w-6 p-0"
-                  onClick={(e) => handleCancelButtonClick(e, schedule)}
-                >
-                  <X className="h-4 w-4 text-red-500" />
-                </Button>
-              )}
+              <div className="text-muted-foreground mt-1 flex justify-between">
+                <span>{schedule.faculty || 'Unassigned'}</span>
+                <span>{schedule.purpose}</span>
+              </div>
             </div>
           ))}
         </div>
       ) : (
-        <p className="text-xs text-muted-foreground">No upcoming reservations</p>
+        <p className="text-xs text-muted-foreground">No schedules for this room.</p>
       )}
     </div>
   );
