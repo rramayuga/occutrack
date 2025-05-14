@@ -1,11 +1,22 @@
 
-import { useToast as useToastShadcn } from "@/components/ui/use-toast";
-import { toast as toastShadcn } from "@/components/ui/use-toast";
+import * as React from "react"
+import {
+  useToast as useToastOriginal,
+  toast as toastOriginal,
+} from "@radix-ui/react-toast"
+import type { ToastProps, ToastActionElement } from "@/components/ui/toast"
 
-// Re-export the hook and toast function from shadcn/ui
-// This provides a central place to manage toast functionality
-export const useToast = useToastShadcn;
-export const toast = toastShadcn;
+// Create a custom hook that wraps the shadcn toast functionality
+export const useToast = () => {
+  const methods = useToastOriginal()
+  return {
+    ...methods,
+    // You can add custom behavior here if needed
+  }
+}
 
-// Add typescript export to ensure types are preserved
-export type { Toast, ToasterToast } from "@/components/ui/use-toast";
+// Create the toast function that uses shadcn's implementation
+export const toast = toastOriginal
+
+// Re-export the types from components/ui/toast.tsx
+export type { ToastProps as Toast, ToastActionElement as ToasterToast }
