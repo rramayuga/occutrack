@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { X } from 'lucide-react';
@@ -45,7 +46,6 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
     
     // If schedule date is today, check if end time has passed
     if (schedule.date === today) {
-      // FIX: Using proper comparison instead of string comparison
       return compareTimeStrings(currentTime, schedule.endTime) < 0;
     }
     

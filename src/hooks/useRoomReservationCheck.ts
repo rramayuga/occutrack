@@ -6,7 +6,7 @@ import { useReservationStatusManager } from './useReservationStatusManager';
 
 export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (roomId: string, isAvailable: boolean, status: RoomStatus) => void) {
   const { user } = useAuth();
-  const { activeReservations } = useReservationStatusManager();
+  const { activeReservations, processReservations } = useReservationStatusManager();
   
   // Use ref to track the last check time to prevent excessive checks
   const lastCheckTime = useRef<Date>(new Date());
@@ -23,7 +23,7 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
     return minutes1 - minutes2;
   };
   
-  // This effect will run only when active reservations change
+  // This effect will run when rooms change and occasionally checks room statuses
   useEffect(() => {
     if (!user || activeReservations.length === 0) return;
     
@@ -35,6 +35,9 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
     }
     
     lastCheckTime.current = now;
+    
+    // Process the reservations through our centralized manager
+    processReservations();
     
     const updateRoomStatusBasedOnReservations = async () => {
       try {
@@ -51,7 +54,6 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
           const startTime = reservation.startTime;
           const endTime = reservation.endTime;
           
-          // FIX: Using a proper time comparison function instead of string comparison
           // Check if current time is between start and end times
           const isActive = compareTimeStrings(currentTime, startTime) >= 0 && 
                           compareTimeStrings(currentTime, endTime) < 0;
@@ -85,7 +87,7 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
 
     updateRoomStatusBasedOnReservations();
     
-  }, [user, rooms, activeReservations, updateRoomAvailability]);
+  }, [user, rooms, activeReservations, updateRoomAvailability, processReservations]);
 
   return null;
 }

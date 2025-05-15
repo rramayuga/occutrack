@@ -203,7 +203,6 @@ export function useReservationStatusManager() {
         continue;
       }
       
-      // FIX: Using proper time comparison function instead of string comparison
       // Check if start time has been reached - MARK AS OCCUPIED
       if (compareTimeStrings(currentTime, reservation.startTime) >= 0 && 
           compareTimeStrings(currentTime, reservation.endTime) < 0 && 
@@ -219,7 +218,6 @@ export function useReservationStatusManager() {
         updated = true;
       }
       
-      // FIX: Using proper time comparison function
       // Check if end time has been reached - MARK AS AVAILABLE and COMPLETE reservation
       if (compareTimeStrings(currentTime, reservation.endTime) >= 0) {
         console.log(`END TIME REACHED for reservation ${reservation.id} - completing reservation and marking room available`);
@@ -251,6 +249,9 @@ export function useReservationStatusManager() {
     // Do initial fetch of active reservations
     fetchActiveReservations();
     
+    // Process reservations immediately
+    processReservations();
+    
     try {
       // Setup subscription to room_reservations changes
       const channel = supabase
@@ -262,6 +263,7 @@ export function useReservationStatusManager() {
         }, (payload) => {
           console.log("Reservation change detected:", payload);
           fetchActiveReservations();
+          processReservations();
         })
         .subscribe((status) => {
           console.log("Reservation status subscription status:", status);
@@ -283,6 +285,7 @@ export function useReservationStatusManager() {
               table: 'room_reservations',
             }, () => {
               fetchActiveReservations();
+              processReservations();
             })
             .subscribe();
         } catch (error) {
@@ -318,6 +321,7 @@ export function useReservationStatusManager() {
     completedReservationIds,
     fetchActiveReservations,
     markReservationAsCompleted,
-    updateRoomStatus
+    updateRoomStatus,
+    processReservations // Expose this function for use in ProfessorDashboard
   };
 }
