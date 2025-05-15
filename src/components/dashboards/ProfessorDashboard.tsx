@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { User } from '@/lib/types';
 import { useRooms } from '@/hooks/useRooms';
@@ -7,6 +8,7 @@ import { RoomBookingDialog } from './professor/RoomBookingDialog';
 import { TeachingSchedule } from './professor/TeachingSchedule';
 import { AvailableRooms } from './professor/AvailableRooms';
 import { useReservationStatusManager } from '@/hooks/useReservationStatusManager';
+import { useBuildings } from '@/hooks/useBuildings';
 
 interface ProfessorDashboardProps {
   user: User;
@@ -14,7 +16,8 @@ interface ProfessorDashboardProps {
 
 export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const { buildings, rooms, refreshRooms } = useRooms();
+  const { simplifiedBuildings } = useBuildings(); // Use the simplified buildings
+  const { rooms, refreshRooms } = useRooms();
   const { reservations, createReservation, fetchReservations } = useReservations();
   
   // Use our centralized reservation status manager
@@ -70,7 +73,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
           <p className="text-muted-foreground">Welcome back, {user.name}!</p>
         </div>
         <RoomBookingDialog 
-          buildings={buildings}
+          buildings={simplifiedBuildings}
           rooms={rooms}
           createReservation={createReservation}
           isOpen={isDialogOpen}
@@ -89,7 +92,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
         <TeachingSchedule reservations={reservations} />
         <AvailableRooms 
           rooms={rooms} 
-          buildings={buildings} 
+          buildings={simplifiedBuildings} 
           onReserveClick={handleReserveClick} 
         />
       </div>
