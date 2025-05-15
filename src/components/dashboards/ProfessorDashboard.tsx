@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { User } from '@/lib/types';
 import { useRooms } from '@/hooks/useRooms';
@@ -28,7 +27,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
     console.log("ProfessorDashboard - Initial data fetch");
     refreshRooms();
     fetchReservations();
-    fetchActiveReservations(); // Make sure we fetch active reservations
+    fetchActiveReservations();
   }, [refreshRooms, fetchReservations, fetchActiveReservations]);
   
   // Set up auto-refresh to keep the data current
@@ -46,6 +45,8 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
   
   // Add a more frequent processor for room status updates based on time
   useEffect(() => {
+    console.log("Setting up reservation processor in ProfessorDashboard");
+    
     // Process reservations every 20 seconds to update room statuses
     const statusInterval = setInterval(() => {
       console.log("ProfessorDashboard - Processing reservations for status updates");

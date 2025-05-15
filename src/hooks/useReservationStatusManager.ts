@@ -50,6 +50,7 @@ export function useReservationStatusManager() {
       
       if (!data || data.length === 0) {
         console.log("No active reservations found for today");
+        setActiveReservations([]);
         return [];
       }
       
@@ -105,7 +106,7 @@ export function useReservationStatusManager() {
     }
   }, [user, toast, lastError]);
 
-  // Update room status based on reservation time
+  // Update room status based on reservation time - this is the critical function we're fixing
   const updateRoomStatus = useCallback(async (roomId: string, isOccupied: boolean) => {
     try {
       console.log(`Updating room ${roomId} status to ${isOccupied ? 'occupied' : 'available'}`);
@@ -122,7 +123,7 @@ export function useReservationStatusManager() {
         return false;
       }
       
-      if (roomData.status === 'maintenance') {
+      if (roomData?.status === 'maintenance') {
         console.log(`Room ${roomData.name} is under maintenance, skipping status update`);
         return false;
       }
@@ -139,12 +140,29 @@ export function useReservationStatusManager() {
         return false;
       }
       
+      // Also update the room_availability table to track history
+      if (user) {
+        const { error: availError } = await supabase
+          .from('room_availability')
+          .insert({
+            room_id: roomId,
+            is_available: !isOccupied,
+            status: status,
+            updated_by: user.id,
+            updated_at: new Date().toISOString()
+          });
+          
+        if (availError) {
+          console.error("Error creating availability record:", availError);
+        }
+      }
+      
       return true;
     } catch (error) {
       console.error("Error in updateRoomStatus:", error);
       return false;
     }
-  }, []);
+  }, [user]);
 
   // Mark a reservation as completed
   const markReservationAsCompleted = useCallback(async (reservationId: string) => {
@@ -183,7 +201,19 @@ export function useReservationStatusManager() {
 
   // Process active reservations to check for status changes
   const processReservations = useCallback(async () => {
-    if (activeReservations.length === 0) return;
+    if (!user) {
+      console.log("No user logged in, skipping reservation processing");
+      return;
+    }
+    
+    if (activeReservations.length === 0) {
+      // If no active reservations, re-fetch to make sure we didn't miss any
+      const reservations = await fetchActiveReservations();
+      if (reservations.length === 0) {
+        console.log("No active reservations found during processing");
+        return;
+      }
+    }
     
     const now = new Date();
     const currentTime = now.toTimeString().substring(0, 5); // HH:MM format
@@ -208,29 +238,33 @@ export function useReservationStatusManager() {
           compareTimeStrings(currentTime, reservation.endTime) < 0 && 
           reservation.status !== 'occupied') {
         console.log(`START TIME REACHED for reservation ${reservation.id} - marking room ${reservation.roomId} as OCCUPIED`);
-        await updateRoomStatus(reservation.roomId, true);
+        const success = await updateRoomStatus(reservation.roomId, true);
         
-        toast({
-          title: "Room Now Occupied",
-          description: `${reservation.roomNumber} is now occupied for the scheduled reservation.`,
-        });
-        
-        updated = true;
+        if (success) {
+          toast({
+            title: "Room Now Occupied",
+            description: `${reservation.roomNumber} is now occupied for the scheduled reservation.`,
+          });
+          
+          updated = true;
+        }
       }
       
       // Check if end time has been reached - MARK AS AVAILABLE and COMPLETE reservation
       if (compareTimeStrings(currentTime, reservation.endTime) >= 0) {
         console.log(`END TIME REACHED for reservation ${reservation.id} - completing reservation and marking room available`);
-        await updateRoomStatus(reservation.roomId, false);
+        const roomSuccess = await updateRoomStatus(reservation.roomId, false);
         
-        const success = await markReservationAsCompleted(reservation.id);
-        if (success) {
-          toast({
-            title: "Reservation Completed",
-            description: `The reservation in ${reservation.roomNumber} has ended and the room is now available.`,
-          });
-          
-          updated = true;
+        if (roomSuccess) {
+          const success = await markReservationAsCompleted(reservation.id);
+          if (success) {
+            toast({
+              title: "Reservation Completed",
+              description: `The reservation in ${reservation.roomNumber} has ended and the room is now available.`,
+            });
+            
+            updated = true;
+          }
         }
       }
     }
@@ -240,11 +274,13 @@ export function useReservationStatusManager() {
       setLastCheck(now);
       await fetchActiveReservations();
     }
-  }, [activeReservations, completedReservationIds, updateRoomStatus, markReservationAsCompleted, fetchActiveReservations, toast, lastCheck, compareTimeStrings]);
+  }, [activeReservations, completedReservationIds, updateRoomStatus, markReservationAsCompleted, fetchActiveReservations, toast, lastCheck, compareTimeStrings, user]);
 
   // Setup up subscription to room_reservations with improved error handling
   useEffect(() => {
     if (!user) return;
+    
+    console.log("Setting up reservation status manager with user:", user.id);
     
     // Do initial fetch of active reservations
     fetchActiveReservations();
@@ -296,6 +332,7 @@ export function useReservationStatusManager() {
       
       // Check for status changes frequently - more frequent checks for better responsiveness
       const intervalId = setInterval(() => {
+        console.log("Running periodic reservation status check");
         processReservations();
       }, 20000); // Every 20 seconds for time-based checks
       
@@ -322,6 +359,6 @@ export function useReservationStatusManager() {
     fetchActiveReservations,
     markReservationAsCompleted,
     updateRoomStatus,
-    processReservations // Expose this function for use in ProfessorDashboard
+    processReservations
   };
 }
