@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { User } from '@/lib/types';
 import { useRooms } from '@/hooks/useRooms';
@@ -28,7 +27,8 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
     console.log("ProfessorDashboard - Initial data fetch");
     refreshRooms();
     fetchReservations();
-  }, [refreshRooms, fetchReservations]);
+    fetchActiveReservations(); // Make sure we fetch active reservations
+  }, [refreshRooms, fetchReservations, fetchActiveReservations]);
   
   // Set up auto-refresh to keep the data current
   useEffect(() => {
