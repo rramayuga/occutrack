@@ -85,7 +85,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
     });
   }, [reservations]);
 
-  // Handler for room reservation
+  // Handler for room reservation - fixing the error by adding the required parameters
   const handleReserveClick = (buildingId: string, roomId: string, buildingName: string, roomName: string) => {
     setIsDialogOpen(true);
   };
