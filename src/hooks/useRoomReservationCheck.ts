@@ -23,26 +23,26 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
     return minutes1 - minutes2;
   };
   
-  // This effect will run when rooms change and occasionally checks room statuses
+  // This effect will run when rooms or reservations change and will check room statuses
   useEffect(() => {
     if (!user || activeReservations.length === 0) return;
     
-    // Check if it's been at least 15 seconds since the last check
+    // Check if it's been at least 10 seconds since the last check (reduced from 15 seconds)
     const now = new Date();
     const timeSinceLastCheck = now.getTime() - lastCheckTime.current.getTime();
-    if (timeSinceLastCheck < 15000) { // 15 seconds minimum between checks
+    if (timeSinceLastCheck < 10000) { // 10 seconds minimum between checks
       return;
     }
     
     lastCheckTime.current = now;
     
-    // Process the reservations through our centralized manager
+    // Process the reservations through our centralized manager - this is crucial
     processReservations();
     
     const updateRoomStatusBasedOnReservations = async () => {
       try {
         const currentDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
-        const currentTime = now.toTimeString().split(' ')[0].slice(0, 5); // HH:MM
+        const currentTime = now.toTimeString().substring(0, 5); // HH:MM
         
         console.log(`Checking room statuses at ${currentDate} ${currentTime} based on ${activeReservations.length} reservations`);
         
@@ -74,7 +74,7 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
               console.log(`Room ${roomToUpdate.name} should be occupied now based on reservation ${reservation.id}`);
               updateRoomAvailability(reservation.roomId, false, 'occupied');
             } 
-            else if (hasEnded && roomToUpdate.status !== 'available') {
+            else if (hasEnded && roomToUpdate.status !== 'available' && roomToUpdate.status !== 'maintenance') {
               console.log(`Room ${roomToUpdate.name} should be available now as reservation ${reservation.id} has ended`);
               updateRoomAvailability(reservation.roomId, true, 'available');
             }

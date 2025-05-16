@@ -66,18 +66,7 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
       
       console.log("Deleting faculty member:", selectedFaculty);
       
-      // 1. Delete from faculty_requests table
-      const { error: facultyRequestError } = await supabase
-        .from('faculty_requests')
-        .delete()
-        .eq('id', selectedFaculty.id);
-        
-      if (facultyRequestError) {
-        console.error("Error deleting from faculty_requests:", facultyRequestError);
-        throw facultyRequestError;
-      }
-      
-      // 2. Update profiles table to change role back to 'student'
+      // 1. First update profiles table to change role back to 'student' before deleting the request
       const { error: profileError } = await supabase
         .from('profiles')
         .update({ role: 'student' })
@@ -87,6 +76,28 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
         console.error("Error updating profile role:", profileError);
         throw profileError;
       }
+      
+      console.log(`Successfully updated user ${selectedFaculty.user_id} role to student`);
+      
+      // 2. Then delete from faculty_requests table - do this second to avoid RLS issues
+      const { error: facultyRequestError } = await supabase
+        .from('faculty_requests')
+        .delete()
+        .eq('id', selectedFaculty.id);
+        
+      if (facultyRequestError) {
+        console.error("Error deleting from faculty_requests:", facultyRequestError);
+        
+        // If delete fails, try to revert the role change
+        await supabase
+          .from('profiles')
+          .update({ role: 'faculty' })
+          .eq('id', selectedFaculty.user_id);
+          
+        throw facultyRequestError;
+      }
+      
+      console.log(`Successfully deleted faculty request ${selectedFaculty.id}`);
       
       toast({
         title: "Faculty removed",

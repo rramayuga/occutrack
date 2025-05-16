@@ -140,6 +140,8 @@ export function useReservationStatusManager() {
         return false;
       }
       
+      console.log(`Successfully updated room ${roomId} status to ${status}`);
+      
       // Also update the room_availability table to track history
       if (user) {
         const { error: availError } = await supabase
@@ -206,23 +208,22 @@ export function useReservationStatusManager() {
       return;
     }
     
-    if (activeReservations.length === 0) {
-      // If no active reservations, re-fetch to make sure we didn't miss any
-      const reservations = await fetchActiveReservations();
-      if (reservations.length === 0) {
-        console.log("No active reservations found during processing");
-        return;
-      }
+    // Even if there are no current active reservations, we should fetch to make sure
+    // This ensures we don't miss any newly created reservations
+    let reservationsToProcess = activeReservations;
+    if (reservationsToProcess.length === 0) {
+      console.log("No active reservations in state, fetching latest");
+      reservationsToProcess = await fetchActiveReservations();
     }
     
     const now = new Date();
     const currentTime = now.toTimeString().substring(0, 5); // HH:MM format
     const today = now.toISOString().split('T')[0];
     
-    console.log(`Processing ${activeReservations.length} reservations at ${currentTime}`);
+    console.log(`Processing ${reservationsToProcess.length} reservations at ${currentTime}`);
     let updated = false;
     
-    for (const reservation of activeReservations) {
+    for (const reservation of reservationsToProcess) {
       // Skip if already marked as completed
       if (completedReservationIds.includes(reservation.id)) {
         continue;
@@ -330,11 +331,11 @@ export function useReservationStatusManager() {
         }
       };
       
-      // Check for status changes frequently - more frequent checks for better responsiveness
+      // Check for status changes MORE FREQUENTLY
       const intervalId = setInterval(() => {
         console.log("Running periodic reservation status check");
         processReservations();
-      }, 20000); // Every 20 seconds for time-based checks
+      }, 15000); // Every 15 seconds for time-based checks (reduced from 20s to be more responsive)
       
       return () => {
         clearInterval(intervalId);
@@ -347,7 +348,7 @@ export function useReservationStatusManager() {
       const fallbackIntervalId = setInterval(() => {
         fetchActiveReservations();
         processReservations();
-      }, 60000); // Check every minute as fallback
+      }, 30000); // Check every 30 seconds as fallback (increased frequency)
       
       return () => clearInterval(fallbackIntervalId);
     }

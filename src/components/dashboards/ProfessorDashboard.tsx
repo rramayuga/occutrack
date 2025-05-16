@@ -32,13 +32,13 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
   
   // Set up auto-refresh to keep the data current
   useEffect(() => {
-    // Refresh data every 60 seconds to stay current
+    // Refresh data more frequently to stay current
     const intervalId = setInterval(() => {
       console.log("ProfessorDashboard - Auto refresh");
       refreshRooms();
       fetchReservations();
       fetchActiveReservations();
-    }, 60000); // Every minute
+    }, 30000); // Every 30 seconds (reduced from 60 seconds)
     
     return () => clearInterval(intervalId);
   }, [refreshRooms, fetchReservations, fetchActiveReservations]);
@@ -47,11 +47,11 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
   useEffect(() => {
     console.log("Setting up reservation processor in ProfessorDashboard");
     
-    // Process reservations every 20 seconds to update room statuses
+    // Process reservations more frequently for better responsiveness
     const statusInterval = setInterval(() => {
       console.log("ProfessorDashboard - Processing reservations for status updates");
       processReservations();
-    }, 20000); // Every 20 seconds
+    }, 15000); // Every 15 seconds (reduced from 20 seconds)
     
     // Run once on mount too
     processReservations();
@@ -59,13 +59,34 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
     return () => clearInterval(statusInterval);
   }, [processReservations]);
   
-  // Memoize today's schedule to prevent unnecessary re-renders
+  // Memoize today's schedule to prevent unnecessary re-renders, with improved filtering
   const todaySchedule = useMemo(() => {
     const today = new Date();
     const todayString = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+    const currentTime = today.toTimeString().substring(0, 5); // HH:MM format
     
+    // Filter out completed reservations and past reservations on the same day
     return reservations.filter(booking => {
-      return booking.date === todayString && booking.status !== 'completed';
+      // Skip completed bookings
+      if (booking.status === 'completed') return false;
+      
+      // If it's for a future date, include it
+      if (booking.date > todayString) return true;
+      
+      // If it's for today, only include if it hasn't ended yet
+      if (booking.date === todayString) {
+        const [endHour, endMinute] = booking.endTime.split(':').map(Number);
+        const [currentHour, currentMinute] = currentTime.split(':').map(Number);
+        
+        // Compare end time with current time
+        if (endHour > currentHour || (endHour === currentHour && endMinute > currentMinute)) {
+          return true;
+        }
+        return false;
+      }
+      
+      // Past dates are filtered out
+      return false;
     });
   }, [reservations]);
 
@@ -77,7 +98,30 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
   
   // Filter out completed reservations for display - memoized to prevent re-renders
   const activeReservationsForDisplay = useMemo(() => 
-    reservations.filter(r => r.status !== 'completed'),
+    reservations.filter(r => {
+      // Filter out completed reservations
+      if (r.status === 'completed') return false;
+      
+      // Also filter out past reservations
+      const now = new Date();
+      const today = now.toISOString().split('T')[0];
+      const currentTime = now.toTimeString().substring(0, 5);
+      
+      // If reservation is for a past date, filter it out
+      if (r.date < today) return false;
+      
+      // If reservation is for today but has ended, filter it out
+      if (r.date === today) {
+        const [endHour, endMinute] = r.endTime.split(':').map(Number);
+        const [currentHour, currentMinute] = currentTime.split(':').map(Number);
+        
+        if (endHour < currentHour || (endHour === currentHour && endMinute <= currentMinute)) {
+          return false;
+        }
+      }
+      
+      return true;
+    }),
     [reservations]
   );
   

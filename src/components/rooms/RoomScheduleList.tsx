@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { X } from 'lucide-react';
@@ -19,7 +18,7 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
 }) => {
   if (!showSchedules) return null;
   
-  // Compare times in HH:MM format
+  // Compare times in HH:MM format for better accuracy
   const compareTimeStrings = (time1: string, time2: string): number => {
     // Parse times to ensure proper comparison
     const [hours1, minutes1] = time1.split(':').map(Number);
@@ -31,10 +30,12 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
     return minutes1 - minutes2;
   };
   
-  // Filter out finished schedules more accurately
+  // Filter out finished/completed schedules with improved logic
   const activeSchedules = roomSchedules.filter(schedule => {
-    // Filter out completed reservations
-    if (schedule.status === 'completed') return false;
+    // Filter out explicitly completed reservations
+    if (schedule.status === 'completed') {
+      return false;
+    }
     
     // Get current date and time
     const now = new Date();
@@ -42,7 +43,9 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
     const currentTime = now.toTimeString().substring(0, 5); // HH:MM format
     
     // If schedule date is in the future, keep it
-    if (schedule.date > today) return true;
+    if (schedule.date > today) {
+      return true;
+    }
     
     // If schedule date is today, check if end time has passed
     if (schedule.date === today) {
