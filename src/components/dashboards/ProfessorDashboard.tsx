@@ -85,7 +85,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
     });
   }, [reservations]);
 
-  // Handler for room reservation - fixing the error by adding the required parameters
+  // Handler for room reservation with proper parameters
   const handleReserveClick = (buildingId: string, roomId: string, buildingName: string, roomName: string) => {
     setIsDialogOpen(true);
   };
@@ -129,7 +129,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
           rooms={rooms}
           createReservation={async (data) => {
             try {
-              await createReservation(data);
+              await createReservation(data, data.roomId);  // Fix: Passing both required arguments
               toast({
                 title: "Room Reserved",
                 description: "Your room has been reserved successfully",
