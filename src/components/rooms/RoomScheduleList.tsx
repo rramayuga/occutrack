@@ -18,13 +18,22 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
 }) => {
   if (!showSchedules) return null;
   
+  // Format time strings to ensure proper comparison (HH:MM format)
+  const formatTimeForComparison = (time: string): string => {
+    const [hours, minutes] = time.split(':').map(Number);
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  };
+  
   // Compare times in HH:MM format for better accuracy
   const compareTimeStrings = (time1: string, time2: string): number => {
-    // Parse times to ensure proper comparison
-    const [hours1, minutes1] = time1.split(':').map(Number);
-    const [hours2, minutes2] = time2.split(':').map(Number);
+    // Format times to ensure proper comparison
+    const formattedTime1 = formatTimeForComparison(time1);
+    const formattedTime2 = formatTimeForComparison(time2);
     
     // Convert to minutes for easier comparison
+    const [hours1, minutes1] = formattedTime1.split(':').map(Number);
+    const [hours2, minutes2] = formattedTime2.split(':').map(Number);
+    
     const totalMinutes1 = hours1 * 60 + minutes1;
     const totalMinutes2 = hours2 * 60 + minutes2;
     
@@ -41,8 +50,11 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
     // Get current date and time
     const now = new Date();
     const today = now.toISOString().split('T')[0];
-    const currentTime = now.getHours().toString().padStart(2, '0') + ':' + 
-                       now.getMinutes().toString().padStart(2, '0'); // HH:MM format
+    
+    // Format current time in HH:MM for accurate comparison
+    const currentHours = now.getHours().toString().padStart(2, '0');
+    const currentMinutes = now.getMinutes().toString().padStart(2, '0');
+    const currentTime = `${currentHours}:${currentMinutes}`;
     
     // If schedule date is in the future, keep it
     if (schedule.date > today) {
@@ -51,6 +63,7 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
     
     // If schedule date is today, check if end time has passed
     if (schedule.date === today) {
+      // Compare current time with the end time of the schedule
       return compareTimeStrings(currentTime, schedule.endTime) < 0;
     }
     

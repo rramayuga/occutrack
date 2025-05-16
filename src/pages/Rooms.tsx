@@ -31,14 +31,21 @@ const Rooms = () => {
     }
   }, [buildings, selectedBuilding, setSelectedBuilding]);
   
-  // Auto-refresh room data every 45 seconds to stay current with reservation changes
+  // Auto-refresh room data every 30 seconds to stay current with reservation changes
   useEffect(() => {
+    console.log("Setting up auto-refresh for room data");
     const autoRefreshInterval = setInterval(() => {
       console.log("Auto-refreshing room data");
       refetchRooms();
-    }, 45000);
+    }, 30000); // Refresh every 30 seconds
     
-    return () => clearInterval(autoRefreshInterval);
+    // Initial fetch
+    refetchRooms();
+    
+    return () => {
+      console.log("Cleaning up auto-refresh interval");
+      clearInterval(autoRefreshInterval);
+    };
   }, [refetchRooms]);
 
   // Memoize expensive calculations
@@ -119,7 +126,7 @@ const Rooms = () => {
 
         {loading ? (
           <div className="flex justify-center items-center h-64">
-            <p>Loading rooms data...</p>
+            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary"></div>
           </div>
         ) : buildings.length === 0 ? (
           <div className="text-center p-8 border rounded-lg">

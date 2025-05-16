@@ -49,8 +49,7 @@ export function useRoomUpdater(
         console.log("Cannot update a maintenance room unless superadmin");
         toast({
           title: "Permission Denied",
-          description: "Only SuperAdmin users can change the status of rooms under maintenance",
-          duration: 3000
+          description: "Only SuperAdmin users can change the status of rooms under maintenance"
         });
         updateInProgress.current[roomId] = false;
         return;
@@ -71,8 +70,7 @@ export function useRoomUpdater(
         console.error("Error updating room status:", updateError);
         toast({
           title: "Error",
-          description: `Failed to update room status: ${updateError.message}`,
-          duration: 3000
+          description: `Failed to update room status: ${updateError.message}`
         });
         updateInProgress.current[roomId] = false;
         return;
@@ -118,8 +116,7 @@ export function useRoomUpdater(
       console.error("Error updating room availability:", error);
       toast({
         title: "Error",
-        description: `Failed to update room availability: ${error?.message || 'Unknown error'}`,
-        duration: 3000
+        description: `Failed to update room availability: ${error?.message || 'Unknown error'}`
       });
     } finally {
       // Clear update lock
@@ -136,8 +133,7 @@ export function useRoomUpdater(
     if (roomToToggle && roomToToggle.status === 'maintenance' && user?.role !== 'superadmin') {
       toast({
         title: "Cannot Toggle",
-        description: "Room is under maintenance. Only SuperAdmin can change this status.",
-        duration: 3000
+        description: "Room is under maintenance. Only SuperAdmin can change this status."
       });
       return;
     }

@@ -1,4 +1,3 @@
-
 import * as React from "react"
 import {
   type ToastActionElement,
@@ -76,21 +75,22 @@ export const reducer = (state: State, action: Action): State => {
   switch (action.type) {
     case "ADD_TOAST":
       // Check if we already have a toast with this message to prevent duplicates
-      if (state.toasts.find(
+      const existingToast = state.toasts.find(
         t => 
           t.description === action.toast.description && 
-          t.title === action.toast.title && 
-          !t.shown
-      )) {
-        // If we do, don't add it
-        return state
+          t.title === action.toast.title
+      );
+      
+      if (existingToast) {
+        // Don't add duplicate toasts
+        return state;
       }
 
       return {
         ...state,
         toasts: [
           ...state.toasts,
-          { ...action.toast, id: action.toast.id || genId(), shown: true }
+          { ...action.toast, id: action.toast.id || genId() }
         ].slice(0, TOAST_LIMIT),
       }
 
