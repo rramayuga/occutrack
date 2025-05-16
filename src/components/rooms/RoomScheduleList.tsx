@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { X } from 'lucide-react';
@@ -24,10 +25,11 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
     const [hours1, minutes1] = time1.split(':').map(Number);
     const [hours2, minutes2] = time2.split(':').map(Number);
     
-    if (hours1 !== hours2) {
-      return hours1 - hours2;
-    }
-    return minutes1 - minutes2;
+    // Convert to minutes for easier comparison
+    const totalMinutes1 = hours1 * 60 + minutes1;
+    const totalMinutes2 = hours2 * 60 + minutes2;
+    
+    return totalMinutes1 - totalMinutes2;
   };
   
   // Filter out finished/completed schedules with improved logic

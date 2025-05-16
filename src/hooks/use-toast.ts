@@ -1,11 +1,10 @@
-
 import * as React from "react"
 import {
   type ToastActionElement,
   type ToastProps,
 } from "@/components/ui/toast"
 
-const TOAST_LIMIT = 1 // Reducing to 1 to prevent stacking
+const TOAST_LIMIT = 1 // Limiting to 1 to prevent stacking
 const TOAST_REMOVE_DELAY = 3000 // 3 seconds auto-dismiss
 
 type ToasterToast = ToastProps & {
@@ -74,6 +73,18 @@ const addToRemoveQueue = (toastId: string) => {
 export const reducer = (state: State, action: Action): State => {
   switch (action.type) {
     case "ADD_TOAST":
+      // Check if we already have a similar toast with the same title/description
+      const existingSimilarToast = state.toasts.find(t => 
+        t.title === action.toast.title && 
+        t.description === action.toast.description
+      );
+      
+      // If we have a similar toast, don't add a new one
+      if (existingSimilarToast) {
+        return state;
+      }
+      
+      // Otherwise add new toast and maintain the limit
       return {
         ...state,
         toasts: [
@@ -93,8 +104,8 @@ export const reducer = (state: State, action: Action): State => {
     case "DISMISS_TOAST": {
       const { toastId } = action
 
-      // ! Side effects ! - This could be extracted into a dismissToast() action,
-      // but I'll keep it here for simplicity
+      // Side effects - This could be extracted into a dismissToast() action,
+      // but keeping it here for simplicity
       if (toastId) {
         addToRemoveQueue(toastId)
       } else {
@@ -168,11 +179,10 @@ function toast({ ...props }: Toast) {
   // Auto-dismiss after TOAST_REMOVE_DELAY
   setTimeout(dismiss, TOAST_REMOVE_DELAY)
 
-  // Fix: Don't include id in the return object directly as it's not part of Toast type
   return {
     dismiss,
     update,
-    id, // This is still returned but as a separate property, not as part of the Toast type
+    id,
   }
 }
 

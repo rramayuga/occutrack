@@ -17,20 +17,21 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
     const [hours1, minutes1] = time1.split(':').map(Number);
     const [hours2, minutes2] = time2.split(':').map(Number);
     
-    if (hours1 !== hours2) {
-      return hours1 - hours2;
-    }
-    return minutes1 - minutes2;
+    // Convert to minutes for better comparison
+    const totalMinutes1 = hours1 * 60 + minutes1;
+    const totalMinutes2 = hours2 * 60 + minutes2;
+    
+    return totalMinutes1 - totalMinutes2;
   };
   
   // This effect will run when rooms or reservations change and will check room statuses
   useEffect(() => {
     if (!user || activeReservations.length === 0) return;
     
-    // Check if it's been at least 10 seconds since the last check (reduced from 15 seconds)
+    // Check if it's been at least 5 seconds since the last check (reduced for more frequent checks)
     const now = new Date();
     const timeSinceLastCheck = now.getTime() - lastCheckTime.current.getTime();
-    if (timeSinceLastCheck < 10000) { // 10 seconds minimum between checks
+    if (timeSinceLastCheck < 5000) { // 5 seconds minimum between checks
       return;
     }
     

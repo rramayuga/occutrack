@@ -132,7 +132,7 @@ export function useReservationStatusManager() {
       const status = isOccupied ? 'occupied' : 'available';
       const { error } = await supabase
         .from('rooms')
-        .update({ status })
+        .update({ status, isAvailable: !isOccupied })
         .eq('id', roomId);
       
       if (error) {
@@ -189,16 +189,17 @@ export function useReservationStatusManager() {
     }
   }, []);
 
-  // Compare times in HH:MM format
+  // Compare times in HH:MM format with better precision
   const compareTimeStrings = useCallback((time1: string, time2: string): number => {
     // Parse times to ensure proper comparison (handles formats like "09:30" vs "9:30")
     const [hours1, minutes1] = time1.split(':').map(Number);
     const [hours2, minutes2] = time2.split(':').map(Number);
     
-    if (hours1 !== hours2) {
-      return hours1 - hours2;
-    }
-    return minutes1 - minutes2;
+    // Convert to minutes for easier comparison
+    const totalMinutes1 = hours1 * 60 + minutes1;
+    const totalMinutes2 = hours2 * 60 + minutes2;
+    
+    return totalMinutes1 - totalMinutes2;
   }, []);
 
   // Process active reservations to check for status changes
@@ -211,12 +212,20 @@ export function useReservationStatusManager() {
     // Even if there are no current active reservations, we should fetch to make sure
     // This ensures we don't miss any newly created reservations
     let reservationsToProcess = activeReservations;
+    const now = new Date();
+    
+    // Force refresh if it's been a while
+    if (now.getTime() - lastCheck.getTime() > 60000) { // 1 minute
+      console.log("Force refreshing reservations due to time elapsed");
+      reservationsToProcess = await fetchActiveReservations();
+      setLastCheck(now);
+    }
+    
     if (reservationsToProcess.length === 0) {
       console.log("No active reservations in state, fetching latest");
       reservationsToProcess = await fetchActiveReservations();
     }
     
-    const now = new Date();
     const currentTime = now.toTimeString().substring(0, 5); // HH:MM format
     const today = now.toISOString().split('T')[0];
     
@@ -225,7 +234,7 @@ export function useReservationStatusManager() {
     
     for (const reservation of reservationsToProcess) {
       // Skip if already marked as completed
-      if (completedReservationIds.includes(reservation.id)) {
+      if (completedReservationIds.includes(reservation.id) || reservation.status === 'completed') {
         continue;
       }
       
@@ -236,8 +245,7 @@ export function useReservationStatusManager() {
       
       // Check if start time has been reached - MARK AS OCCUPIED
       if (compareTimeStrings(currentTime, reservation.startTime) >= 0 && 
-          compareTimeStrings(currentTime, reservation.endTime) < 0 && 
-          reservation.status !== 'occupied') {
+          compareTimeStrings(currentTime, reservation.endTime) < 0) {
         console.log(`START TIME REACHED for reservation ${reservation.id} - marking room ${reservation.roomId} as OCCUPIED`);
         const success = await updateRoomStatus(reservation.roomId, true);
         
@@ -264,6 +272,8 @@ export function useReservationStatusManager() {
               description: `The reservation in ${reservation.roomNumber} has ended and the room is now available.`,
             });
             
+            // Remove from active reservations
+            setActiveReservations(prev => prev.filter(r => r.id !== reservation.id));
             updated = true;
           }
         }
@@ -271,8 +281,7 @@ export function useReservationStatusManager() {
     }
     
     // If any updates were made or enough time has passed, refresh the reservations
-    if (updated || (now.getTime() - lastCheck.getTime() > 300000)) { // Force refresh every 5 minutes
-      setLastCheck(now);
+    if (updated) {
       await fetchActiveReservations();
     }
   }, [activeReservations, completedReservationIds, updateRoomStatus, markReservationAsCompleted, fetchActiveReservations, toast, lastCheck, compareTimeStrings, user]);
@@ -331,11 +340,11 @@ export function useReservationStatusManager() {
         }
       };
       
-      // Check for status changes MORE FREQUENTLY
+      // Check for status changes MORE FREQUENTLY - this is key for real-time updates
       const intervalId = setInterval(() => {
         console.log("Running periodic reservation status check");
         processReservations();
-      }, 15000); // Every 15 seconds for time-based checks (reduced from 20s to be more responsive)
+      }, 5000); // Every 5 seconds for faster real-time updates
       
       return () => {
         clearInterval(intervalId);
@@ -348,7 +357,7 @@ export function useReservationStatusManager() {
       const fallbackIntervalId = setInterval(() => {
         fetchActiveReservations();
         processReservations();
-      }, 30000); // Check every 30 seconds as fallback (increased frequency)
+      }, 10000); // Check every 10 seconds as fallback
       
       return () => clearInterval(fallbackIntervalId);
     }

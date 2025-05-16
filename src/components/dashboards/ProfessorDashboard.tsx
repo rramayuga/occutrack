@@ -28,7 +28,10 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
     refreshRooms();
     fetchReservations();
     fetchActiveReservations();
-  }, [refreshRooms, fetchReservations, fetchActiveReservations]);
+    
+    // Immediately process reservations to update room statuses
+    setTimeout(() => processReservations(), 1000);
+  }, [refreshRooms, fetchReservations, fetchActiveReservations, processReservations]);
   
   // Set up auto-refresh to keep the data current
   useEffect(() => {
@@ -38,7 +41,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
       refreshRooms();
       fetchReservations();
       fetchActiveReservations();
-    }, 30000); // Every 30 seconds (reduced from 60 seconds)
+    }, 15000); // Every 15 seconds for better real-time experience
     
     return () => clearInterval(intervalId);
   }, [refreshRooms, fetchReservations, fetchActiveReservations]);
@@ -51,7 +54,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
     const statusInterval = setInterval(() => {
       console.log("ProfessorDashboard - Processing reservations for status updates");
       processReservations();
-    }, 15000); // Every 15 seconds (reduced from 20 seconds)
+    }, 5000); // Every 5 seconds for immediate status updates
     
     // Run once on mount too
     processReservations();
@@ -78,11 +81,12 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
         const [endHour, endMinute] = booking.endTime.split(':').map(Number);
         const [currentHour, currentMinute] = currentTime.split(':').map(Number);
         
+        // Convert to minutes for more accurate comparison
+        const endMinutes = endHour * 60 + endMinute;
+        const currentMinutes = currentHour * 60 + currentMinute;
+        
         // Compare end time with current time
-        if (endHour > currentHour || (endHour === currentHour && endMinute > currentMinute)) {
-          return true;
-        }
-        return false;
+        return endMinutes > currentMinutes;
       }
       
       // Past dates are filtered out
@@ -115,7 +119,11 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
         const [endHour, endMinute] = r.endTime.split(':').map(Number);
         const [currentHour, currentMinute] = currentTime.split(':').map(Number);
         
-        if (endHour < currentHour || (endHour === currentHour && endMinute <= currentMinute)) {
+        // Compare using minutes for better accuracy
+        const endMinutes = endHour * 60 + endMinute;
+        const currentMinutes = currentHour * 60 + currentMinute;
+        
+        if (endMinutes <= currentMinutes) {
           return false;
         }
       }
