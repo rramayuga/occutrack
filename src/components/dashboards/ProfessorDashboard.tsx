@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { User } from '@/lib/types';
 import { useRooms } from '@/hooks/useRooms';
@@ -8,6 +9,7 @@ import { TeachingSchedule } from './professor/TeachingSchedule';
 import { AvailableRooms } from './professor/AvailableRooms';
 import { useReservationStatusManager } from '@/hooks/useReservationStatusManager';
 import { useBuildings } from '@/hooks/useBuildings';
+import { useToast } from "@/hooks/use-toast";
 
 interface ProfessorDashboardProps {
   user: User;
@@ -15,21 +17,22 @@ interface ProfessorDashboardProps {
 
 export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const { simplifiedBuildings } = useBuildings(); // Use the simplified buildings
+  const { simplifiedBuildings } = useBuildings();
   const { rooms, refreshRooms } = useRooms();
   const { reservations, createReservation, fetchReservations } = useReservations();
+  const { toast } = useToast();
   
-  // Use our centralized reservation status manager
+  // Use centralized reservation status manager
   const { activeReservations, fetchActiveReservations, processReservations } = useReservationStatusManager();
   
-  // Initial data fetch on mount - only once
+  // Initial data fetch on mount
   useEffect(() => {
     console.log("ProfessorDashboard - Initial data fetch");
     refreshRooms();
     fetchReservations();
     fetchActiveReservations();
     
-    // Immediately process reservations to update room statuses
+    // Process reservations immediately to update room statuses
     setTimeout(() => processReservations(), 1000);
   }, [refreshRooms, fetchReservations, fetchActiveReservations, processReservations]);
   
@@ -41,7 +44,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
       refreshRooms();
       fetchReservations();
       fetchActiveReservations();
-    }, 15000); // Every 15 seconds for better real-time experience
+    }, 10000); // Every 10 seconds for better real-time experience
     
     return () => clearInterval(intervalId);
   }, [refreshRooms, fetchReservations, fetchActiveReservations]);
@@ -50,11 +53,11 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
   useEffect(() => {
     console.log("Setting up reservation processor in ProfessorDashboard");
     
-    // Process reservations more frequently for better responsiveness
+    // Process reservations more frequently
     const statusInterval = setInterval(() => {
       console.log("ProfessorDashboard - Processing reservations for status updates");
       processReservations();
-    }, 5000); // Every 5 seconds for immediate status updates
+    }, 5000); // Every 5 seconds
     
     // Run once on mount too
     processReservations();
@@ -62,64 +65,45 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
     return () => clearInterval(statusInterval);
   }, [processReservations]);
   
-  // Memoize today's schedule to prevent unnecessary re-renders, with improved filtering
+  // Memoize today's schedule
   const todaySchedule = useMemo(() => {
     const today = new Date();
-    const todayString = today.toISOString().split('T')[0]; // YYYY-MM-DD format
-    const currentTime = today.toTimeString().substring(0, 5); // HH:MM format
+    const todayString = today.toISOString().split('T')[0];
+    const currentTime = today.toTimeString().substring(0, 5);
     
-    // Filter out completed reservations and past reservations on the same day
     return reservations.filter(booking => {
-      // Skip completed bookings
       if (booking.status === 'completed') return false;
-      
-      // If it's for a future date, include it
       if (booking.date > todayString) return true;
-      
-      // If it's for today, only include if it hasn't ended yet
       if (booking.date === todayString) {
         const [endHour, endMinute] = booking.endTime.split(':').map(Number);
         const [currentHour, currentMinute] = currentTime.split(':').map(Number);
-        
-        // Convert to minutes for more accurate comparison
         const endMinutes = endHour * 60 + endMinute;
         const currentMinutes = currentHour * 60 + currentMinute;
-        
-        // Compare end time with current time
         return endMinutes > currentMinutes;
       }
-      
-      // Past dates are filtered out
       return false;
     });
   }, [reservations]);
 
-  // Handler for when a user clicks "Reserve" on an available room
+  // Handler for room reservation
   const handleReserveClick = (buildingId: string, roomId: string, buildingName: string, roomName: string) => {
     setIsDialogOpen(true);
-    // Pre-populate form handled by RoomBookingDialog component
   };
   
-  // Filter out completed reservations for display - memoized to prevent re-renders
+  // Filter out completed reservations for display
   const activeReservationsForDisplay = useMemo(() => 
     reservations.filter(r => {
-      // Filter out completed reservations
       if (r.status === 'completed') return false;
       
-      // Also filter out past reservations
       const now = new Date();
       const today = now.toISOString().split('T')[0];
       const currentTime = now.toTimeString().substring(0, 5);
       
-      // If reservation is for a past date, filter it out
       if (r.date < today) return false;
       
-      // If reservation is for today but has ended, filter it out
       if (r.date === today) {
         const [endHour, endMinute] = r.endTime.split(':').map(Number);
         const [currentHour, currentMinute] = currentTime.split(':').map(Number);
-        
-        // Compare using minutes for better accuracy
         const endMinutes = endHour * 60 + endMinute;
         const currentMinutes = currentHour * 60 + currentMinute;
         
@@ -143,7 +127,30 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
         <RoomBookingDialog 
           buildings={simplifiedBuildings}
           rooms={rooms}
-          createReservation={createReservation}
+          createReservation={async (data) => {
+            try {
+              await createReservation(data);
+              toast({
+                title: "Room Reserved",
+                description: "Your room has been reserved successfully",
+                duration: 3000,
+              });
+              // Manually refresh data after reservation
+              setTimeout(() => {
+                refreshRooms();
+                fetchReservations();
+                fetchActiveReservations();
+                processReservations();
+              }, 1000);
+            } catch (error) {
+              console.error("Error creating reservation:", error);
+              toast({
+                title: "Error",
+                description: "Failed to reserve room. Please try again.",
+                duration: 3000,
+              });
+            }
+          }}
           isOpen={isDialogOpen}
           onOpenChange={setIsDialogOpen}
         />

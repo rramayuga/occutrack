@@ -18,43 +18,19 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
 }) => {
   if (!showSchedules) return null;
   
-  // Format time strings to ensure proper comparison (HH:MM format)
-  const formatTimeForComparison = (time: string): string => {
-    const [hours, minutes] = time.split(':').map(Number);
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-  };
+  // Get current date and time for filtering
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+  const currentHours = now.getHours().toString().padStart(2, '0');
+  const currentMinutes = now.getMinutes().toString().padStart(2, '0');
+  const currentTime = `${currentHours}:${currentMinutes}`;
   
-  // Compare times in HH:MM format for better accuracy
-  const compareTimeStrings = (time1: string, time2: string): number => {
-    // Format times to ensure proper comparison
-    const formattedTime1 = formatTimeForComparison(time1);
-    const formattedTime2 = formatTimeForComparison(time2);
-    
-    // Convert to minutes for easier comparison
-    const [hours1, minutes1] = formattedTime1.split(':').map(Number);
-    const [hours2, minutes2] = formattedTime2.split(':').map(Number);
-    
-    const totalMinutes1 = hours1 * 60 + minutes1;
-    const totalMinutes2 = hours2 * 60 + minutes2;
-    
-    return totalMinutes1 - totalMinutes2;
-  };
-  
-  // Filter out finished/completed schedules with improved logic
+  // Filter out completed/finished schedules with improved logic
   const activeSchedules = roomSchedules.filter(schedule => {
     // Filter out explicitly completed reservations
     if (schedule.status === 'completed') {
       return false;
     }
-    
-    // Get current date and time
-    const now = new Date();
-    const today = now.toISOString().split('T')[0];
-    
-    // Format current time in HH:MM for accurate comparison
-    const currentHours = now.getHours().toString().padStart(2, '0');
-    const currentMinutes = now.getMinutes().toString().padStart(2, '0');
-    const currentTime = `${currentHours}:${currentMinutes}`;
     
     // If schedule date is in the future, keep it
     if (schedule.date > today) {
@@ -63,8 +39,15 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
     
     // If schedule date is today, check if end time has passed
     if (schedule.date === today) {
-      // Compare current time with the end time of the schedule
-      return compareTimeStrings(currentTime, schedule.endTime) < 0;
+      // Convert times to minutes for accurate comparison
+      const [endHours, endMinutes] = schedule.endTime.split(':').map(Number);
+      const [nowHours, nowMinutes] = currentTime.split(':').map(Number);
+      
+      const endInMinutes = endHours * 60 + endMinutes;
+      const nowInMinutes = nowHours * 60 + nowMinutes;
+      
+      // Keep if end time hasn't passed yet
+      return endInMinutes > nowInMinutes;
     }
     
     // Schedule date is in the past

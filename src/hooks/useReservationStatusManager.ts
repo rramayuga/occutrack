@@ -107,7 +107,7 @@ export function useReservationStatusManager() {
     }
   }, [user, toast, lastError]);
 
-  // Update room status based on reservation time - this is the critical function we're fixing
+  // Update room status based on reservation time
   const updateRoomStatus = useCallback(async (roomId: string, isOccupied: boolean) => {
     try {
       console.log(`Updating room ${roomId} status to ${isOccupied ? 'occupied' : 'available'}`);
@@ -129,7 +129,7 @@ export function useReservationStatusManager() {
         return false;
       }
       
-      // Update the room status in the database - FIXED: removed isAvailable field
+      // Update the room status in the database
       const status = isOccupied ? 'occupied' : 'available';
       const { error } = await supabase
         .from('rooms')
@@ -143,28 +143,12 @@ export function useReservationStatusManager() {
       
       console.log(`Successfully updated room ${roomId} status to ${status}`);
       
-      // Also update the room_availability table to track history
-      if (user) {
-        const { error: availError } = await supabase
-          .from('room_availability')
-          .insert({
-            room_id: roomId,
-            is_available: !isOccupied,
-            updated_by: user.id,
-            updated_at: new Date().toISOString()
-          });
-          
-        if (availError) {
-          console.error("Error creating availability record:", availError);
-        }
-      }
-      
       return true;
     } catch (error) {
       console.error("Error in updateRoomStatus:", error);
       return false;
     }
-  }, [user]);
+  }, []);
 
   // Mark a reservation as completed
   const markReservationAsCompleted = useCallback(async (reservationId: string) => {
@@ -209,13 +193,12 @@ export function useReservationStatusManager() {
       return;
     }
     
-    // Even if there are no current active reservations, we should fetch to make sure
-    // This ensures we don't miss any newly created reservations
+    // Get current reservations to process
     let reservationsToProcess = activeReservations;
     const now = new Date();
     
     // Force refresh if it's been a while
-    if (now.getTime() - lastCheck.getTime() > 60000) { // 1 minute
+    if (now.getTime() - lastCheck.getTime() > 30000) { // 30 seconds
       console.log("Force refreshing reservations due to time elapsed");
       reservationsToProcess = await fetchActiveReservations();
       setLastCheck(now);
@@ -273,13 +256,13 @@ export function useReservationStatusManager() {
       }
     }
     
-    // If any updates were made or enough time has passed, refresh the reservations
+    // If any updates were made, refresh the reservations
     if (updated) {
       await fetchActiveReservations();
     }
   }, [activeReservations, completedReservationIds, updateRoomStatus, markReservationAsCompleted, fetchActiveReservations, lastCheck, compareTimeStrings, user]);
 
-  // Setup up subscription to room_reservations with improved error handling
+  // Setup frequent checks for reservation status changes
   useEffect(() => {
     if (!user) return;
     
@@ -291,52 +274,26 @@ export function useReservationStatusManager() {
     // Process reservations immediately
     processReservations();
     
+    // Set up interval to check more frequently
+    const intervalId = setInterval(() => {
+      console.log("Checking reservation statuses");
+      processReservations();
+    }, 5000); // Check every 5 seconds
+    
+    // Set up realtime subscription to reservation changes
     try {
-      // Setup subscription to room_reservations changes
       const channel = supabase
         .channel('reservation-status-changes')
         .on('postgres_changes', { 
           event: '*', 
           schema: 'public', 
           table: 'room_reservations',
-        }, (payload) => {
-          console.log("Reservation change detected:", payload);
+        }, () => {
+          console.log("Reservation change detected, refreshing data");
           fetchActiveReservations();
           processReservations();
         })
-        .subscribe((status) => {
-          console.log("Reservation status subscription status:", status);
-          
-          // If subscription fails, try again after delay
-          if (status !== 'SUBSCRIBED') {
-            setTimeout(() => setupSubscription(), 5000);
-          }
-        });
-      
-      // Function to setup subscription (for retries)
-      const setupSubscription = () => {
-        try {
-          return supabase
-            .channel('reservation-status-retry')
-            .on('postgres_changes', { 
-              event: '*', 
-              schema: 'public', 
-              table: 'room_reservations',
-            }, () => {
-              fetchActiveReservations();
-              processReservations();
-            })
-            .subscribe();
-        } catch (error) {
-          console.error("Error setting up subscription retry:", error);
-          return null;
-        }
-      };
-      
-      // Check for status changes MORE FREQUENTLY - this is key for real-time updates
-      const intervalId = setInterval(() => {
-        processReservations();
-      }, 10000); // Every 10 seconds for real-time updates
+        .subscribe();
       
       return () => {
         clearInterval(intervalId);
@@ -345,13 +302,8 @@ export function useReservationStatusManager() {
     } catch (error) {
       console.error("Error setting up reservation status subscription:", error);
       
-      // Setup a fallback checking mechanism in case subscriptions fail
-      const fallbackIntervalId = setInterval(() => {
-        fetchActiveReservations();
-        processReservations();
-      }, 15000); // Check every 15 seconds as fallback
-      
-      return () => clearInterval(fallbackIntervalId);
+      // If subscription fails, rely on interval checks
+      return () => clearInterval(intervalId);
     }
   }, [user, fetchActiveReservations, processReservations]);
 

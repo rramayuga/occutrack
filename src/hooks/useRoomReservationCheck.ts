@@ -13,7 +13,7 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
   
   // Compare times in HH:MM format
   const compareTimeStrings = (time1: string, time2: string): number => {
-    // Parse times to ensure proper comparison (handles formats like "09:30" vs "9:30")
+    // Parse times to ensure proper comparison
     const [hours1, minutes1] = time1.split(':').map(Number);
     const [hours2, minutes2] = time2.split(':').map(Number);
     
@@ -28,7 +28,7 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
   useEffect(() => {
     if (!user || activeReservations.length === 0) return;
     
-    // Check if it's been at least 3 seconds since the last check (reduced for more frequent checks)
+    // Check if it's been at least 3 seconds since the last check
     const now = new Date();
     const timeSinceLastCheck = now.getTime() - lastCheckTime.current.getTime();
     if (timeSinceLastCheck < 3000) { // 3 seconds minimum between checks
@@ -37,7 +37,7 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
     
     lastCheckTime.current = now;
     
-    // Process the reservations through our centralized manager - this is crucial
+    // Process the reservations through our centralized manager
     processReservations();
     
     const updateRoomStatusBasedOnReservations = async () => {

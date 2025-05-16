@@ -109,9 +109,6 @@ export function useRoomUpdater(
         )
       );
       
-      // Force a refresh to ensure all components have the latest data
-      setTimeout(() => refetchRooms(), 300);
-      
     } catch (error: any) {
       console.error("Error updating room availability:", error);
       toast({
@@ -122,7 +119,7 @@ export function useRoomUpdater(
       // Clear update lock
       updateInProgress.current[roomId] = false;
     }
-  }, [user, setRooms, toast, refetchRooms]);
+  }, [user, setRooms, toast]);
 
   // Handle toggling room availability
   const handleToggleRoomAvailability = useCallback((roomId: string) => {
