@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import {
   Table,
@@ -41,6 +40,26 @@ const RoomTable: React.FC<RoomTableProps> = ({
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
+
+  // Sort rooms by name in ascending order - memoize this calculation
+  const sortedRooms = useMemo(() => 
+    [...rooms].sort((a, b) => {
+      // Extract numeric part if room names follow a pattern like "Room 101"
+      const aMatch = a.name.match(/(\d+)/);
+      const bMatch = b.name.match(/(\d+)/);
+      
+      if (aMatch && bMatch) {
+        // If both room names contain numbers, sort numerically
+        const aNum = parseInt(aMatch[0], 10);
+        const bNum = parseInt(bMatch[0], 10);
+        return aNum - bNum;
+      }
+      
+      // Otherwise sort alphabetically
+      return a.name.localeCompare(b.name);
+    }),
+    [rooms]
+  );
 
   const handleDeleteClick = (roomId: string) => {
     setSelectedRoomId(roomId);
@@ -139,7 +158,7 @@ const RoomTable: React.FC<RoomTableProps> = ({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rooms.map((room) => (
+            {sortedRooms.map((room) => (
               <TableRow key={room.id}>
                 <TableCell className="font-medium">{room.name}</TableCell>
                 <TableCell>{room.type}</TableCell>

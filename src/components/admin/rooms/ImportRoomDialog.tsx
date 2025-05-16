@@ -32,15 +32,15 @@ const ImportRoomDialog: React.FC<ImportRoomDialogProps> = ({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Import Rooms from CSV</DialogTitle>
+          <DialogTitle>Import Rooms from Excel</DialogTitle>
           <DialogDescription>
-            Upload a CSV file to import or update rooms. The file should include columns for name, type, floor, buildingId, and isAvailable.
+            Upload an Excel file (.xlsx) containing room data with separate sheets for each building. Each sheet name should match your building name exactly.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <Input 
             type="file" 
-            accept=".csv" 
+            accept=".xlsx" 
             onChange={(e) => {
               if (e.target.files && e.target.files.length > 0) {
                 onFileSelect(e.target.files[0]);
@@ -48,7 +48,16 @@ const ImportRoomDialog: React.FC<ImportRoomDialogProps> = ({
             }} 
           />
           <p className="text-xs text-muted-foreground">
-            Existing rooms with matching names in the same building will be updated.
+            Excel Format Requirements:
+          </p>
+          <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-1">
+            <li>Each building should have its own sheet in the Excel file</li>
+            <li>Sheet names must match your building names exactly</li>
+            <li>Each sheet should have the following columns: name, type, floor, capacity, status</li>
+            <li>The first row should contain column headers</li>
+          </ul>
+          <p className="text-xs text-muted-foreground mt-2">
+            Existing rooms with matching names will be updated.
           </p>
         </div>
         <DialogFooter>

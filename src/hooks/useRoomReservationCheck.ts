@@ -6,7 +6,7 @@ import { useReservationStatusManager } from './useReservationStatusManager';
 
 export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (roomId: string, isAvailable: boolean, status: RoomStatus) => void) {
   const { user } = useAuth();
-  const { activeReservations } = useReservationStatusManager();
+  const { activeReservations, processReservations } = useReservationStatusManager();
   
   // Use ref to track the last check time to prevent excessive checks
   const lastCheckTime = useRef<Date>(new Date());
@@ -23,23 +23,26 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
     return minutes1 - minutes2;
   };
   
-  // This effect will run only when active reservations change
+  // This effect will run when rooms or reservations change and will check room statuses
   useEffect(() => {
     if (!user || activeReservations.length === 0) return;
     
-    // Check if it's been at least 15 seconds since the last check
+    // Check if it's been at least 10 seconds since the last check (reduced from 15 seconds)
     const now = new Date();
     const timeSinceLastCheck = now.getTime() - lastCheckTime.current.getTime();
-    if (timeSinceLastCheck < 15000) { // 15 seconds minimum between checks
+    if (timeSinceLastCheck < 10000) { // 10 seconds minimum between checks
       return;
     }
     
     lastCheckTime.current = now;
     
+    // Process the reservations through our centralized manager - this is crucial
+    processReservations();
+    
     const updateRoomStatusBasedOnReservations = async () => {
       try {
         const currentDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
-        const currentTime = now.toTimeString().split(' ')[0].slice(0, 5); // HH:MM
+        const currentTime = now.toTimeString().substring(0, 5); // HH:MM
         
         console.log(`Checking room statuses at ${currentDate} ${currentTime} based on ${activeReservations.length} reservations`);
         
@@ -51,7 +54,6 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
           const startTime = reservation.startTime;
           const endTime = reservation.endTime;
           
-          // FIX: Using a proper time comparison function instead of string comparison
           // Check if current time is between start and end times
           const isActive = compareTimeStrings(currentTime, startTime) >= 0 && 
                           compareTimeStrings(currentTime, endTime) < 0;
@@ -72,7 +74,7 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
               console.log(`Room ${roomToUpdate.name} should be occupied now based on reservation ${reservation.id}`);
               updateRoomAvailability(reservation.roomId, false, 'occupied');
             } 
-            else if (hasEnded && roomToUpdate.status !== 'available') {
+            else if (hasEnded && roomToUpdate.status === 'occupied') {
               console.log(`Room ${roomToUpdate.name} should be available now as reservation ${reservation.id} has ended`);
               updateRoomAvailability(reservation.roomId, true, 'available');
             }
@@ -85,7 +87,7 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
 
     updateRoomStatusBasedOnReservations();
     
-  }, [user, rooms, activeReservations, updateRoomAvailability]);
+  }, [user, rooms, activeReservations, updateRoomAvailability, processReservations]);
 
   return null;
 }

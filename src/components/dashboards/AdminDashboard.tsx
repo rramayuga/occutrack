@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BuildingWithFloors, User } from '@/lib/types';
@@ -30,7 +29,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
 
   const { buildings, loading, addBuilding, editBuilding, deleteBuilding } = useBuildings();
   const { addRoom } = useEnhancedRoomsManagement();
-  const { facultyCount, facultyMembers, isLoadingFaculty } = useFacultyManagement();
+  const { facultyCount, facultyMembers, isLoadingFaculty, fetchFacultyData } = useFacultyManagement();
   const utilizationRate = useRoomUtilization();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -104,12 +103,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
     navigate('/faculty-management', { state: { selectedFacultyId: facultyId } });
   };
 
-  const handleEditFaculty = (facultyId: string) => {
-    navigate('/faculty-management', { 
-      state: { selectedFacultyId: facultyId, isEditing: true } 
-    });
-  };
-
   const filteredBuildings = buildings.filter(building => {
     if (!searchTerm) return true;
     return building.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -165,7 +158,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
             isLoadingFaculty={isLoadingFaculty}
             facultyMembers={facultyMembers}
             handleViewFaculty={handleViewFaculty}
-            handleEditFaculty={handleEditFaculty}
+            refreshFacultyData={fetchFacultyData}
           />
         </TabsContent>
         
