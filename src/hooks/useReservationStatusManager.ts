@@ -133,7 +133,7 @@ export function useReservationStatusManager() {
       const status = isOccupied ? 'occupied' : 'available';
       const { error } = await supabase
         .from('rooms')
-        .update({ status })
+        .update({ status, is_available: !isOccupied })
         .eq('id', roomId);
       
       if (error) {
@@ -175,7 +175,7 @@ export function useReservationStatusManager() {
 
   // Compare times in HH:MM format with better precision
   const compareTimeStrings = useCallback((time1: string, time2: string): number => {
-    // Parse times to ensure proper comparison (handles formats like "09:30" vs "9:30")
+    // Parse times to ensure proper comparison
     const [hours1, minutes1] = time1.split(':').map(Number);
     const [hours2, minutes2] = time2.split(':').map(Number);
     
@@ -230,29 +230,19 @@ export function useReservationStatusManager() {
       if (compareTimeStrings(currentTime, reservation.startTime) >= 0 && 
           compareTimeStrings(currentTime, reservation.endTime) < 0) {
         console.log(`START TIME REACHED for reservation ${reservation.id} - marking room ${reservation.roomId} as OCCUPIED`);
-        const success = await updateRoomStatus(reservation.roomId, true);
-        
-        if (success) {
-          console.log(`Room ${reservation.roomId} marked as occupied successfully`);
-          updated = true;
-        }
+        await updateRoomStatus(reservation.roomId, true);
+        updated = true;
       }
       
       // Check if end time has been reached - MARK AS AVAILABLE and COMPLETE reservation
       if (compareTimeStrings(currentTime, reservation.endTime) >= 0) {
         console.log(`END TIME REACHED for reservation ${reservation.id} - completing reservation and marking room available`);
-        const roomSuccess = await updateRoomStatus(reservation.roomId, false);
+        await updateRoomStatus(reservation.roomId, false);
+        await markReservationAsCompleted(reservation.id);
         
-        if (roomSuccess) {
-          const success = await markReservationAsCompleted(reservation.id);
-          if (success) {
-            console.log(`Reservation ${reservation.id} marked as completed successfully`);
-            
-            // Remove from active reservations
-            setActiveReservations(prev => prev.filter(r => r.id !== reservation.id));
-            updated = true;
-          }
-        }
+        // Remove from active reservations
+        setActiveReservations(prev => prev.filter(r => r.id !== reservation.id));
+        updated = true;
       }
     }
     

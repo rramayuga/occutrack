@@ -21,37 +21,36 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
   // Get current date and time for filtering
   const now = new Date();
   const today = now.toISOString().split('T')[0];
-  const currentHours = now.getHours().toString().padStart(2, '0');
-  const currentMinutes = now.getMinutes().toString().padStart(2, '0');
-  const currentTime = `${currentHours}:${currentMinutes}`;
+  const currentTime = now.toTimeString().substring(0, 5); // HH:MM
   
-  // Filter out completed/finished schedules with improved logic
+  // Filter out completed reservations with improved filtering logic
   const activeSchedules = roomSchedules.filter(schedule => {
     // Filter out explicitly completed reservations
     if (schedule.status === 'completed') {
       return false;
     }
     
-    // If schedule date is in the future, keep it
-    if (schedule.date > today) {
-      return true;
+    // Filter out past days
+    if (schedule.date < today) {
+      return false;
     }
     
-    // If schedule date is today, check if end time has passed
+    // For today's schedules, check if end time has passed
     if (schedule.date === today) {
-      // Convert times to minutes for accurate comparison
       const [endHours, endMinutes] = schedule.endTime.split(':').map(Number);
       const [nowHours, nowMinutes] = currentTime.split(':').map(Number);
       
       const endInMinutes = endHours * 60 + endMinutes;
       const nowInMinutes = nowHours * 60 + nowMinutes;
       
-      // Keep if end time hasn't passed yet
-      return endInMinutes > nowInMinutes;
+      // If end time has passed, don't show this reservation
+      if (endInMinutes <= nowInMinutes) {
+        return false;
+      }
     }
     
-    // Schedule date is in the past
-    return false;
+    // Keep all future reservations
+    return true;
   });
   
   // Handle click internally to manage the event
