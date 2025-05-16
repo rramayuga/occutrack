@@ -1,3 +1,4 @@
+
 import React, { memo } from 'react';
 import { Room } from '@/lib/types';
 import RoomCard from './RoomCard';
@@ -17,23 +18,9 @@ const FloorRooms: React.FC<FloorRoomsProps> = ({
   onToggleAvailability,
   refetchRooms
 }) => {
-  // Sort rooms by name in ascending order - memoize this calculation
+  // Sort rooms by name - memoize this calculation
   const sortedRooms = React.useMemo(() => 
-    [...rooms].sort((a, b) => {
-      // Extract numeric part if room names follow a pattern like "Room 101"
-      const aMatch = a.name.match(/(\d+)/);
-      const bMatch = b.name.match(/(\d+)/);
-      
-      if (aMatch && bMatch) {
-        // If both room names contain numbers, sort numerically
-        const aNum = parseInt(aMatch[0], 10);
-        const bNum = parseInt(bMatch[0], 10);
-        return aNum - bNum;
-      }
-      
-      // Otherwise sort alphabetically
-      return a.name.localeCompare(b.name);
-    }),
+    [...rooms].sort((a, b) => a.name.localeCompare(b.name)),
     [rooms]
   );
 

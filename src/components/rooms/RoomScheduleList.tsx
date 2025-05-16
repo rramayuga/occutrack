@@ -18,7 +18,7 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
 }) => {
   if (!showSchedules) return null;
   
-  // Compare times in HH:MM format for better accuracy
+  // Compare times in HH:MM format
   const compareTimeStrings = (time1: string, time2: string): number => {
     // Parse times to ensure proper comparison
     const [hours1, minutes1] = time1.split(':').map(Number);
@@ -30,12 +30,10 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
     return minutes1 - minutes2;
   };
   
-  // Filter out finished/completed schedules with improved logic
+  // Filter out finished schedules more accurately
   const activeSchedules = roomSchedules.filter(schedule => {
-    // Filter out explicitly completed reservations
-    if (schedule.status === 'completed') {
-      return false;
-    }
+    // Filter out completed reservations
+    if (schedule.status === 'completed') return false;
     
     // Get current date and time
     const now = new Date();
@@ -43,12 +41,11 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
     const currentTime = now.toTimeString().substring(0, 5); // HH:MM format
     
     // If schedule date is in the future, keep it
-    if (schedule.date > today) {
-      return true;
-    }
+    if (schedule.date > today) return true;
     
     // If schedule date is today, check if end time has passed
     if (schedule.date === today) {
+      // FIX: Using proper comparison instead of string comparison
       return compareTimeStrings(currentTime, schedule.endTime) < 0;
     }
     

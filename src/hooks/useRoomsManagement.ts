@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Room } from '@/lib/types';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
-import { createMultiSheetExcel, parseMultiSheetExcel } from '@/lib/utils';
 
 export const useRoomsManagement = () => {
   const [isUploading, setIsUploading] = useState(false);
@@ -127,159 +126,133 @@ export const useRoomsManagement = () => {
     }
   };
 
-  const handleRoomExcelUpload = async (file: File) => {
+  const handleRoomCsvUpload = async (file: File) => {
     setIsUploading(true);
     try {
-      // Parse the multi-sheet Excel
-      const buildingsWithRooms = await parseMultiSheetExcel(file);
+      const text = await file.text();
+      const lines = text.split('\n');
+      const headers = lines[0].split(',');
       
-      if (buildingsWithRooms.length === 0) {
+      const requiredColumns = ['name', 'type', 'floor', 'buildingId'];
+      const missingColumns = requiredColumns.filter(col => !headers.includes(col));
+      
+      if (missingColumns.length > 0) {
         toast({
-          title: "Invalid Excel Format",
-          description: "Could not find any building data in the Excel file. Please check the format.",
+          title: "Invalid CSV Format",
+          description: `CSV file must include the following columns: ${missingColumns.join(', ')}`,
           variant: "destructive"
         });
         setIsUploading(false);
         return;
       }
 
-      let totalSuccessCount = 0;
-      let totalUpdateCount = 0;
-      let totalErrorCount = 0;
+      let successCount = 0;
+      let updateCount = 0;
+      let errorCount = 0;
       
-      // Process each building and its rooms
-      for (const buildingData of buildingsWithRooms) {
-        const { buildingName, rooms } = buildingData;
+      for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
         
-        // Find the building ID from the name
-        const { data: buildingRecord, error: buildingError } = await supabase
-          .from('buildings')
-          .select('id')
-          .eq('name', buildingName)
-          .single();
-          
-        if (buildingError) {
-          console.error(`Building "${buildingName}" not found:`, buildingError);
-          toast({
-            title: "Building Not Found",
-            description: `Could not find building "${buildingName}". Skipping these rooms.`,
-            variant: "destructive"
-          });
-          totalErrorCount += rooms.length;
+        const data = lines[i].split(',');
+        if (data.length !== headers.length) {
+          console.error(`Line ${i} has incorrect number of columns`);
+          errorCount++;
           continue;
         }
         
-        const buildingId = buildingRecord.id;
-        let buildingSuccessCount = 0;
-        let buildingUpdateCount = 0;
-        let buildingErrorCount = 0;
-        
-        // Process each room in this building
-        for (const roomData of rooms) {
-          try {
-            const name = roomData.name;
-            const type = roomData.type;
-            const floor = parseInt(roomData.floor);
-            const capacity = roomData.capacity ? parseInt(roomData.capacity) : 30;
-            const status = roomData.status || 'available';
-            const isAvailable = status === 'available';
+        try {
+          const roomData: Record<string, any> = {};
+          headers.forEach((header, index) => {
+            roomData[header] = data[index].trim();
+          });
+          
+          const buildingId = roomData.buildingId;
+          const name = roomData.name;
+          const type = roomData.type;
+          const floor = parseInt(roomData.floor);
+          const capacity = roomData.capacity ? parseInt(roomData.capacity) : 30;
+          const isAvailable = roomData.isAvailable === 'true';
+          const status = roomData.status || (isAvailable ? 'available' : 'occupied');
+          
+          if (isNaN(floor)) {
+            console.error(`Invalid floor number in line ${i}`);
+            errorCount++;
+            continue;
+          }
+          
+          const { data: existingRooms, error: queryError } = await supabase
+            .from('rooms')
+            .select('id')
+            .eq('name', name)
+            .eq('building_id', buildingId);
             
-            if (!name || !type || isNaN(floor)) {
-              console.error(`Invalid room data: ${JSON.stringify(roomData)}`);
-              buildingErrorCount++;
-              continue;
-            }
-            
-            // Check if room already exists
-            const { data: existingRooms, error: queryError } = await supabase
+          if (queryError) throw queryError;
+          
+          if (existingRooms && existingRooms.length > 0) {
+            const { error: updateError } = await supabase
               .from('rooms')
-              .select('id')
-              .eq('name', name)
-              .eq('building_id', buildingId);
+              .update({
+                type,
+                floor,
+                capacity,
+                status,
+              })
+              .eq('id', existingRooms[0].id);
               
-            if (queryError) throw queryError;
+            if (updateError) throw updateError;
             
-            if (existingRooms && existingRooms.length > 0) {
-              // Update existing room
-              const { error: updateError } = await supabase
-                .from('rooms')
-                .update({
-                  type,
-                  floor,
-                  capacity,
-                  status,
-                })
-                .eq('id', existingRooms[0].id);
-                
-              if (updateError) throw updateError;
+            await supabase
+              .from('room_availability')
+              .insert({
+                room_id: existingRooms[0].id,
+                is_available: isAvailable,
+                updated_by: '00000000-0000-0000-0000-000000000000',
+              });
               
+            updateCount++;
+          } else {
+            const { data: newRoom, error: insertError } = await supabase
+              .from('rooms')
+              .insert([{
+                name,
+                type,
+                floor,
+                building_id: buildingId,
+                capacity,
+                status,
+              }])
+              .select();
+              
+            if (insertError) throw insertError;
+            
+            if (newRoom && newRoom.length > 0) {
               await supabase
                 .from('room_availability')
                 .insert({
-                  room_id: existingRooms[0].id,
+                  room_id: newRoom[0].id,
                   is_available: isAvailable,
                   updated_by: '00000000-0000-0000-0000-000000000000',
                 });
-                
-              buildingUpdateCount++;
-            } else {
-              // Add new room
-              const { data: newRoom, error: insertError } = await supabase
-                .from('rooms')
-                .insert([{
-                  name,
-                  type,
-                  floor,
-                  building_id: buildingId,
-                  capacity,
-                  status,
-                }])
-                .select();
-                
-              if (insertError) throw insertError;
-              
-              if (newRoom && newRoom.length > 0) {
-                await supabase
-                  .from('room_availability')
-                  .insert({
-                    room_id: newRoom[0].id,
-                    is_available: isAvailable,
-                    updated_by: '00000000-0000-0000-0000-000000000000',
-                  });
-              }
-              
-              buildingSuccessCount++;
             }
-          } catch (error) {
-            console.error(`Error processing room:`, error);
-            buildingErrorCount++;
+            
+            successCount++;
           }
+        } catch (error) {
+          console.error(`Error processing line ${i}:`, error);
+          errorCount++;
         }
-        
-        // Update totals
-        totalSuccessCount += buildingSuccessCount;
-        totalUpdateCount += buildingUpdateCount;
-        totalErrorCount += buildingErrorCount;
-        
-        // Show toast for this building
-        toast({
-          title: `Imported ${buildingName}`,
-          description: `Added ${buildingSuccessCount} rooms, updated ${buildingUpdateCount} rooms. ${buildingErrorCount} errors occurred.`,
-          variant: buildingErrorCount > 0 ? "default" : "default"
-        });
       }
       
-      // Show final summary toast
       toast({
-        title: "Excel Import Complete",
-        description: `Successfully added ${totalSuccessCount} rooms, updated ${totalUpdateCount} rooms across ${buildingsWithRooms.length} buildings. ${totalErrorCount} errors occurred.`,
-        variant: totalErrorCount > 0 ? "default" : "default"
+        title: "CSV Import Complete",
+        description: `Successfully added ${successCount} rooms, updated ${updateCount} rooms. ${errorCount} errors occurred.`,
+        variant: errorCount > 0 ? "default" : "default"
       });
     } catch (error) {
-      console.error("Error processing Excel file:", error);
+      console.error("Error processing CSV file:", error);
       toast({
         title: "Error",
-        description: "Error processing Excel file.",
+        description: "Error processing CSV file.",
         variant: "destructive"
       });
     } finally {
@@ -287,42 +260,9 @@ export const useRoomsManagement = () => {
     }
   };
 
-  const exportRoomsToExcel = async () => {
+  const exportRoomsToCsv = async () => {
     try {
-      // First fetch all buildings
-      const { data: buildingsData, error: buildingsError } = await supabase
-        .from('buildings')
-        .select('id, name')
-        .order('name');
-      
-      if (buildingsError) {
-        console.error("Error fetching buildings:", buildingsError);
-        toast({
-          title: "Error",
-          description: "Failed to fetch buildings for export.",
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      if (!buildingsData || buildingsData.length === 0) {
-        toast({
-          title: "No Buildings",
-          description: "No buildings available to export rooms from.",
-        });
-        return;
-      }
-      
-      // Create a map to store rooms by building
-      const buildingsMap = new Map<string, any[]>();
-      
-      // Initialize map with empty arrays for all buildings
-      buildingsData.forEach(building => {
-        buildingsMap.set(building.name, []);
-      });
-      
-      // Fetch all rooms with building information
-      const { data: roomsData, error: roomsError } = await supabase
+      const { data, error } = await supabase
         .from('rooms')
         .select(`
           id,
@@ -334,9 +274,9 @@ export const useRoomsManagement = () => {
           status,
           buildings(name)
         `);
-      
-      if (roomsError) {
-        console.error("Error fetching rooms:", roomsError);
+
+      if (error) {
+        console.error("Error fetching rooms:", error);
         toast({
           title: "Error",
           description: "Failed to fetch rooms for export.",
@@ -344,38 +284,39 @@ export const useRoomsManagement = () => {
         });
         return;
       }
-      
-      if (!roomsData || roomsData.length === 0) {
+
+      if (!data || data.length === 0) {
         toast({
           title: "No Rooms",
           description: "No rooms available to export.",
         });
         return;
       }
+
+      const csvRows = [
+        ['name', 'type', 'floor', 'buildingId', 'buildingName', 'capacity', 'status'].join(',')
+      ];
       
-      // Organize rooms by building
-      roomsData.forEach(room => {
+      data.forEach(room => {
         const roomData = room as any;
         const buildingName = roomData.buildings?.name || '';
-        
-        if (buildingName && buildingsMap.has(buildingName)) {
-          // Add room to its building's array (exclude buildingId and buildingName)
-          buildingsMap.get(buildingName)?.push({
-            name: roomData.name,
-            type: roomData.type,
-            floor: roomData.floor,
-            capacity: roomData.capacity,
-            status: roomData.status || 'available'
-          });
-        }
+        csvRows.push([
+          roomData.name,
+          roomData.type,
+          roomData.floor,
+          roomData.building_id,
+          buildingName,
+          roomData.capacity,
+          roomData.status || 'available'
+        ].join(','));
       });
       
-      // Create multi-sheet Excel file
-      const blob = createMultiSheetExcel(buildingsMap);
+      const csvContent = csvRows.join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.setAttribute('href', url);
-      a.setAttribute('download', 'rooms_by_building.xlsx');
+      a.setAttribute('download', 'rooms.csv');
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -383,13 +324,13 @@ export const useRoomsManagement = () => {
 
       toast({
         title: "Success",
-        description: "Rooms exported to Excel successfully.",
+        description: "Rooms exported to CSV successfully.",
       });
     } catch (error) {
-      console.error("Error exporting rooms to Excel:", error);
+      console.error("Error exporting rooms to CSV:", error);
       toast({
         title: "Error",
-        description: "Failed to export rooms to Excel.",
+        description: "Failed to export rooms to CSV.",
         variant: "destructive"
       });
     }
@@ -398,8 +339,8 @@ export const useRoomsManagement = () => {
   return {
     addRoom,
     deleteRoom,
-    handleRoomCsvUpload: handleRoomExcelUpload, // Keep the original function name for backward compatibility
-    exportRoomsToCsv: exportRoomsToExcel, // Keep the original function name for backward compatibility
+    handleRoomCsvUpload,
+    exportRoomsToCsv,
     isUploading
   };
 };

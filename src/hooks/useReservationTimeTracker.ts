@@ -7,14 +7,12 @@ export function useReservationTimeTracker() {
   const { 
     activeReservations,
     completedReservationIds, 
-    fetchActiveReservations,
-    processReservations
+    fetchActiveReservations
   } = useReservationStatusManager();
 
   return {
     activeReservations,
     completedReservations: completedReservationIds,
-    fetchActiveReservations,
-    processReservations
+    fetchActiveReservations
   };
 }
