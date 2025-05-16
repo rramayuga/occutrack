@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { User } from '@/lib/types';
 import { useRooms } from '@/hooks/useRooms';
@@ -17,6 +16,7 @@ interface ProfessorDashboardProps {
 
 export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedRoomId, setSelectedRoomId] = useState<string>('');
   const { simplifiedBuildings } = useBuildings();
   const { rooms, refreshRooms } = useRooms();
   const { reservations, createReservation, fetchReservations } = useReservations();
@@ -87,6 +87,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
 
   // Handler for room reservation with proper parameters
   const handleReserveClick = (buildingId: string, roomId: string, buildingName: string, roomName: string) => {
+    setSelectedRoomId(roomId); // Store the selected room ID
     setIsDialogOpen(true);
   };
   
@@ -129,7 +130,8 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
           rooms={rooms}
           createReservation={async (data) => {
             try {
-              await createReservation(data, data.roomId);  // Fix: Passing both required arguments
+              // Use the stored selectedRoomId instead of trying to access data.roomId
+              await createReservation(data, selectedRoomId);
               toast({
                 title: "Room Reserved",
                 description: "Your room has been reserved successfully",
