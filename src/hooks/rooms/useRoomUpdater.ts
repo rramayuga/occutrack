@@ -50,7 +50,7 @@ export function useRoomUpdater(
         toast({
           title: "Permission Denied",
           description: "Only SuperAdmin users can change the status of rooms under maintenance",
-          variant: "destructive"
+          duration: 3000
         });
         updateInProgress.current[roomId] = false;
         return;
@@ -59,7 +59,7 @@ export function useRoomUpdater(
       // Use explicit status if provided, otherwise derive from isAvailable
       const newStatus: RoomStatus = explicitStatus || (isAvailable ? 'available' : 'occupied');
       
-      // Update the rooms table first with the new status - FIXED: removed isAvailable field
+      // Update the rooms table first with the new status
       const { error: updateError } = await supabase
         .from('rooms')
         .update({
@@ -72,7 +72,7 @@ export function useRoomUpdater(
         toast({
           title: "Error",
           description: `Failed to update room status: ${updateError.message}`,
-          variant: "destructive"
+          duration: 3000
         });
         updateInProgress.current[roomId] = false;
         return;
@@ -87,7 +87,6 @@ export function useRoomUpdater(
           .insert({
             room_id: roomId,
             is_available: isAvailable,
-            status: newStatus, // Store the status explicitly
             updated_by: user.id,
             updated_at: new Date().toISOString()
           });
@@ -120,7 +119,7 @@ export function useRoomUpdater(
       toast({
         title: "Error",
         description: `Failed to update room availability: ${error?.message || 'Unknown error'}`,
-        variant: "destructive"
+        duration: 3000
       });
     } finally {
       // Clear update lock
@@ -138,7 +137,7 @@ export function useRoomUpdater(
       toast({
         title: "Cannot Toggle",
         description: "Room is under maintenance. Only SuperAdmin can change this status.",
-        variant: "destructive"
+        duration: 3000
       });
       return;
     }

@@ -97,7 +97,8 @@ export function useReservationStatusManager() {
       if (!lastError || now.getTime() - lastError.getTime() > ERROR_COOLDOWN_MS) {
         toast({
           title: "Error loading reservations",
-          description: "Could not load reservation status data. Will retry automatically."
+          description: "Could not load reservation status data. Will retry automatically.",
+          duration: 3000,
         });
         setLastError(now);
       }
@@ -149,7 +150,6 @@ export function useReservationStatusManager() {
           .insert({
             room_id: roomId,
             is_available: !isOccupied,
-            status: status,
             updated_by: user.id,
             updated_at: new Date().toISOString()
           });
@@ -335,9 +335,8 @@ export function useReservationStatusManager() {
       
       // Check for status changes MORE FREQUENTLY - this is key for real-time updates
       const intervalId = setInterval(() => {
-        console.log("Running periodic reservation status check");
         processReservations();
-      }, 3000); // Every 3 seconds for faster real-time updates
+      }, 10000); // Every 10 seconds for real-time updates
       
       return () => {
         clearInterval(intervalId);
@@ -350,7 +349,7 @@ export function useReservationStatusManager() {
       const fallbackIntervalId = setInterval(() => {
         fetchActiveReservations();
         processReservations();
-      }, 5000); // Check every 5 seconds as fallback
+      }, 15000); // Check every 15 seconds as fallback
       
       return () => clearInterval(fallbackIntervalId);
     }

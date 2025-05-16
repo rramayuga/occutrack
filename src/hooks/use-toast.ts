@@ -1,17 +1,19 @@
+
 import * as React from "react"
 import {
   type ToastActionElement,
   type ToastProps,
 } from "@/components/ui/toast"
 
-const TOAST_LIMIT = 1 // Limiting to 1 to prevent stacking
-const TOAST_REMOVE_DELAY = 3000 // 3 seconds auto-dismiss
+const TOAST_LIMIT = 3
+const TOAST_REMOVE_DELAY = 3000
 
 type ToasterToast = ToastProps & {
   id: string
   title?: React.ReactNode
   description?: React.ReactNode
   action?: ToastActionElement
+  shown?: boolean
 }
 
 const actionTypes = {
@@ -24,7 +26,7 @@ const actionTypes = {
 let count = 0
 
 function genId() {
-  count = (count + 1) % Number.MAX_SAFE_INTEGER
+  count = (count + 1) % Number.MAX_VALUE
   return count.toString()
 }
 
@@ -33,11 +35,11 @@ type ActionType = typeof actionTypes
 type Action =
   | {
       type: ActionType["ADD_TOAST"]
-      toast: Omit<ToasterToast, "id">
+      toast: ToasterToast
     }
   | {
       type: ActionType["UPDATE_TOAST"]
-      toast: Partial<ToasterToast> & { id: string }
+      toast: Partial<ToasterToast>
     }
   | {
       type: ActionType["DISMISS_TOAST"]
@@ -73,23 +75,22 @@ const addToRemoveQueue = (toastId: string) => {
 export const reducer = (state: State, action: Action): State => {
   switch (action.type) {
     case "ADD_TOAST":
-      // Check if we already have a similar toast with the same title/description
-      const existingSimilarToast = state.toasts.find(t => 
-        t.title === action.toast.title && 
-        t.description === action.toast.description
-      );
-      
-      // If we have a similar toast, don't add a new one
-      if (existingSimilarToast) {
-        return state;
+      // Check if we already have a toast with this message to prevent duplicates
+      if (state.toasts.find(
+        t => 
+          t.description === action.toast.description && 
+          t.title === action.toast.title && 
+          !t.shown
+      )) {
+        // If we do, don't add it
+        return state
       }
-      
-      // Otherwise add new toast and maintain the limit
+
       return {
         ...state,
         toasts: [
-          { id: genId(), ...action.toast },
           ...state.toasts,
+          { ...action.toast, id: action.toast.id || genId(), shown: true }
         ].slice(0, TOAST_LIMIT),
       }
 
@@ -156,33 +157,34 @@ type Toast = Omit<ToasterToast, "id">
 function toast({ ...props }: Toast) {
   const id = genId()
 
+  // Set a short duration to auto-dismiss the toast quickly
+  if (!props.duration) {
+    props.duration = 3000; // 3 seconds by default
+  }
+
   const update = (props: ToasterToast) =>
     dispatch({
       type: "UPDATE_TOAST",
       toast: { ...props, id },
     })
-    
-  // Auto-dismiss all toasts after TOAST_REMOVE_DELAY
   const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id })
-  
+
   dispatch({
     type: "ADD_TOAST",
     toast: {
       ...props,
+      id,
       open: true,
       onOpenChange: (open) => {
         if (!open) dismiss()
       },
     },
   })
-  
-  // Auto-dismiss after TOAST_REMOVE_DELAY
-  setTimeout(dismiss, TOAST_REMOVE_DELAY)
 
   return {
+    id: id,
     dismiss,
     update,
-    id,
   }
 }
 
@@ -200,9 +202,9 @@ function useToast() {
   }, [state])
 
   return {
+    ...state,
     toast,
     dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
-    toasts: state.toasts,
   }
 }
 
