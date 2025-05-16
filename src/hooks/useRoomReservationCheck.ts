@@ -74,7 +74,7 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
               console.log(`Room ${roomToUpdate.name} should be occupied now based on reservation ${reservation.id}`);
               updateRoomAvailability(reservation.roomId, false, 'occupied');
             } 
-            else if (hasEnded && roomToUpdate.status !== 'available' && roomToUpdate.status !== 'maintenance') {
+            else if (hasEnded && roomToUpdate.status === 'occupied') {
               console.log(`Room ${roomToUpdate.name} should be available now as reservation ${reservation.id} has ended`);
               updateRoomAvailability(reservation.roomId, true, 'available');
             }
