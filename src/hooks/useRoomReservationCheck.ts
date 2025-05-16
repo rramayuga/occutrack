@@ -28,10 +28,10 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
   useEffect(() => {
     if (!user || activeReservations.length === 0) return;
     
-    // Check if it's been at least 5 seconds since the last check (reduced for more frequent checks)
+    // Check if it's been at least 3 seconds since the last check (reduced for more frequent checks)
     const now = new Date();
     const timeSinceLastCheck = now.getTime() - lastCheckTime.current.getTime();
-    if (timeSinceLastCheck < 5000) { // 5 seconds minimum between checks
+    if (timeSinceLastCheck < 3000) { // 3 seconds minimum between checks
       return;
     }
     
@@ -43,7 +43,8 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
     const updateRoomStatusBasedOnReservations = async () => {
       try {
         const currentDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
-        const currentTime = now.toTimeString().substring(0, 5); // HH:MM
+        const currentTime = now.getHours().toString().padStart(2, '0') + ':' + 
+                           now.getMinutes().toString().padStart(2, '0'); // HH:MM format
         
         console.log(`Checking room statuses at ${currentDate} ${currentTime} based on ${activeReservations.length} reservations`);
         

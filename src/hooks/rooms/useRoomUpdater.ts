@@ -59,7 +59,7 @@ export function useRoomUpdater(
       // Use explicit status if provided, otherwise derive from isAvailable
       const newStatus: RoomStatus = explicitStatus || (isAvailable ? 'available' : 'occupied');
       
-      // Update the rooms table first with the new status - this is crucial
+      // Update the rooms table first with the new status - FIXED: removed isAvailable field
       const { error: updateError } = await supabase
         .from('rooms')
         .update({

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { X } from 'lucide-react';
@@ -42,7 +41,8 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
     // Get current date and time
     const now = new Date();
     const today = now.toISOString().split('T')[0];
-    const currentTime = now.toTimeString().substring(0, 5); // HH:MM format
+    const currentTime = now.getHours().toString().padStart(2, '0') + ':' + 
+                       now.getMinutes().toString().padStart(2, '0'); // HH:MM format
     
     // If schedule date is in the future, keep it
     if (schedule.date > today) {

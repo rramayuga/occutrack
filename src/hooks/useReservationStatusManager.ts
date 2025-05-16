@@ -128,11 +128,11 @@ export function useReservationStatusManager() {
         return false;
       }
       
-      // Update the room status in the database
+      // Update the room status in the database - FIXED: removed isAvailable field
       const status = isOccupied ? 'occupied' : 'available';
       const { error } = await supabase
         .from('rooms')
-        .update({ status, isAvailable: !isOccupied })
+        .update({ status })
         .eq('id', roomId);
       
       if (error) {
@@ -250,11 +250,7 @@ export function useReservationStatusManager() {
         const success = await updateRoomStatus(reservation.roomId, true);
         
         if (success) {
-          toast({
-            title: "Room Now Occupied",
-            description: `${reservation.roomNumber} is now occupied for the scheduled reservation.`,
-          });
-          
+          console.log(`Room ${reservation.roomId} marked as occupied successfully`);
           updated = true;
         }
       }
@@ -267,10 +263,7 @@ export function useReservationStatusManager() {
         if (roomSuccess) {
           const success = await markReservationAsCompleted(reservation.id);
           if (success) {
-            toast({
-              title: "Reservation Completed",
-              description: `The reservation in ${reservation.roomNumber} has ended and the room is now available.`,
-            });
+            console.log(`Reservation ${reservation.id} marked as completed successfully`);
             
             // Remove from active reservations
             setActiveReservations(prev => prev.filter(r => r.id !== reservation.id));
@@ -284,7 +277,7 @@ export function useReservationStatusManager() {
     if (updated) {
       await fetchActiveReservations();
     }
-  }, [activeReservations, completedReservationIds, updateRoomStatus, markReservationAsCompleted, fetchActiveReservations, toast, lastCheck, compareTimeStrings, user]);
+  }, [activeReservations, completedReservationIds, updateRoomStatus, markReservationAsCompleted, fetchActiveReservations, lastCheck, compareTimeStrings, user]);
 
   // Setup up subscription to room_reservations with improved error handling
   useEffect(() => {
@@ -344,7 +337,7 @@ export function useReservationStatusManager() {
       const intervalId = setInterval(() => {
         console.log("Running periodic reservation status check");
         processReservations();
-      }, 5000); // Every 5 seconds for faster real-time updates
+      }, 3000); // Every 3 seconds for faster real-time updates
       
       return () => {
         clearInterval(intervalId);
@@ -357,7 +350,7 @@ export function useReservationStatusManager() {
       const fallbackIntervalId = setInterval(() => {
         fetchActiveReservations();
         processReservations();
-      }, 10000); // Check every 10 seconds as fallback
+      }, 5000); // Check every 5 seconds as fallback
       
       return () => clearInterval(fallbackIntervalId);
     }
