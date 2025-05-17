@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -24,8 +23,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return null;
       }
       
-      // Check for rejected status - CRITICAL CHECK MOVED TO THE TOP
-      // Always check this first to ensure rejected users can't access the app
+      // Check for rejected or pending status - CRITICAL CHECK MOVED TO THE TOP
       const { data: facultyRequest, error: facultyError } = await supabase
         .from('faculty_requests')
         .select('status')
@@ -51,7 +49,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return null;
       }
       
-      // Block users with pending requests from accessing the app
+      // STRICT ENFORCEMENT: Block users with pending requests from accessing the app
       if (facultyRequest && facultyRequest.status === 'pending') {
         console.log('Faculty request pending, signing out user');
         await supabase.auth.signOut();
