@@ -65,7 +65,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return null;
       }
       
-      // Use a transaction-level isolation to prevent stale reads
+      // Use direct database query with cache control headers
       console.log('Fetching profile data');
       
       // Use direct database query with cache control headers
@@ -126,7 +126,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     let mounted = true;
-    let visibilityChangeHandler: null | ((e: Event) => void) = null;
     
     // Initial auth check
     const checkAuth = async () => {
@@ -181,17 +180,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     );
 
-    // Don't refresh on tab visibility change
-    // This prevents the unnecessary refreshes when changing tabs
-
     return () => {
       console.log('Cleaning up AuthProvider');
       mounted = false;
       subscription.unsubscribe();
-      
-      if (visibilityChangeHandler) {
-        document.removeEventListener('visibilitychange', visibilityChangeHandler);
-      }
     };
   }, [fetchUserProfile]);
 
