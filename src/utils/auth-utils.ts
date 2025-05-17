@@ -86,9 +86,8 @@ export const handleGoogleSignIn = async () => {
       queryParams: {
         access_type: 'offline',
         prompt: 'consent',
+        hd: 'neu.edu.ph' // Restrict to NEU domain emails only
       }
-      // Removed the domain restriction to allow all email domains
-      // Previously had: hd: 'neu.edu.ph'
     }
   });
   
@@ -100,7 +99,8 @@ export const handleLogin = async (email: string, password: string) => {
   try {
     console.log('Attempting login for:', email);
     
-    // First check if the user has a faculty request (regardless of domain)
+    // First check if the user has a rejected faculty request
+    // This critical check must be done BEFORE attempting to log in
     const { data: facultyRequest } = await supabase
       .from('faculty_requests')
       .select('status')
@@ -109,23 +109,17 @@ export const handleLogin = async (email: string, password: string) => {
 
     console.log('Faculty request status check result:', facultyRequest);
     
-    // Block login for rejected users
+    // Block login for rejected users (regardless of email domain)
     if (facultyRequest && facultyRequest.status === 'rejected') {
       console.error('Login blocked: Account has been rejected');
       throw new Error('Your account has been rejected. Please contact administration for more information.');
     }
 
-    // Block login for pending users
     if (facultyRequest && facultyRequest.status === 'pending') {
       console.error('Login blocked: Account pending approval');
       throw new Error('Your account registration is pending approval. Please wait for administrator review.');
     }
 
-    // Allow login if:
-    // 1. The user has an approved faculty request
-    // 2. The user has a NEU domain email
-    // 3. The user doesn't have a faculty request (they're a direct student)
-    
     // Only attempt login if the account is not rejected or pending
     const { data, error } = await supabase.auth.signInWithPassword({
       email,

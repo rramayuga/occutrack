@@ -70,7 +70,6 @@ const Register = () => {
           navigate('/faculty-confirmation');
         }
       } else {
-        // Allow any email domain for student registration
         const authData = await handleStudentRegistration(email, password || '', name);
         if (authData.user) {
           toast({
