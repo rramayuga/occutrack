@@ -45,16 +45,16 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
   useEffect(() => {
     // Refresh data much less frequently 
     const intervalId = setInterval(() => {
-      // Only refresh if it's been at least 2 minutes since the last refresh
+      // Only refresh if it's been at least 5 minutes since the last refresh
       const now = Date.now();
-      if (now - lastRefreshTime > 120000) { // 2 minutes minimum between refreshes
+      if (now - lastRefreshTime > 300000) { // 5 minutes minimum between refreshes (increased from 2 minutes)
         console.log("ProfessorDashboard - Scheduled refresh");
         refreshRooms();
         fetchReservations();
         fetchActiveReservations();
         setLastRefreshTime(now);
       }
-    }, 120000); // Every 2 minutes instead of 60 seconds
+    }, 300000); // Every 5 minutes (increased from 2 minutes)
     
     return () => clearInterval(intervalId);
   }, [refreshRooms, fetchReservations, fetchActiveReservations, lastRefreshTime]);
@@ -129,7 +129,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
               toast({
                 title: "Room Reserved",
                 description: "Your room has been reserved successfully",
-                duration: 3000,
+                duration: 3000, // Ensure toast auto-dismisses after 3 seconds
               });
               // Manually refresh data after reservation with delay
               setTimeout(() => {
@@ -145,7 +145,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
                 title: "Error",
                 description: "Failed to reserve room. Please try again.",
                 variant: "destructive",
-                duration: 3000,
+                duration: 3000, // Ensure error toast also auto-dismisses
               });
             }
           }}

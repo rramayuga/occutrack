@@ -1,3 +1,4 @@
+
 import * as React from "react"
 import {
   type ToastActionElement,
@@ -157,17 +158,25 @@ type Toast = Omit<ToasterToast, "id">
 function toast({ ...props }: Toast) {
   const id = genId()
 
-  // Set a short duration to auto-dismiss the toast quickly
+  // Set a short duration to auto-dismiss the toast quickly by default
   if (!props.duration) {
     props.duration = 3000; // 3 seconds by default
   }
 
+  // Always set up auto-dismiss, even for error toasts
   const update = (props: ToasterToast) =>
     dispatch({
       type: "UPDATE_TOAST",
       toast: { ...props, id },
     })
   const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id })
+
+  // Set up auto-dismiss for ALL toasts after their duration
+  if (props.duration !== Infinity) {
+    setTimeout(() => {
+      dismiss();
+    }, props.duration);
+  }
 
   dispatch({
     type: "ADD_TOAST",

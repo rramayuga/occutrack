@@ -8,7 +8,7 @@ export function useRoomStatusManager() {
   const { user } = useAuth();
   const { toast } = useToast();
   
-  // Improved tracking system for room status updates with longer cooldowns
+  // Improved tracking system for room status updates with longer cooldowns and more precise reservation tracking
   // Map to track the last update time for each room to prevent redundant updates
   const updateTracker = new Map<string, {
     status: RoomStatus, 
@@ -30,11 +30,11 @@ export function useRoomStatusManager() {
       const lastUpdate = updateTracker.get(trackerKey);
       const now = Date.now();
       
-      // More aggressive cooldown for multiple attempts at the same status
+      // Much more aggressive cooldown for multiple attempts at the same status
       if (lastUpdate && lastUpdate.status === newStatus) {
         // Scale the cooldown period based on how many times we've tried to update to the same status
-        // First attempt: 60 seconds, subsequent attempts increase cooldown dramatically
-        const cooldownPeriod = Math.min(60000 + (lastUpdate.attempts * 30000), 300000); // Cap at 5 minutes
+        // First attempt: 2 minutes, subsequent attempts increase cooldown dramatically
+        const cooldownPeriod = Math.min(120000 + (lastUpdate.attempts * 60000), 600000); // Cap at 10 minutes
 
         if (now - lastUpdate.timestamp < cooldownPeriod) { 
           console.log(`Skipping redundant update for room ${roomId} to status ${newStatus} - last updated ${Math.round((now - lastUpdate.timestamp) / 1000)}s ago (attempt #${lastUpdate.attempts})`);
@@ -71,7 +71,7 @@ export function useRoomStatusManager() {
       if (roomData.status === newStatus) {
         console.log(`Room ${roomData.name} already has status ${newStatus}, skipping database update`);
         
-        // Update tracker with current attempt count
+        // Update tracker with current attempt count and extend timestamp to prevent further checks
         const existingUpdate = updateTracker.get(trackerKey);
         updateTracker.set(trackerKey, {
           status: newStatus, 

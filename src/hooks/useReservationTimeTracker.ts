@@ -20,22 +20,23 @@ export function useReservationTimeTracker() {
   // Set up an effect to process reservations only once on mount
   // This prevents excessive processing on every render
   useEffect(() => {
-    // Only process if it's been at least 30 seconds since last check
+    // Only process if it's been at least 1 minute since last check
     const now = Date.now();
-    if (now - lastProcessTime.current > 30000) {
+    if (now - lastProcessTime.current > 60000) { // Increased to 1 minute
       console.log("Processing reservations in useReservationTimeTracker (initial setup)");
       processReservations();
       lastProcessTime.current = now;
       
-      // Set up a minimum 30 second interval for processing
+      // Set up a minimum 1 minute interval for processing
       const intervalId = setInterval(() => {
         const currentTime = Date.now();
-        if (currentTime - lastProcessTime.current > 30000) {
+        // Prevent processing more frequently than once per minute
+        if (currentTime - lastProcessTime.current > 60000) { // 1 minute minimum
           console.log("Processing reservations in useReservationTimeTracker (interval)");
           processReservations();
           lastProcessTime.current = currentTime;
         }
-      }, 30000);
+      }, 60000); // Check every minute (increased from 30 seconds)
       
       return () => clearInterval(intervalId);
     }
