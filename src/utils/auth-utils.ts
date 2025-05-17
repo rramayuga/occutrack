@@ -108,7 +108,7 @@ export const handleLogin = async (email: string, password: string) => {
 
     if (facultyRequest) {
       if (facultyRequest.status === 'rejected') {
-        throw new Error('Your faculty account request has been rejected. Please contact administration.');
+        throw new Error('Your account has been rejected. Please contact administration for more information.');
       }
 
       if (facultyRequest.status === 'pending') {
@@ -155,8 +155,10 @@ export const deleteUser = async (userId: string) => {
       console.error('Error deleting faculty request:', facultyError);
     }
     
-    // Then delete user
-    const { error } = await supabase.auth.admin.deleteUser(userId);
+    // Then delete user auth record using admin methods
+    const { error } = await supabase.functions.invoke('delete-user', {
+      body: { userId }
+    });
     
     if (error) throw error;
     
