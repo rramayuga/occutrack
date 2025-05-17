@@ -1,3 +1,4 @@
+
 import { useEffect, useRef, useCallback } from 'react';
 import { Room, RoomStatus } from '@/lib/types';
 import { useAuth } from '@/lib/auth';
@@ -18,7 +19,8 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
     status: string, 
     timestamp: number, 
     processed: boolean,
-    reservationId: string
+    reservationId: string,
+    isLocked: boolean // New flag to prevent status toggling
   }>>(new Map());
   
   // Compare times in HH:MM format with better precision
@@ -64,7 +66,7 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
           // Only process if we're not already processing
           if (!isProcessing.current) {
             // Add a delay to prevent immediate processing
-            setTimeout(() => processReservations(), 3000);
+            setTimeout(() => processReservations(), 5000); // Increased delay
           }
         })
       .subscribe((status) => {
@@ -83,7 +85,7 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
     // Increase check interval to reduce frequency significantly
     const now = new Date();
     const timeSinceLastCheck = now.getTime() - lastCheckTime.current.getTime();
-    if (timeSinceLastCheck < 60000) return; // 1 minute between global checks (increased from 30s)
+    if (timeSinceLastCheck < 120000) return; // 2 minutes between global checks (increased from 1 min)
     
     lastCheckTime.current = now;
     isProcessing.current = true;
@@ -132,7 +134,7 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
           if (isActive && roomToUpdate.status !== 'occupied') {
             // Check if we've already tried this recently - much longer cooldown 
             if (lastProcessed && 
-                (currentTimestamp - lastProcessed.timestamp) < 600000) { // 10 minute cooldown (increased)
+                (currentTimestamp - lastProcessed.timestamp) < 1800000) { // 30 minute cooldown (increased)
               console.log(`Skipping status update for ${roomToUpdate.name} to OCCUPIED - processed recently`);
               continue;
             }
@@ -140,12 +142,13 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
             console.log(`Setting room ${roomToUpdate.name} to OCCUPIED (current time ${currentTime} is between ${startTime} and ${endTime})`);
             updateRoomAvailability(reservation.roomId, false, 'occupied');
             
-            // Record this update in our tracker
+            // Record this update in our tracker and lock it
             processedRoomStatuses.current.set(roomStatusKey, { 
               status: 'occupied', 
               timestamp: currentTimestamp,
               processed: true,
-              reservationId: reservation.id
+              reservationId: reservation.id,
+              isLocked: true // Lock this status to prevent toggling
             });
           } 
           // Case: Room should be AVAILABLE but is currently OCCUPIED
@@ -153,25 +156,36 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
             console.log(`Setting room ${roomToUpdate.name} to AVAILABLE (current time ${currentTime} is after end time ${endTime})`);
             updateRoomAvailability(reservation.roomId, true, 'available');
             
-            // Record this update in our tracker
+            // Record this update in our tracker but don't lock available status
             processedRoomStatuses.current.set(roomStatusKey, { 
               status: 'available', 
               timestamp: currentTimestamp,
               processed: true,
-              reservationId: reservation.id
+              reservationId: reservation.id,
+              isLocked: false
             });
           }
-          // Case: Room status already matches what it should be
-          else {
-            // If status already correct, mark as processed so we don't keep checking
-            if (!lastProcessed) {
-              processedRoomStatuses.current.set(roomStatusKey, {
-                status: roomToUpdate.status,
-                timestamp: currentTimestamp,
-                processed: true,
-                reservationId: reservation.id
-              });
-            }
+          // Case: Room status is already 'occupied' and we're within the reservation time
+          else if (isActive && roomToUpdate.status === 'occupied') {
+            // If status already correct during active time, lock it
+            processedRoomStatuses.current.set(roomStatusKey, {
+              status: roomToUpdate.status,
+              timestamp: currentTimestamp,
+              processed: true,
+              reservationId: reservation.id,
+              isLocked: true // Lock to prevent any changes until end time
+            });
+            console.log(`Room ${roomToUpdate.name} already OCCUPIED and within reservation time - locking status`);
+          }
+          // Case: Any other scenario, just track it
+          else if (!lastProcessed) {
+            processedRoomStatuses.current.set(roomStatusKey, {
+              status: roomToUpdate.status,
+              timestamp: currentTimestamp,
+              processed: true,
+              reservationId: reservation.id,
+              isLocked: false
+            });
           }
         }
       } catch (error) {

@@ -8,13 +8,14 @@ export function useRoomStatusManager() {
   const { user } = useAuth();
   const { toast } = useToast();
   
-  // Improved tracking system for room status updates with longer cooldowns and more precise reservation tracking
+  // Improved tracking system with significantly longer cooldown periods
   // Map to track the last update time for each room to prevent redundant updates
   const updateTracker = new Map<string, {
     status: RoomStatus, 
     timestamp: number, 
     attempts: number,
-    reservationId?: string
+    reservationId?: string,
+    persistent: boolean // New flag to mark status as locked/persistent
   }>();
 
   // Set room status based on reservation time with optimized update prevention
@@ -30,11 +31,18 @@ export function useRoomStatusManager() {
       const lastUpdate = updateTracker.get(trackerKey);
       const now = Date.now();
       
+      // If this status is marked as persistent, we don't update it again
+      // This prevents toggling by locking the status for the duration
+      if (lastUpdate && lastUpdate.status === newStatus && lastUpdate.persistent) {
+        console.log(`Skipping update for room ${roomId} - status ${newStatus} is locked as persistent`);
+        return true; // Return success but skip the update
+      }
+      
       // Much more aggressive cooldown for multiple attempts at the same status
       if (lastUpdate && lastUpdate.status === newStatus) {
         // Scale the cooldown period based on how many times we've tried to update to the same status
         // First attempt: 2 minutes, subsequent attempts increase cooldown dramatically
-        const cooldownPeriod = Math.min(120000 + (lastUpdate.attempts * 60000), 600000); // Cap at 10 minutes
+        const cooldownPeriod = Math.min(180000 + (lastUpdate.attempts * 120000), 1800000); // Cap at 30 minutes (increased)
 
         if (now - lastUpdate.timestamp < cooldownPeriod) { 
           console.log(`Skipping redundant update for room ${roomId} to status ${newStatus} - last updated ${Math.round((now - lastUpdate.timestamp) / 1000)}s ago (attempt #${lastUpdate.attempts})`);
@@ -72,12 +80,14 @@ export function useRoomStatusManager() {
         console.log(`Room ${roomData.name} already has status ${newStatus}, skipping database update`);
         
         // Update tracker with current attempt count and extend timestamp to prevent further checks
+        // Now mark the status as persistent when it's already correct to prevent toggling
         const existingUpdate = updateTracker.get(trackerKey);
         updateTracker.set(trackerKey, {
           status: newStatus, 
           timestamp: now,
           attempts: existingUpdate ? existingUpdate.attempts + 1 : 1,
-          reservationId
+          reservationId,
+          persistent: true // Mark as persistent to lock this status
         });
         
         return true;
@@ -97,11 +107,13 @@ export function useRoomStatusManager() {
       console.log(`Successfully updated room ${roomId} to status: ${newStatus}`);
       
       // Record this update in our tracker with attempt count reset
+      // For occupied status, mark as persistent to prevent toggling
       updateTracker.set(trackerKey, {
         status: newStatus, 
         timestamp: now, 
         attempts: 1,
-        reservationId
+        reservationId,
+        persistent: isOccupied // Only make occupied status persistent
       });
       
       // Create availability record - this is important for analytics tracking

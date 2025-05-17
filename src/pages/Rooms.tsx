@@ -31,13 +31,13 @@ const Rooms = () => {
     }
   }, [buildings, selectedBuilding, setSelectedBuilding]);
   
-  // Auto-refresh room data every 30 seconds to stay current with reservation changes
+  // Auto-refresh room data less frequently to reduce unnecessary updates
   useEffect(() => {
     console.log("Setting up auto-refresh for room data");
     const autoRefreshInterval = setInterval(() => {
       console.log("Auto-refreshing room data");
       refetchRooms();
-    }, 30000); // Refresh every 30 seconds
+    }, 120000); // Refresh every 2 minutes (increased from 30 seconds)
     
     // Initial fetch
     refetchRooms();

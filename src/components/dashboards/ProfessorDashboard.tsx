@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { User } from '@/lib/types';
 import { useRooms } from '@/hooks/useRooms';
@@ -45,16 +46,16 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
   useEffect(() => {
     // Refresh data much less frequently 
     const intervalId = setInterval(() => {
-      // Only refresh if it's been at least 5 minutes since the last refresh
+      // Only refresh if it's been at least 10 minutes since the last refresh
       const now = Date.now();
-      if (now - lastRefreshTime > 300000) { // 5 minutes minimum between refreshes (increased from 2 minutes)
+      if (now - lastRefreshTime > 600000) { // 10 minutes minimum between refreshes (increased from 5 minutes)
         console.log("ProfessorDashboard - Scheduled refresh");
         refreshRooms();
         fetchReservations();
         fetchActiveReservations();
         setLastRefreshTime(now);
       }
-    }, 300000); // Every 5 minutes (increased from 2 minutes)
+    }, 600000); // Every 10 minutes (increased from 5 minutes)
     
     return () => clearInterval(intervalId);
   }, [refreshRooms, fetchReservations, fetchActiveReservations, lastRefreshTime]);
