@@ -71,7 +71,7 @@ const FacultyManagement = () => {
       
       toast({
         title: "User deleted",
-        description: `${selectedFaculty.name} has been removed from the system.`,
+        description: `${selectedFaculty.name} has been permanently deleted from the system.`,
       });
       
       setIsDeleteDialogOpen(false);
