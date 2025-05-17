@@ -106,17 +106,16 @@ export const handleLogin = async (email: string, password: string) => {
       .eq('email', email)
       .maybeSingle();
 
-    if (facultyRequest) {
-      if (facultyRequest.status === 'rejected') {
-        throw new Error('Your account has been rejected. Please contact administration for more information.');
-      }
-
-      if (facultyRequest.status === 'pending') {
-        throw new Error('Your account registration is pending approval. Please wait for administrator review.');
-      }
+    // Important: Block login for rejected users (regardless of email domain)
+    if (facultyRequest && facultyRequest.status === 'rejected') {
+      throw new Error('Your account has been rejected. Please contact administration for more information.');
     }
 
-    // Proceed with login if not rejected or pending
+    if (facultyRequest && facultyRequest.status === 'pending') {
+      throw new Error('Your account registration is pending approval. Please wait for administrator review.');
+    }
+
+    // Proceed with login only if not rejected or pending
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password

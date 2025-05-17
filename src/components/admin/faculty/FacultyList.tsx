@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Check, X, UserX } from 'lucide-react';
+import { Check, X, UserX, Trash } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from '@/components/ui/badge';
 import { FacultyMember } from '@/lib/types';
@@ -18,6 +18,7 @@ interface FacultyListProps {
   filteredMembers: FacultyMember[];
   handleUpdateStatus: (faculty: FacultyMember, newStatus: 'approved' | 'rejected') => void;
   onRejectClick: (faculty: FacultyMember) => void;
+  onDeleteClick: (faculty: FacultyMember) => void; // New prop for delete handler
   formatDate: (dateString: string) => string;
 }
 
@@ -26,6 +27,7 @@ const FacultyList: React.FC<FacultyListProps> = ({
   filteredMembers,
   handleUpdateStatus,
   onRejectClick,
+  onDeleteClick,
   formatDate
 }) => {
   const getStatusBadge = (status: string) => {
@@ -119,6 +121,16 @@ const FacultyList: React.FC<FacultyListProps> = ({
                       Reject
                     </Button>
                   )}
+                  {/* Delete button added to all faculty members */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="bg-red-50 text-red-600 hover:bg-red-100"
+                    onClick={() => onDeleteClick(faculty)}
+                  >
+                    <Trash className="h-4 w-4 mr-1" />
+                    Delete
+                  </Button>
                 </div>
               </TableCell>
             </TableRow>
