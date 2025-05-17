@@ -17,54 +17,49 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       console.log('Fetching user profile for ID:', userId, 'Force refresh:', forceRefresh);
       
-      // Check if this is a faculty member with a rejected request
+      // First, check if this is a user with a pending or rejected faculty request
       const { data: facultyRequest, error: facultyError } = await supabase
         .from('faculty_requests')
         .select('status')
         .eq('user_id', userId)
-        .eq('status', 'rejected')
         .maybeSingle();
 
       if (facultyError) {
         console.error('Error checking faculty status:', facultyError);
       }
       
-      // If the faculty request was rejected, sign the user out
-      if (facultyRequest && facultyRequest.status === 'rejected') {
-        console.log('Faculty request rejected, signing out user');
-        await supabase.auth.signOut();
-        toast({
-          title: 'Access Denied',
-          description: 'Your faculty account request has been rejected. Please contact administration for more information.',
-          variant: 'destructive'
-        });
-        navigate('/login');
-        setUser(null);
-        setIsLoading(false);
-        return null;
+      // If the faculty request was rejected or pending, sign the user out with appropriate message
+      if (facultyRequest) {
+        if (facultyRequest.status === 'rejected') {
+          console.log('Faculty request rejected, signing out user');
+          await supabase.auth.signOut();
+          toast({
+            title: 'Access Denied',
+            description: 'Your faculty account request has been rejected. Please contact administration for more information.',
+            variant: 'destructive'
+          });
+          navigate('/login');
+          setUser(null);
+          setIsLoading(false);
+          return null;
+        }
+        
+        // Block users with pending requests from accessing the app
+        if (facultyRequest.status === 'pending') {
+          console.log('Faculty request pending, signing out user');
+          await supabase.auth.signOut();
+          toast({
+            title: 'Account Pending Approval',
+            description: 'Your account is pending administrator approval. You will be able to log in once approved.',
+            variant: 'default'
+          });
+          navigate('/faculty-confirmation');
+          setUser(null);
+          setIsLoading(false);
+          return null;
+        }
       }
 
-      // Check for pending faculty requests for new Google sign-in users
-      const { data: pendingRequest } = await supabase
-        .from('faculty_requests')
-        .select('status')
-        .eq('user_id', userId)
-        .eq('status', 'pending')
-        .maybeSingle();
-
-      if (pendingRequest && pendingRequest.status === 'pending') {
-        console.log('Faculty request pending, redirecting to confirmation page');
-        await supabase.auth.signOut();
-        toast({
-          title: 'Account Pending',
-          description: 'Your faculty account request is pending approval. Please wait for administrator review.',
-        });
-        navigate('/faculty-confirmation');
-        setUser(null);
-        setIsLoading(false);
-        return null;
-      }
-      
       // Use direct database query with cache control headers
       console.log('Fetching profile data');
       

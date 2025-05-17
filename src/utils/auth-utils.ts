@@ -99,28 +99,21 @@ export const handleLogin = async (email: string, password: string) => {
   try {
     console.log('Attempting login for:', email);
     
-    // First check if the user has been rejected
+    // First check if the user has been rejected or has a pending request
     const { data: facultyRequest } = await supabase
       .from('faculty_requests')
       .select('status')
       .eq('email', email)
-      .eq('status', 'rejected')
-      .single();
+      .maybeSingle();
 
-    if (facultyRequest?.status === 'rejected') {
-      throw new Error('Your faculty account request has been rejected. Please contact administration.');
-    }
+    if (facultyRequest) {
+      if (facultyRequest.status === 'rejected') {
+        throw new Error('Your faculty account request has been rejected. Please contact administration.');
+      }
 
-    // Check if the user has a pending request
-    const { data: pendingRequest } = await supabase
-      .from('faculty_requests')
-      .select('status')
-      .eq('email', email)
-      .eq('status', 'pending')
-      .single();
-
-    if (pendingRequest?.status === 'pending') {
-      throw new Error('Your account registration is pending approval. Please wait for administrator review.');
+      if (facultyRequest.status === 'pending') {
+        throw new Error('Your account registration is pending approval. Please wait for administrator review.');
+      }
     }
 
     // Proceed with login if not rejected or pending
