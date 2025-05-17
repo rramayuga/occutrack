@@ -13,17 +13,24 @@ export function useReservationTimeTracker() {
   } = useReservationStatusManager();
   
   // Track if we've already processed reservations this render cycle
+  // and when the last processing happened
   const processedThisRender = useRef(false);
+  const lastProcessTime = useRef(Date.now());
   
-  // Process reservations only once per render cycle
+  // Process reservations only once per render cycle and with a cooldown
   if (!processedThisRender.current) {
-    processReservations();
-    processedThisRender.current = true;
-    
-    // Reset flag after a short delay to allow future processing
-    setTimeout(() => {
-      processedThisRender.current = false;
-    }, 3000); // Wait 3 seconds before allowing another process
+    const now = Date.now();
+    // Only process if it's been at least 5 seconds since last check
+    if (now - lastProcessTime.current > 5000) {
+      processReservations();
+      lastProcessTime.current = now;
+      processedThisRender.current = true;
+      
+      // Reset flag after a longer delay (10 seconds) to reduce processing frequency
+      setTimeout(() => {
+        processedThisRender.current = false;
+      }, 10000);
+    }
   }
 
   return {

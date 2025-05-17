@@ -36,7 +36,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
     fetchActiveReservations();
     
     // Process reservations immediately to update room statuses - but just once
-    const timeoutId = setTimeout(() => processReservations(), 1000);
+    const timeoutId = setTimeout(() => processReservations(), 2000);
     
     return () => clearTimeout(timeoutId);
   }, [refreshRooms, fetchReservations, fetchActiveReservations, processReservations]);
@@ -45,16 +45,16 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
   useEffect(() => {
     // Refresh data less frequently to avoid excessive updates
     const intervalId = setInterval(() => {
-      // Only refresh if it's been at least 30 seconds since the last refresh
+      // Only refresh if it's been at least 60 seconds since the last refresh
       const now = Date.now();
-      if (now - lastRefreshTime > 30000) { // 30 seconds minimum between refreshes
+      if (now - lastRefreshTime > 60000) { // Increased to 60 seconds minimum between refreshes
         console.log("ProfessorDashboard - Auto refresh");
         refreshRooms();
         fetchReservations();
         fetchActiveReservations();
         setLastRefreshTime(now);
       }
-    }, 30000); // Every 30 seconds instead of 10
+    }, 60000); // Every 60 seconds instead of 30
     
     return () => clearInterval(intervalId);
   }, [refreshRooms, fetchReservations, fetchActiveReservations, lastRefreshTime]);
@@ -67,7 +67,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
     const statusInterval = setInterval(() => {
       console.log("ProfessorDashboard - Processing reservations for status updates");
       processReservations();
-    }, 30000); // Every 30 seconds instead of 5
+    }, 60000); // Every 60 seconds instead of 30
     
     return () => clearInterval(statusInterval);
   }, [processReservations]);

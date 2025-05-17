@@ -15,6 +15,7 @@ export function useRooms() {
   const isInitialized = useRef(false);
   const [selectedBuilding, setSelectedBuilding] = useState<string>('');
   const lastProcessTime = useRef<number>(Date.now());
+  const lastFetchTime = useRef<number>(Date.now());
 
   // Get building data
   const { buildings } = useBuildings();
@@ -59,15 +60,15 @@ export function useRooms() {
     const unsubscribeRooms = setupRoomSubscription();
     const unsubscribeAvailability = setupRoomAvailabilitySubscription();
     
-    // Process active reservations immediately - but only once
+    // Process active reservations, but only once and with delay
     const timeoutId = setTimeout(() => {
       // Only process if we haven't processed recently
       const now = Date.now();
-      if (now - lastProcessTime.current > 5000) {
+      if (now - lastProcessTime.current > 10000) {
         processReservations();
         lastProcessTime.current = now;
       }
-    }, 2000);
+    }, 3000); // Longer initial delay
     
     isInitialized.current = true;
     
