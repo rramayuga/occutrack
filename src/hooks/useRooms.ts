@@ -5,7 +5,7 @@ import { useRoomFetching } from './rooms/useRoomFetching';
 import { useRoomUpdater } from './rooms/useRoomUpdater';
 import { useRoomSubscriptions } from './rooms/useRoomSubscriptions';
 import { useRoomReservationCheck } from './useRoomReservationCheck';
-import { useReservationStatusManager } from './useReservationStatusManager';
+import { useReservationStatusManager } from './reservation/useReservationStatusManager';
 
 /**
  * Main hook for managing room data and operations
@@ -14,6 +14,7 @@ export function useRooms() {
   // Track initial setup to prevent multiple setups
   const isInitialized = useRef(false);
   const [selectedBuilding, setSelectedBuilding] = useState<string>('');
+  const lastProcessTime = useRef<number>(Date.now());
 
   // Get building data
   const { buildings } = useBuildings();
@@ -58,8 +59,15 @@ export function useRooms() {
     const unsubscribeRooms = setupRoomSubscription();
     const unsubscribeAvailability = setupRoomAvailabilitySubscription();
     
-    // Process active reservations immediately
-    processReservations();
+    // Process active reservations immediately - but only once
+    const timeoutId = setTimeout(() => {
+      // Only process if we haven't processed recently
+      const now = Date.now();
+      if (now - lastProcessTime.current > 5000) {
+        processReservations();
+        lastProcessTime.current = now;
+      }
+    }, 2000);
     
     isInitialized.current = true;
     
@@ -68,6 +76,7 @@ export function useRooms() {
       console.log("Cleaning up room subscriptions");
       unsubscribeRooms();
       unsubscribeAvailability();
+      clearTimeout(timeoutId);
     };
   }, [fetchRooms, setupRoomSubscription, setupRoomAvailabilitySubscription, processReservations]);
 

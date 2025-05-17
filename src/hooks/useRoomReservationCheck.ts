@@ -2,7 +2,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { Room, RoomStatus } from '@/lib/types';
 import { useAuth } from '@/lib/auth';
-import { useReservationStatusManager } from './useReservationStatusManager';
+import { useReservationStatusManager } from './reservation/useReservationStatusManager';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -14,6 +14,7 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
   // Use ref to prevent excessive checks
   const lastCheckTime = useRef<Date>(new Date());
   const isProcessing = useRef<boolean>(false);
+  const processedRoomStatuses = useRef<Map<string, {status: string, timestamp: number}>>(new Map());
   
   // Compare times in HH:MM format with better precision
   const compareTimeStrings = useCallback((time1: string, time2: string): number => {
@@ -53,10 +54,14 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
           schema: 'public', 
           table: 'room_reservations' 
         }, 
-        () => {
-          console.log("Reservation change detected via realtime, processing reservations");
-          // Don't wait too long to process changes - immediate response is better
-          setTimeout(() => processReservations(), 100);
+        (payload) => {
+          console.log("Reservation change detected via realtime:", payload);
+          // Don't trigger immediate processing - allow a small delay to avoid redundancy
+          setTimeout(() => {
+            if (!isProcessing.current) {
+              processReservations();
+            }
+          }, 500);
         })
       .subscribe((status) => {
         console.log("Realtime subscription status:", status);
@@ -67,20 +72,17 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
     };
   }, [user, processReservations]);
   
-  // Effect for processing room status changes based on reservations
+  // Effect for processing room status changes based on reservations - with optimizations
   useEffect(() => {
     if (!user || activeReservations.length === 0 || isProcessing.current) return;
     
     // Limit check frequency
     const now = new Date();
     const timeSinceLastCheck = now.getTime() - lastCheckTime.current.getTime();
-    if (timeSinceLastCheck < 2000) return; // 2 seconds minimum between checks
+    if (timeSinceLastCheck < 5000) return; // 5 seconds minimum between checks
     
     lastCheckTime.current = now;
     isProcessing.current = true;
-    
-    // Make sure we have the latest status
-    processReservations();
     
     const updateRoomStatusBasedOnReservations = async () => {
       try {
@@ -117,14 +119,26 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
                           
           const hasEnded = compareTimeStrings(currentTime, endTime) >= 0;
           
+          // Check if we've already processed this status change recently
+          const roomKey = `${reservation.roomId}-${isActive ? 'active' : 'ended'}`;
+          const lastProcessed = processedRoomStatuses.current.get(roomKey);
+          const currentTimestamp = Date.now();
+          
+          if (lastProcessed && (currentTimestamp - lastProcessed.timestamp) < 60000) { // 1 minute cooldown
+            console.log(`Skipping redundant status check for ${roomToUpdate.name}, last checked ${Math.floor((currentTimestamp - lastProcessed.timestamp) / 1000)}s ago`);
+            continue;
+          }
+          
           // Update room status
           if (isActive && roomToUpdate.status !== 'occupied') {
             console.log(`Setting room ${roomToUpdate.name} to OCCUPIED (current time ${currentTime} is between ${startTime} and ${endTime})`);
             updateRoomAvailability(reservation.roomId, false, 'occupied');
+            processedRoomStatuses.current.set(roomKey, { status: 'occupied', timestamp: currentTimestamp });
           } 
           else if (hasEnded && roomToUpdate.status === 'occupied') {
             console.log(`Setting room ${roomToUpdate.name} to AVAILABLE (current time ${currentTime} is after end time ${endTime})`);
             updateRoomAvailability(reservation.roomId, true, 'available');
+            processedRoomStatuses.current.set(roomKey, { status: 'available', timestamp: currentTimestamp });
           }
         }
       } catch (error) {
