@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Trash } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
-import { FacultyMember } from '@/lib/types';
+import { FacultyMember } from '@/hooks/useFacultyManagement';
 import { useFacultyManagement } from '@/hooks/useFacultyManagement';
 
 interface FacultyTabProps {

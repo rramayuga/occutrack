@@ -1,3 +1,4 @@
+
 export interface User {
   id: string;
   name: string;
@@ -80,7 +81,7 @@ export interface FacultyMember {
   department: string;
   status: 'pending' | 'approved' | 'rejected';
   createdAt: string;
-  user_id?: string;
+  user_id: string; // Changed from optional to required
 }
 
 export interface Announcement {
