@@ -26,6 +26,7 @@ const Login = () => {
   // Redirect to dashboard if already logged in
   useEffect(() => {
     if (user) {
+      console.log("User is already logged in, redirecting to dashboard");
       navigate('/dashboard', { replace: true });
     }
   }, [user, navigate]);
@@ -42,6 +43,7 @@ const Login = () => {
     setError('');
     
     try {
+      console.log("Attempting login with email:", email);
       await handleLogin(email, password);
       
       toast({

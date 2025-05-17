@@ -36,7 +36,7 @@ export function useRoomStatusManager() {
         return false;
       }
       
-      // Update room status in database - FIXED: Removed reference to non-existent is_available column
+      // Update room status in database - using only the status field
       const newStatus: RoomStatus = isOccupied ? 'occupied' : 'available';
       
       const { error } = await supabase

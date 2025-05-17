@@ -68,7 +68,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Use direct database query with cache control headers
       console.log('Fetching profile data');
       
-      // Use direct database query with cache control headers
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')

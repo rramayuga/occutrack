@@ -1,5 +1,5 @@
 
-import { useReservationStatusManager } from './useReservationStatusManager';
+import { useReservationStatusManager } from './reservation/useReservationStatusManager';
 
 export function useReservationTimeTracker() {
   // This hook is a wrapper around our centralized status manager
