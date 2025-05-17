@@ -355,19 +355,19 @@ export function useReservationStatusManager() {
     }
   }, [user, fetchActiveReservations, processReservations]);
 
-  // Enable Supabase real-time for the tables
-  useEffect(() => {
-    const enableRealtimeForTables = async () => {
-      try {
-        await supabase.rpc('supabase_realtime', { enable_realtime: true });
-      } catch (error) {
-        // This might fail in some environments but it's okay
-        console.log("Note: Failed to enable realtime for tables, will continue with default configuration");
-      }
-    };
-    
-    enableRealtimeForTables();
-  }, []);
+  // THIS SECTION HAS BEEN REMOVED - It was attempting to call an invalid RPC function
+  // The following code tried to enable realtime but caused a TypeScript error:
+  // useEffect(() => {
+  //   const enableRealtimeForTables = async () => {
+  //     try {
+  //       await supabase.rpc('supabase_realtime', { enable_realtime: true });
+  //     } catch (error) {
+  //       console.log("Note: Failed to enable realtime for tables, will continue with default configuration");
+  //     }
+  //   };
+  //   
+  //   enableRealtimeForTables();
+  // }, []);
 
   return {
     activeReservations,
