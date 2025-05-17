@@ -40,7 +40,8 @@ const FacultyManagement = () => {
     setNotes,
     handleUpdateStatus,
     handleConfirmReject,
-    formatDate
+    formatDate,
+    fetchFacultyMembers // Make sure to use this to refresh the list after deletion
   } = useFacultyManagement();
 
   const onRejectClick = (faculty: React.SetStateAction<import("@/lib/types").FacultyMember | null>) => {
@@ -60,19 +61,24 @@ const FacultyManagement = () => {
       setIsDeleting(true);
       console.log("Deleting user:", selectedFaculty);
       
-      // Call the deleteUser function
-      if (selectedFaculty.user_id) {
-        await deleteUser(selectedFaculty.user_id);
-        
-        toast({
-          title: "User deleted",
-          description: `${selectedFaculty.name} has been removed from the system.`,
-        });
+      // Ensure user_id is available before attempting deletion
+      if (!selectedFaculty.user_id) {
+        throw new Error("Cannot delete user: Missing user ID");
       }
       
+      // Call the deleteUser function
+      await deleteUser(selectedFaculty.user_id);
+      
+      toast({
+        title: "User deleted",
+        description: `${selectedFaculty.name} has been removed from the system.`,
+      });
+      
       setIsDeleteDialogOpen(false);
-      // Refresh data after deletion
-      window.location.reload();
+      
+      // Refresh the faculty list after deletion
+      fetchFacultyMembers();
+      
     } catch (error: any) {
       console.error("Error deleting user:", error);
       toast({

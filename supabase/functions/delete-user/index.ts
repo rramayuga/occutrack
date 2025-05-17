@@ -29,7 +29,7 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
-    console.log(`Attempting to delete user with ID: ${userId}`);
+    console.log(`Starting deletion process for user with ID: ${userId}`);
     
     // First delete from faculty_requests if exists
     const { error: facultyRequestError } = await supabase
@@ -40,7 +40,12 @@ serve(async (req) => {
     if (facultyRequestError) {
       console.error('Error deleting faculty request:', facultyRequestError);
       // Continue deletion process even if this fails
+    } else {
+      console.log('Successfully deleted faculty request');
     }
+    
+    // Delete any related data in other tables (add more as needed)
+    // For example, delete reservations, announcements made by user, etc.
     
     // Delete profile
     const { error: profileError } = await supabase
@@ -51,21 +56,26 @@ serve(async (req) => {
     if (profileError) {
       console.error('Error deleting profile:', profileError);
       throw profileError;
+    } else {
+      console.log('Successfully deleted profile');
     }
     
-    // Delete user from auth.users
+    // Lastly, delete user from auth.users
     const { error: userError } = await supabase.auth.admin.deleteUser(userId);
     
     if (userError) {
+      console.error('Error deleting auth user:', userError);
       throw userError;
     }
+    
+    console.log('Successfully deleted user from auth.users');
     
     return new Response(
       JSON.stringify({ success: true, message: "User deleted successfully" }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("Error deleting user:", error);
+    console.error("Error in delete-user function:", error);
     
     return new Response(
       JSON.stringify({ error: error.message || "Failed to delete user" }),

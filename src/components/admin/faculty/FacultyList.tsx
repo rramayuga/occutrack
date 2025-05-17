@@ -18,7 +18,7 @@ interface FacultyListProps {
   filteredMembers: FacultyMember[];
   handleUpdateStatus: (faculty: FacultyMember, newStatus: 'approved' | 'rejected') => void;
   onRejectClick: (faculty: FacultyMember) => void;
-  onDeleteClick: (faculty: FacultyMember) => void; // New prop for delete handler
+  onDeleteClick: (faculty: FacultyMember) => void;
   formatDate: (dateString: string) => string;
 }
 
@@ -121,7 +121,7 @@ const FacultyList: React.FC<FacultyListProps> = ({
                       Reject
                     </Button>
                   )}
-                  {/* Delete button added to all faculty members */}
+                  {/* Delete button for all faculty members */}
                   <Button
                     variant="outline"
                     size="sm"

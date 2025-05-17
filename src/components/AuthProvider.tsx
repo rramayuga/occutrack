@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,7 +17,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       console.log('Fetching user profile for ID:', userId, 'Force refresh:', forceRefresh);
       
-      // First, check if this is a user with a pending or rejected faculty request
+      // Get the user's email from the auth session
+      const { data: authUser } = await supabase.auth.getUser();
+      if (!authUser.user) {
+        console.log('No auth user found');
+        return null;
+      }
+      
+      // Check for rejected status - CRITICAL CHECK MOVED TO THE TOP
+      // Always check this first to ensure rejected users can't access the app
       const { data: facultyRequest, error: facultyError } = await supabase
         .from('faculty_requests')
         .select('status')
@@ -27,9 +36,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.error('Error checking faculty status:', facultyError);
       }
       
-      // If the faculty request was rejected, sign the user out with appropriate message
+      // STRICT ENFORCEMENT: If the user has been rejected, sign them out immediately
       if (facultyRequest && facultyRequest.status === 'rejected') {
-        console.log('Faculty request rejected, signing out user');
+        console.log('User is rejected, signing out immediately');
         await supabase.auth.signOut();
         toast({
           title: 'Access Denied',
@@ -57,8 +66,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return null;
       }
 
-      // Use direct database query with cache control headers
-      console.log('Fetching profile data');
+      // If user passed rejection checks, proceed with profile fetching
+      console.log('User passed rejection checks, fetching profile data');
       
       const { data: profile, error } = await supabase
         .from('profiles')
