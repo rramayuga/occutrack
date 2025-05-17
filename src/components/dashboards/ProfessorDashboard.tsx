@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { User } from '@/lib/types';
 import { useRooms } from '@/hooks/useRooms';
@@ -130,7 +131,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
           rooms={rooms}
           createReservation={async (data) => {
             try {
-              // Use the stored selectedRoomId instead of trying to access data.roomId
+              // Use the stored selectedRoomId instead of accessing data.roomId
               await createReservation(data, selectedRoomId);
               toast({
                 title: "Room Reserved",
@@ -149,6 +150,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
               toast({
                 title: "Error",
                 description: "Failed to reserve room. Please try again.",
+                variant: "destructive",
                 duration: 3000,
               });
             }
