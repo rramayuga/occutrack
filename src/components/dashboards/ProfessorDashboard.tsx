@@ -28,49 +28,36 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
   // Track last refresh time to limit frequency
   const [lastRefreshTime, setLastRefreshTime] = useState<number>(Date.now());
   
-  // Initial data fetch on mount
+  // Initial data fetch on mount - once only
   useEffect(() => {
     console.log("ProfessorDashboard - Initial data fetch");
     refreshRooms();
     fetchReservations();
     fetchActiveReservations();
     
-    // Process reservations immediately to update room statuses - but just once
-    const timeoutId = setTimeout(() => processReservations(), 2000);
+    // Process reservations only once initially with a delay
+    const timeoutId = setTimeout(() => processReservations(), 4000);
     
     return () => clearTimeout(timeoutId);
-  }, [refreshRooms, fetchReservations, fetchActiveReservations, processReservations]);
+  }, []); // Empty deps array - run only on mount
   
-  // Set up auto-refresh to keep the data current - with reduced frequency
+  // Set up auto-refresh to keep the data current - with greatly reduced frequency
   useEffect(() => {
-    // Refresh data less frequently to avoid excessive updates
+    // Refresh data much less frequently 
     const intervalId = setInterval(() => {
-      // Only refresh if it's been at least 60 seconds since the last refresh
+      // Only refresh if it's been at least 2 minutes since the last refresh
       const now = Date.now();
-      if (now - lastRefreshTime > 60000) { // Increased to 60 seconds minimum between refreshes
-        console.log("ProfessorDashboard - Auto refresh");
+      if (now - lastRefreshTime > 120000) { // 2 minutes minimum between refreshes
+        console.log("ProfessorDashboard - Scheduled refresh");
         refreshRooms();
         fetchReservations();
         fetchActiveReservations();
         setLastRefreshTime(now);
       }
-    }, 60000); // Every 60 seconds instead of 30
+    }, 120000); // Every 2 minutes instead of 60 seconds
     
     return () => clearInterval(intervalId);
   }, [refreshRooms, fetchReservations, fetchActiveReservations, lastRefreshTime]);
-  
-  // Add a less frequent processor for room status updates based on time
-  useEffect(() => {
-    console.log("Setting up reservation processor in ProfessorDashboard");
-    
-    // Process reservations less frequently
-    const statusInterval = setInterval(() => {
-      console.log("ProfessorDashboard - Processing reservations for status updates");
-      processReservations();
-    }, 60000); // Every 60 seconds instead of 30
-    
-    return () => clearInterval(statusInterval);
-  }, [processReservations]);
   
   // Memoize today's schedule
   const todaySchedule = useMemo(() => {
@@ -144,13 +131,14 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
                 description: "Your room has been reserved successfully",
                 duration: 3000,
               });
-              // Manually refresh data after reservation
+              // Manually refresh data after reservation with delay
               setTimeout(() => {
                 refreshRooms();
                 fetchReservations();
                 fetchActiveReservations();
-                processReservations();
-              }, 1000);
+                // Process after everything has updated
+                setTimeout(() => processReservations(), 2000);
+              }, 2000);
             } catch (error) {
               console.error("Error creating reservation:", error);
               toast({

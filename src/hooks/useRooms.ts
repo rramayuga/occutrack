@@ -60,15 +60,16 @@ export function useRooms() {
     const unsubscribeRooms = setupRoomSubscription();
     const unsubscribeAvailability = setupRoomAvailabilitySubscription();
     
-    // Process active reservations, but only once and with delay
+    // Increase the delay for initial processing to allow other systems to initialize
     const timeoutId = setTimeout(() => {
       // Only process if we haven't processed recently
       const now = Date.now();
-      if (now - lastProcessTime.current > 10000) {
+      if (now - lastProcessTime.current > 20000) {
+        console.log("Initial processing of reservations in useRooms");
         processReservations();
         lastProcessTime.current = now;
       }
-    }, 3000); // Longer initial delay
+    }, 5000); // Longer initial delay
     
     isInitialized.current = true;
     

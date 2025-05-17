@@ -10,30 +10,39 @@ export function useRoomStatusManager() {
   
   // Improved tracking system for room status updates with longer cooldowns
   // Map to track the last update time for each room to prevent redundant updates
-  const updateTracker = new Map<string, {status: RoomStatus, timestamp: number, attempts: number}>();
+  const updateTracker = new Map<string, {
+    status: RoomStatus, 
+    timestamp: number, 
+    attempts: number,
+    reservationId?: string
+  }>();
 
   // Set room status based on reservation time with optimized update prevention
-  const updateRoomStatus = async (roomId: string, isOccupied: boolean) => {
+  const updateRoomStatus = async (roomId: string, isOccupied: boolean, reservationId?: string) => {
     try {
       const newStatus: RoomStatus = isOccupied ? 'occupied' : 'available';
       
-      // Check if we already updated this room with the same status recently (60 second cooldown)
-      const lastUpdate = updateTracker.get(roomId);
+      // Create a more specific key that includes the reservation ID if available
+      // This allows us to track updates per reservation, reducing redundancy
+      const trackerKey = reservationId ? `${roomId}-${reservationId}` : roomId;
+      
+      // Check if we already updated this room with the same status recently
+      const lastUpdate = updateTracker.get(trackerKey);
       const now = Date.now();
       
       // More aggressive cooldown for multiple attempts at the same status
       if (lastUpdate && lastUpdate.status === newStatus) {
         // Scale the cooldown period based on how many times we've tried to update to the same status
-        // First attempt: 30 seconds, subsequent attempts increase cooldown
-        const cooldownPeriod = Math.min(30000 + (lastUpdate.attempts * 15000), 120000); // Cap at 120 seconds
+        // First attempt: 60 seconds, subsequent attempts increase cooldown dramatically
+        const cooldownPeriod = Math.min(60000 + (lastUpdate.attempts * 30000), 300000); // Cap at 5 minutes
 
         if (now - lastUpdate.timestamp < cooldownPeriod) { 
-          console.log(`Skipping redundant update for room ${roomId} to status ${newStatus} - last updated ${(now - lastUpdate.timestamp) / 1000}s ago (attempt #${lastUpdate.attempts})`);
+          console.log(`Skipping redundant update for room ${roomId} to status ${newStatus} - last updated ${Math.round((now - lastUpdate.timestamp) / 1000)}s ago (attempt #${lastUpdate.attempts})`);
           return true; // Return success but skip the update
         }
       }
       
-      console.log(`Updating room ${roomId} status to ${isOccupied ? 'occupied' : 'available'}`);
+      console.log(`Updating room ${roomId} status to ${isOccupied ? 'occupied' : 'available'} ${reservationId ? `for reservation ${reservationId}` : ''}`);
       
       if (!roomId) {
         console.error("Cannot update room status: Missing roomId");
@@ -63,11 +72,12 @@ export function useRoomStatusManager() {
         console.log(`Room ${roomData.name} already has status ${newStatus}, skipping database update`);
         
         // Update tracker with current attempt count
-        const existingUpdate = updateTracker.get(roomId);
-        updateTracker.set(roomId, {
+        const existingUpdate = updateTracker.get(trackerKey);
+        updateTracker.set(trackerKey, {
           status: newStatus, 
           timestamp: now,
-          attempts: existingUpdate ? existingUpdate.attempts + 1 : 1
+          attempts: existingUpdate ? existingUpdate.attempts + 1 : 1,
+          reservationId
         });
         
         return true;
@@ -87,7 +97,12 @@ export function useRoomStatusManager() {
       console.log(`Successfully updated room ${roomId} to status: ${newStatus}`);
       
       // Record this update in our tracker with attempt count reset
-      updateTracker.set(roomId, {status: newStatus, timestamp: now, attempts: 1});
+      updateTracker.set(trackerKey, {
+        status: newStatus, 
+        timestamp: now, 
+        attempts: 1,
+        reservationId
+      });
       
       // Create availability record - this is important for analytics tracking
       if (user) {

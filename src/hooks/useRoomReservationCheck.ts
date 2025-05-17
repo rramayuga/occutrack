@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useCallback } from 'react';
 import { Room, RoomStatus } from '@/lib/types';
 import { useAuth } from '@/lib/auth';
@@ -14,7 +13,13 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
   // Enhanced tracking system with last check time and per-room status processing timestamps
   const lastCheckTime = useRef<Date>(new Date());
   const isProcessing = useRef<boolean>(false);
-  const processedRoomStatuses = useRef<Map<string, {status: string, timestamp: number, processed: boolean}>>(new Map());
+  // Track room status by reservation to prevent redundant updates
+  const processedRoomStatuses = useRef<Map<string, {
+    status: string, 
+    timestamp: number, 
+    processed: boolean,
+    reservationId: string
+  }>>(new Map());
   
   // Compare times in HH:MM format with better precision
   const compareTimeStrings = useCallback((time1: string, time2: string): number => {
@@ -56,12 +61,10 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
         }, 
         (payload) => {
           console.log("Reservation change detected via realtime:", payload);
-          // Implement a delayed, non-redundant processing
-          setTimeout(() => {
-            if (!isProcessing.current) {
-              processReservations();
-            }
-          }, 1000);
+          // Only process if we're not already processing
+          if (!isProcessing.current) {
+            setTimeout(() => processReservations(), 2000);
+          }
         })
       .subscribe((status) => {
         console.log("Realtime subscription status:", status);
@@ -76,10 +79,10 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
   useEffect(() => {
     if (!user || activeReservations.length === 0 || isProcessing.current) return;
     
-    // Limit check frequency more aggressively
+    // Increase check interval to reduce frequency 
     const now = new Date();
     const timeSinceLastCheck = now.getTime() - lastCheckTime.current.getTime();
-    if (timeSinceLastCheck < 10000) return; // 10 seconds minimum between checks
+    if (timeSinceLastCheck < 30000) return; // 30 seconds between global checks
     
     lastCheckTime.current = now;
     isProcessing.current = true;
@@ -119,37 +122,59 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
                           
           const hasEnded = compareTimeStrings(currentTime, endTime) >= 0;
           
-          // Check if we've already processed this exact status change
-          const roomKey = `${reservation.roomId}-${isActive ? 'active' : 'ended'}`;
-          const lastProcessed = processedRoomStatuses.current.get(roomKey);
+          // Generate a unique key for this room+reservation status
+          const roomStatusKey = `${reservation.roomId}-${reservation.id}-${isActive ? 'active' : 'ended'}`;
+          const lastProcessed = processedRoomStatuses.current.get(roomStatusKey);
           const currentTimestamp = Date.now();
           
-          // Much longer cooldown for status checks - 3 minutes minimum
-          if (lastProcessed && 
-              lastProcessed.processed && 
-              (currentTimestamp - lastProcessed.timestamp) < 180000) { // 3 minute cooldown
-            console.log(`Skipping redundant status check for ${roomToUpdate.name}, last processed ${Math.floor((currentTimestamp - lastProcessed.timestamp) / 1000)}s ago`);
-            continue;
-          }
+          // Only update status if:
+          // 1. There's a status change needed (active → occupied or ended → available)
+          // 2. We haven't processed this exact status recently
           
-          // Update room status - but only update if status is different
+          // Case: Room should be OCCUPIED but currently isn't
           if (isActive && roomToUpdate.status !== 'occupied') {
+            // Check if we've already tried this recently - much longer cooldown 
+            if (lastProcessed && 
+                (currentTimestamp - lastProcessed.timestamp) < 300000) { // 5 minute cooldown
+              console.log(`Skipping status update for ${roomToUpdate.name} to OCCUPIED - processed recently`);
+              continue;
+            }
+            
             console.log(`Setting room ${roomToUpdate.name} to OCCUPIED (current time ${currentTime} is between ${startTime} and ${endTime})`);
             updateRoomAvailability(reservation.roomId, false, 'occupied');
-            processedRoomStatuses.current.set(roomKey, { 
+            
+            // Record this update in our tracker
+            processedRoomStatuses.current.set(roomStatusKey, { 
               status: 'occupied', 
               timestamp: currentTimestamp,
-              processed: true 
+              processed: true,
+              reservationId: reservation.id
             });
           } 
+          // Case: Room should be AVAILABLE but is currently OCCUPIED
           else if (hasEnded && roomToUpdate.status === 'occupied') {
             console.log(`Setting room ${roomToUpdate.name} to AVAILABLE (current time ${currentTime} is after end time ${endTime})`);
             updateRoomAvailability(reservation.roomId, true, 'available');
-            processedRoomStatuses.current.set(roomKey, { 
+            
+            // Record this update in our tracker
+            processedRoomStatuses.current.set(roomStatusKey, { 
               status: 'available', 
               timestamp: currentTimestamp,
-              processed: true 
+              processed: true,
+              reservationId: reservation.id
             });
+          }
+          // Case: Room status already matches what it should be
+          else {
+            // If status already correct, mark as processed so we don't keep checking
+            if (!lastProcessed) {
+              processedRoomStatuses.current.set(roomStatusKey, {
+                status: roomToUpdate.status,
+                timestamp: currentTimestamp,
+                processed: true,
+                reservationId: reservation.id
+              });
+            }
           }
         }
       } catch (error) {

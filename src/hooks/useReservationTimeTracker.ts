@@ -1,5 +1,5 @@
 
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import { useReservationStatusManager } from './reservation/useReservationStatusManager';
 
 export function useReservationTimeTracker() {
@@ -17,21 +17,29 @@ export function useReservationTimeTracker() {
   const processedThisRender = useRef(false);
   const lastProcessTime = useRef(Date.now());
   
-  // Process reservations only once per render cycle and with a cooldown
-  if (!processedThisRender.current) {
+  // Set up an effect to process reservations only once on mount
+  // This prevents excessive processing on every render
+  useEffect(() => {
+    // Only process if it's been at least 30 seconds since last check
     const now = Date.now();
-    // Only process if it's been at least 5 seconds since last check
-    if (now - lastProcessTime.current > 5000) {
+    if (now - lastProcessTime.current > 30000) {
+      console.log("Processing reservations in useReservationTimeTracker (initial setup)");
       processReservations();
       lastProcessTime.current = now;
-      processedThisRender.current = true;
       
-      // Reset flag after a longer delay (10 seconds) to reduce processing frequency
-      setTimeout(() => {
-        processedThisRender.current = false;
-      }, 10000);
+      // Set up a minimum 30 second interval for processing
+      const intervalId = setInterval(() => {
+        const currentTime = Date.now();
+        if (currentTime - lastProcessTime.current > 30000) {
+          console.log("Processing reservations in useReservationTimeTracker (interval)");
+          processReservations();
+          lastProcessTime.current = currentTime;
+        }
+      }, 30000);
+      
+      return () => clearInterval(intervalId);
     }
-  }
+  }, [processReservations]);
 
   return {
     activeReservations,
