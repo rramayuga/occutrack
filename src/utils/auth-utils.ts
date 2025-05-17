@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export const handleStudentRegistration = async (
@@ -108,17 +109,22 @@ export const handleLogin = async (email: string, password: string) => {
 
     console.log('Faculty request status check result:', facultyRequest);
     
-    // STRICT ENFORCEMENT: Block login for rejected users
+    // Block login for rejected users
     if (facultyRequest && facultyRequest.status === 'rejected') {
       console.error('Login blocked: Account has been rejected');
       throw new Error('Your account has been rejected. Please contact administration for more information.');
     }
 
-    // STRICT ENFORCEMENT: Block login for pending users
+    // Block login for pending users
     if (facultyRequest && facultyRequest.status === 'pending') {
       console.error('Login blocked: Account pending approval');
       throw new Error('Your account registration is pending approval. Please wait for administrator review.');
     }
+
+    // Allow login if:
+    // 1. The user has an approved faculty request
+    // 2. The user has a NEU domain email
+    // 3. The user doesn't have a faculty request (they're a direct student)
     
     // Only attempt login if the account is not rejected or pending
     const { data, error } = await supabase.auth.signInWithPassword({
