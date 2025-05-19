@@ -1,8 +1,7 @@
 
-import React, { useState } from 'react';
-import { Check, X, UserX, Trash, ChevronDown } from 'lucide-react';
+import React from 'react';
+import { Check, X, UserX, Trash } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { Badge } from '@/components/ui/badge';
 import { FacultyMember } from '@/lib/types';
 import {
   Table,
@@ -53,17 +52,6 @@ const FacultyList: React.FC<FacultyListProps> = ({
     "Nursing",
     "Other"
   ];
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return <Badge className="bg-green-500">Approved</Badge>;
-      case 'rejected':
-        return <Badge variant="destructive">Rejected</Badge>;
-      default:
-        return <Badge variant="outline" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">Pending</Badge>;
-    }
-  };
 
   if (isLoading) {
     return <div className="text-center py-10">Loading faculty members...</div>;
