@@ -7,13 +7,12 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import { Building, AlertCircle } from 'lucide-react';
+import { Building } from 'lucide-react';
 import { handleGoogleSignIn } from '@/utils/auth-utils';
 import { useAuth } from '@/lib/auth';
 
 const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -61,15 +60,7 @@ const Login = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {error && (
-            <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm flex items-center">
-              <AlertCircle className="h-4 w-4 mr-2" />
-              {error}
-            </div>
-          )}
-          
           <Button 
-            variant="outline" 
             className="w-full" 
             onClick={handleGoogleAuth}
             disabled={isLoading}

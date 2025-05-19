@@ -33,13 +33,15 @@ serve(async (req) => {
       );
     }
     
-    // Check if user is using Google provider
+    // Check if user is using Google provider and has NEU domain
     const isGoogleUser = userData.user?.app_metadata?.provider === 'google';
     const userEmail = userData.user?.email;
+    const isNeuDomain = userEmail?.endsWith('@neu.edu.ph');
     
-    console.log(`User provider: ${userData.user?.app_metadata?.provider}, Email: ${userEmail}`);
+    console.log(`User provider: ${userData.user?.app_metadata?.provider}, Email: ${userEmail}, Is NEU domain: ${isNeuDomain}`);
     
-    if (isGoogleUser && userEmail?.endsWith('@neu.edu.ph')) {
+    // For NEU Google accounts, only revoke faculty status instead of deleting
+    if (isGoogleUser && isNeuDomain) {
       console.log("This is a NEU Google account - will only revoke faculty status instead of deletion");
       
       // Update the user's role to 'student' instead of deleting
@@ -65,6 +67,9 @@ serve(async (req) => {
         { status: 200, headers: { "Content-Type": "application/json" } }
       );
     }
+    
+    // For non-Google NEU accounts or non-NEU accounts, proceed with complete deletion
+    console.log("This is NOT a NEU Google account - proceeding with complete deletion");
     
     // Delete the user's related data first to preserve referential integrity
     console.log("Deleting user's related data...");

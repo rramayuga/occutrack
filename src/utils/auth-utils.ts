@@ -21,12 +21,13 @@ export const handleGoogleSignIn = async () => {
   return data;
 };
 
-// Delete old non-Google accounts utility function
+// Delete user utility function - completely removes non-Google accounts
+// For NEU Google accounts (@neu.edu.ph), it only demotes to student role
 export const deleteUser = async (userId: string) => {
   try {
-    console.log('Deleting user with ID:', userId);
+    console.log('Handling user deletion/role change for ID:', userId);
     
-    // Call the delete-user function to handle complete user deletion
+    // Call the delete-user function to handle complete user deletion or role change
     const { error } = await supabase.functions.invoke('delete-user', {
       body: { userId }
     });
@@ -36,10 +37,10 @@ export const deleteUser = async (userId: string) => {
       throw error;
     }
     
-    console.log('User successfully deleted');
+    console.log('User deletion/role change operation completed successfully');
     return true;
   } catch (error) {
-    console.error('Error deleting user:', error);
+    console.error('Error in user deletion/role change operation:', error);
     throw error;
   }
 };
