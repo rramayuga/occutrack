@@ -23,7 +23,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { FacultyMember } from '@/hooks/useFacultyManagement';
-import { deleteUser } from '@/utils/auth-utils';
 import {
   Select,
   SelectContent,
@@ -77,7 +76,7 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
     try {
       setIsDeleting(true);
       
-      console.log("Permanently deleting user:", selectedFaculty);
+      console.log("Removing faculty status for user:", selectedFaculty);
       
       // First, try to delete the faculty request if it exists
       const { error: facultyRequestError } = await supabase
@@ -87,7 +86,6 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
         
       if (facultyRequestError) {
         console.log("Error deleting faculty request or no faculty request found:", facultyRequestError);
-        // Continue with user deletion even if faculty request deletion fails
       }
       
       // Then update the user's role to student
@@ -106,7 +104,6 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
         description: `${selectedFaculty.name} has been demoted to student role.`,
       });
       
-      // Close dialog and refresh data
       setIsDeleteDialogOpen(false);
       if (refreshFacultyData) {
         refreshFacultyData();
