@@ -13,6 +13,7 @@ import RoomManagement from "./pages/RoomManagement";
 import UserManagement from "./pages/UserManagement";
 import UserRightsManagementPage from "./pages/UserRightsManagementPage";
 import Login from "./pages/Login";
+import Register from "./pages/Register";
 import FacultyConfirmation from "./pages/FacultyConfirmation";
 import Announcements from "./pages/Announcements";
 import AnnouncementsManager from "./pages/admin/AnnouncementsManager";
@@ -77,6 +78,7 @@ const App = () => (
           <Route path="/user-management" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
           <Route path="/user-rights" element={<ProtectedRoute><UserRightsManagementPage /></ProtectedRoute>} />
           <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
           <Route path="/faculty-confirmation" element={<FacultyConfirmation />} />
           <Route path="/announcements" element={<ProtectedRoute><Announcements /></ProtectedRoute>} />
           <Route path="/admin/announcements" element={<ProtectedRoute><AnnouncementsManager /></ProtectedRoute>} />
