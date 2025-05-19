@@ -79,12 +79,31 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
       
       console.log("Permanently deleting user:", selectedFaculty);
       
-      // Call the deleteUser function to permanently delete the user
-      await deleteUser(selectedFaculty.user_id);
+      // First, try to delete the faculty request if it exists
+      const { error: facultyRequestError } = await supabase
+        .from('faculty_requests')
+        .delete()
+        .eq('user_id', selectedFaculty.user_id);
+        
+      if (facultyRequestError) {
+        console.log("Error deleting faculty request or no faculty request found:", facultyRequestError);
+        // Continue with user deletion even if faculty request deletion fails
+      }
+      
+      // Then update the user's role to student
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ role: 'student' })
+        .eq('id', selectedFaculty.user_id);
+        
+      if (profileError) {
+        console.error("Error updating user role:", profileError);
+        throw profileError;
+      }
       
       toast({
-        title: "User deleted",
-        description: `${selectedFaculty.name} has been permanently removed from the system.`,
+        title: "User role changed",
+        description: `${selectedFaculty.name} has been demoted to student role.`,
       });
       
       // Close dialog and refresh data
@@ -94,10 +113,10 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
       }
       
     } catch (error) {
-      console.error('Error deleting user:', error);
+      console.error('Error updating user:', error);
       toast({
-        title: "Deletion failed",
-        description: "There was a problem deleting this user.",
+        title: "Operation failed",
+        description: "There was a problem updating this user's role.",
         variant: "destructive",
       });
     } finally {
@@ -196,7 +215,7 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
                       onClick={() => handleDeleteClick(faculty)}
                     >
                       <Trash className="h-4 w-4 mr-1" />
-                      Delete
+                      Remove
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -216,8 +235,8 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete {selectedFaculty?.name}'s account. 
-              This action cannot be undone.
+              This will remove faculty privileges from {selectedFaculty?.name} and change their role to student.
+              They can request faculty status again in the future.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -227,7 +246,7 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
               disabled={isDeleting}
               className="bg-red-500 hover:bg-red-600"
             >
-              {isDeleting ? "Deleting..." : "Delete User"}
+              {isDeleting ? "Processing..." : "Remove Faculty Status"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
