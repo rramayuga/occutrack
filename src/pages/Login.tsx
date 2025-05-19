@@ -6,7 +6,6 @@ import {
   CardFooter, CardHeader, CardTitle 
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
 import { Building, AlertCircle } from 'lucide-react';
 import { handleGoogleSignIn } from '@/utils/auth-utils';
