@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from '@/integrations/supabase/client';
+import { deleteUser } from '@/utils/auth-utils';
 
 interface FacultyTabProps {
   isLoadingFaculty: boolean;
@@ -76,32 +77,14 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
     try {
       setIsDeleting(true);
       
-      console.log("Removing faculty status for user:", selectedFaculty);
+      console.log("Deleting user with ID:", selectedFaculty.user_id);
       
-      // First, try to delete the faculty request if it exists
-      const { error: facultyRequestError } = await supabase
-        .from('faculty_requests')
-        .delete()
-        .eq('user_id', selectedFaculty.user_id);
-        
-      if (facultyRequestError) {
-        console.log("Error deleting faculty request or no faculty request found:", facultyRequestError);
-      }
-      
-      // Then update the user's role to student
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ role: 'student' })
-        .eq('id', selectedFaculty.user_id);
-        
-      if (profileError) {
-        console.error("Error updating user role:", profileError);
-        throw profileError;
-      }
+      // Call the deleteUser function from utils
+      await deleteUser(selectedFaculty.user_id);
       
       toast({
-        title: "User role changed",
-        description: `${selectedFaculty.name} has been demoted to student role.`,
+        title: "User deleted",
+        description: `${selectedFaculty.name} has been successfully deleted from the system.`,
       });
       
       setIsDeleteDialogOpen(false);
@@ -109,11 +92,11 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
         refreshFacultyData();
       }
       
-    } catch (error) {
-      console.error('Error updating user:', error);
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
       toast({
         title: "Operation failed",
-        description: "There was a problem updating this user's role.",
+        description: error.message || "There was a problem deleting this user.",
         variant: "destructive",
       });
     } finally {
@@ -212,7 +195,7 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
                       onClick={() => handleDeleteClick(faculty)}
                     >
                       <Trash className="h-4 w-4 mr-1" />
-                      Remove
+                      Delete
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -232,8 +215,8 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will remove faculty privileges from {selectedFaculty?.name} and change their role to student.
-              They can request faculty status again in the future.
+              This will permanently delete {selectedFaculty?.name}'s account from the system.
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -243,7 +226,7 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
               disabled={isDeleting}
               className="bg-red-500 hover:bg-red-600"
             >
-              {isDeleting ? "Processing..." : "Remove Faculty Status"}
+              {isDeleting ? "Deleting..." : "Delete User"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

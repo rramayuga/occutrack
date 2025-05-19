@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Check, X, UserX, Trash } from 'lucide-react';
+import { UserX, Trash } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { FacultyMember } from '@/lib/types';
 import {
@@ -101,50 +101,6 @@ const FacultyList: React.FC<FacultyListProps> = ({
               <TableCell>{formatDate(faculty.createdAt)}</TableCell>
               <TableCell className="text-right">
                 <div className="flex justify-end space-x-2">
-                  {faculty.status === 'pending' && (
-                    <>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="bg-green-50 text-green-600 hover:bg-green-100"
-                        onClick={() => handleUpdateStatus(faculty, 'approved')}
-                      >
-                        <Check className="h-4 w-4 mr-1" />
-                        Approve
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="bg-red-50 text-red-600 hover:bg-red-100"
-                        onClick={() => onRejectClick(faculty)}
-                      >
-                        <X className="h-4 w-4 mr-1" />
-                        Reject
-                      </Button>
-                    </>
-                  )}
-                  {faculty.status === 'rejected' && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="bg-green-50 text-green-600 hover:bg-green-100"
-                      onClick={() => handleUpdateStatus(faculty, 'approved')}
-                    >
-                      <Check className="h-4 w-4 mr-1" />
-                      Approve
-                    </Button>
-                  )}
-                  {faculty.status === 'approved' && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="bg-red-50 text-red-600 hover:bg-red-100"
-                      onClick={() => onRejectClick(faculty)}
-                    >
-                      <X className="h-4 w-4 mr-1" />
-                      Reject
-                    </Button>
-                  )}
                   {/* Delete button for all faculty members */}
                   <Button
                     variant="outline"
