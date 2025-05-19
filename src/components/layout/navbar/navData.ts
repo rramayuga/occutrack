@@ -1,7 +1,8 @@
 
 import { Home, Users, Building, ShieldCheck, BookOpen, MessageSquare } from 'lucide-react';
+import { NavLinkItem } from './NavLinkList';
 
-export const navLinks = [
+export const navLinks: NavLinkItem[] = [
   {
     path: '/dashboard',
     name: 'Dashboard',
@@ -22,7 +23,7 @@ export const navLinks = [
   }
 ];
 
-export const adminLinks = [
+export const adminLinks: NavLinkItem[] = [
   {
     path: '/room-management',
     name: 'Room Management',

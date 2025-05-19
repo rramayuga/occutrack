@@ -1,15 +1,16 @@
 
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { LucideIcon } from 'lucide-react';
 
 interface NavLinkProps {
   path: string;
   name: string;
-  icon: React.ReactNode;
+  icon: LucideIcon;
   isActive?: boolean;
 }
 
-const NavLink: React.FC<NavLinkProps> = ({ path, name, icon, isActive }) => {
+const NavLink: React.FC<NavLinkProps> = ({ path, name, icon: Icon, isActive }) => {
   const location = useLocation();
   const activeNavClass = "text-primary font-medium";
   const inactiveNavClass = "text-foreground hover:text-primary transition-colors";
@@ -27,7 +28,7 @@ const NavLink: React.FC<NavLinkProps> = ({ path, name, icon, isActive }) => {
           isActiveLink ? activeNavClass : inactiveNavClass
         }`}
       >
-        <span className="mr-2">{icon}</span>
+        <span className="mr-2"><Icon size={18} /></span>
         {name}
       </Link>
     </li>
