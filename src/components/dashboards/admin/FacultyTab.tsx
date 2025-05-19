@@ -23,7 +23,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { FacultyMember } from '@/hooks/useFacultyManagement';
-import { useFacultyManagement } from '@/hooks/useFacultyManagement';
 import { deleteUser } from '@/utils/auth-utils';
 import {
   Select,
@@ -38,7 +37,7 @@ interface FacultyTabProps {
   isLoadingFaculty: boolean;
   facultyMembers: FacultyMember[];
   handleViewFaculty: (facultyId: string) => void;
-  refreshFacultyData?: () => void; // Optional callback to refresh data after deletion
+  refreshFacultyData?: () => void;
 }
 
 const FacultyTab: React.FC<FacultyTabProps> = ({
