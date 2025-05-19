@@ -10,7 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Trash } from 'lucide-react';
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -21,11 +21,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Trash } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { FacultyMember } from '@/hooks/useFacultyManagement';
 import { useFacultyManagement } from '@/hooks/useFacultyManagement';
 import { deleteUser } from '@/utils/auth-utils';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { supabase } from '@/integrations/supabase/client';
 
 interface FacultyTabProps {
   isLoadingFaculty: boolean;
@@ -44,6 +51,21 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
+
+  // List of departments
+  const departments = [
+    "Computer Science",
+    "Information Technology",
+    "Engineering",
+    "Business",
+    "Education",
+    "Arts and Sciences",
+    "Medicine",
+    "Law",
+    "Architecture",
+    "Nursing",
+    "Other"
+  ];
 
   const handleDeleteClick = (faculty: FacultyMember) => {
     setSelectedFaculty(faculty);
@@ -84,6 +106,38 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
     }
   };
 
+  const handleDepartmentChange = async (faculty: FacultyMember, department: string) => {
+    try {
+      console.log(`Updating department for ${faculty.name} to ${department}`);
+      
+      // Update the faculty_requests table
+      const { error } = await supabase
+        .from('faculty_requests')
+        .update({ department })
+        .eq('id', faculty.id);
+        
+      if (error) throw error;
+      
+      toast({
+        title: "Department updated",
+        description: `${faculty.name}'s department has been updated to ${department}.`,
+      });
+      
+      // Refresh the faculty list
+      if (refreshFacultyData) {
+        refreshFacultyData();
+      }
+      
+    } catch (error: any) {
+      console.error("Error updating department:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update department",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <div>
       {isLoadingFaculty ? (
@@ -101,7 +155,6 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Department</TableHead>
-                <TableHead>Status</TableHead>
                 <TableHead>Joined</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -111,13 +164,20 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
                 <TableRow key={faculty.id}>
                   <TableCell className="font-medium">{faculty.name}</TableCell>
                   <TableCell>{faculty.email}</TableCell>
-                  <TableCell>{faculty.department}</TableCell>
                   <TableCell>
-                    <Badge 
-                      variant={faculty.status === 'approved' ? 'default' : 'secondary'}
+                    <Select
+                      defaultValue={faculty.department}
+                      onValueChange={(value) => handleDepartmentChange(faculty, value)}
                     >
-                      {faculty.status}
-                    </Badge>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Select department" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {departments.map((dept) => (
+                          <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                   <TableCell>
                     {faculty.createdAt ? format(new Date(faculty.createdAt), 'MMM dd, yyyy') : 'Unknown'}

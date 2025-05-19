@@ -18,6 +18,7 @@ import { useFacultyManagement } from '@/components/admin/faculty/useFacultyManag
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useToast } from '@/components/ui/use-toast';
 import { deleteUser } from '@/utils/auth-utils';
+import { supabase } from '@/integrations/supabase/client';
 
 const FacultyManagement = () => {
   const [isRightsManagementOpen, setIsRightsManagementOpen] = useState(false);
@@ -41,7 +42,7 @@ const FacultyManagement = () => {
     handleUpdateStatus,
     handleConfirmReject,
     formatDate,
-    fetchFacultyMembers // Make sure to use this to refresh the list after deletion
+    fetchFacultyMembers
   } = useFacultyManagement();
 
   const onRejectClick = (faculty: React.SetStateAction<import("@/lib/types").FacultyMember | null>) => {
@@ -91,6 +92,36 @@ const FacultyManagement = () => {
     }
   };
 
+  const handleDepartmentChange = async (faculty: import("@/lib/types").FacultyMember, department: string) => {
+    try {
+      console.log(`Updating department for ${faculty.name} to ${department}`);
+      
+      // Update the faculty_requests table
+      const { error } = await supabase
+        .from('faculty_requests')
+        .update({ department })
+        .eq('id', faculty.id);
+        
+      if (error) throw error;
+      
+      toast({
+        title: "Department updated",
+        description: `${faculty.name}'s department has been updated to ${department}.`,
+      });
+      
+      // Refresh the faculty list
+      fetchFacultyMembers();
+      
+    } catch (error: any) {
+      console.error("Error updating department:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update department",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -129,6 +160,7 @@ const FacultyManagement = () => {
               onRejectClick={onRejectClick}
               onDeleteClick={onDeleteClick}
               formatDate={formatDate}
+              onDepartmentChange={handleDepartmentChange}
             />
           </CardContent>
         </Card>

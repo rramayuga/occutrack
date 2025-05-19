@@ -1,6 +1,6 @@
 
-import React from 'react';
-import { Check, X, UserX, Trash } from 'lucide-react';
+import React, { useState } from 'react';
+import { Check, X, UserX, Trash, ChevronDown } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from '@/components/ui/badge';
 import { FacultyMember } from '@/lib/types';
@@ -12,6 +12,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface FacultyListProps {
   isLoading: boolean;
@@ -20,6 +27,7 @@ interface FacultyListProps {
   onRejectClick: (faculty: FacultyMember) => void;
   onDeleteClick: (faculty: FacultyMember) => void;
   formatDate: (dateString: string) => string;
+  onDepartmentChange?: (faculty: FacultyMember, department: string) => void;
 }
 
 const FacultyList: React.FC<FacultyListProps> = ({
@@ -28,8 +36,24 @@ const FacultyList: React.FC<FacultyListProps> = ({
   handleUpdateStatus,
   onRejectClick,
   onDeleteClick,
-  formatDate
+  formatDate,
+  onDepartmentChange
 }) => {
+  // List of departments
+  const departments = [
+    "Computer Science",
+    "Information Technology",
+    "Engineering",
+    "Business",
+    "Education",
+    "Arts and Sciences",
+    "Medicine",
+    "Law",
+    "Architecture",
+    "Nursing",
+    "Other"
+  ];
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'approved':
@@ -63,7 +87,6 @@ const FacultyList: React.FC<FacultyListProps> = ({
             <TableHead>Email</TableHead>
             <TableHead>Department</TableHead>
             <TableHead>Requested On</TableHead>
-            <TableHead>Status</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -72,9 +95,22 @@ const FacultyList: React.FC<FacultyListProps> = ({
             <TableRow key={faculty.id}>
               <TableCell className="font-medium">{faculty.name}</TableCell>
               <TableCell>{faculty.email}</TableCell>
-              <TableCell>{faculty.department}</TableCell>
+              <TableCell>
+                <Select
+                  defaultValue={faculty.department}
+                  onValueChange={(value) => onDepartmentChange && onDepartmentChange(faculty, value)}
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Select department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departments.map((dept) => (
+                      <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </TableCell>
               <TableCell>{formatDate(faculty.createdAt)}</TableCell>
-              <TableCell>{getStatusBadge(faculty.status)}</TableCell>
               <TableCell className="text-right">
                 <div className="flex justify-end space-x-2">
                   {faculty.status === 'pending' && (
