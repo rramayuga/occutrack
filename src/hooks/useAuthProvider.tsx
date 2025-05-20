@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -77,32 +76,43 @@ export function useAuthProvider() {
       if (profile) {
         console.log('Profile fetched successfully:', profile);
         
-        // Double-check status directly in profile as well for redundancy
-        const profileData = profile as { 
-          id: string; 
-          name: string; 
-          email: string; 
-          role: string; 
-          avatar: string | null;
-          status?: string;
+        // Get the user's status from faculty_requests for proper status tracking
+        const { data: userRequest } = await supabase
+          .from('faculty_requests')
+          .select('status')
+          .eq('user_id', userId)
+          .maybeSingle();
+        
+        // Build the user data with the necessary fields
+        const userData: User = {
+          id: profile.id,
+          name: profile.name,
+          email: profile.email,
+          role: profile.role as UserRole,
+          avatarUrl: profile.avatar
         };
         
-        // STRICT ENFORCEMENT: If status is rejected or pending in profile, sign out
-        if (profileData.status === 'rejected' || profileData.status === 'pending') {
-          console.log(`User access denied by profile check: account is ${profileData.status}`);
+        // If we have status info from faculty_requests, add it to userData
+        if (userRequest && userRequest.status) {
+          userData.status = userRequest.status;
+        }
+        
+        // STRICT ENFORCEMENT: If status is rejected or pending in faculty_requests, sign out
+        if (userRequest && (userRequest.status === 'rejected' || userRequest.status === 'pending')) {
+          console.log(`User access denied by status check: account is ${userRequest.status}`);
           await supabase.auth.signOut();
           
-          const message = profileData.status === 'rejected' 
+          const message = userRequest.status === 'rejected' 
             ? 'Your account has been rejected. Please contact administration for more information.'
             : 'Your account registration is pending approval. Please wait for administrator review.';
             
           toast({
-            title: profileData.status === 'rejected' ? 'Access Denied' : 'Account Pending Approval',
+            title: userRequest.status === 'rejected' ? 'Access Denied' : 'Account Pending Approval',
             description: message,
-            variant: profileData.status === 'rejected' ? 'destructive' : 'default'
+            variant: userRequest.status === 'rejected' ? 'destructive' : 'default'
           });
           
-          if (profileData.status === 'pending') {
+          if (userRequest.status === 'pending') {
             navigate('/faculty-confirmation');
           } else {
             navigate('/login');
@@ -111,19 +121,6 @@ export function useAuthProvider() {
           setUser(null);
           setIsLoading(false);
           return null;
-        }
-        
-        const userData: User = {
-          id: profileData.id,
-          name: profileData.name,
-          email: profileData.email,
-          role: profileData.role as UserRole,
-          avatarUrl: profileData.avatar
-        };
-        
-        // If status exists in the profile data, add it to userData
-        if (profileData.status) {
-          userData.status = profileData.status;
         }
         
         setUser(userData);

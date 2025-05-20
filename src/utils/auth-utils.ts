@@ -35,13 +35,9 @@ export const handleStudentRegistration = async (
 
     if (requestError) throw requestError;
     
-    // Also update the status in the profiles table to ensure consistency
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .update({ status: 'pending' })
-      .eq('id', data.user.id);
-      
-    if (profileError) throw profileError;
+    // Since we can't update the status in the profiles table directly,
+    // we'll rely on the faculty_requests table for status tracking
+    // No need to update profiles here
   }
 
   return { user: data.user, session: data.session };
@@ -80,13 +76,9 @@ export const handleFacultyRegistration = async (
 
     if (requestError) throw requestError;
     
-    // Also update the status in the profiles table
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .update({ status: 'pending' })
-      .eq('id', data.user.id);
-      
-    if (profileError) throw profileError;
+    // Since we can't update the status in the profiles table directly,
+    // we'll rely on the faculty_requests table for status tracking
+    // No need to update profiles here
   }
 
   return { user: data.user, session: data.session };
@@ -152,29 +144,27 @@ export const handleLogin = async (email: string, password: string) => {
       throw new Error('Authentication failed');
     }
 
-    // Double-check approval status after authentication
-    // This ensures all users are checked, including those without faculty requests
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', data.user.id)
-      .single();
+    // Double-check approval status after authentication using faculty_requests
+    // instead of relying on the profiles table
+    if (data.user) {
+      const { data: userRequest } = await supabase
+        .from('faculty_requests')
+        .select('status')
+        .eq('user_id', data.user.id)
+        .maybeSingle();
       
-    // Check the status property using type-safe access
-    if (profile) {
-      // Use type assertion to safely check status
-      const profileData = profile as { status?: string } & typeof profile;
-      
-      if (profileData.status === 'pending') {
-        // Force sign out if status is pending
-        await supabase.auth.signOut();
-        throw new Error('Your account registration is pending approval. Please wait for administrator review.');
-      }
-      
-      if (profileData.status === 'rejected') {
-        // Force sign out if status is rejected
-        await supabase.auth.signOut();
-        throw new Error('Your account has been rejected. Please contact administration for more information.');
+      if (userRequest) {
+        if (userRequest.status === 'pending') {
+          // Force sign out if status is pending
+          await supabase.auth.signOut();
+          throw new Error('Your account registration is pending approval. Please wait for administrator review.');
+        }
+        
+        if (userRequest.status === 'rejected') {
+          // Force sign out if status is rejected
+          await supabase.auth.signOut();
+          throw new Error('Your account has been rejected. Please contact administration for more information.');
+        }
       }
     }
 
