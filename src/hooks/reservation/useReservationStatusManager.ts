@@ -133,7 +133,7 @@ export function useReservationStatusManager() {
       const status = isOccupied ? 'occupied' : 'available';
       const { error } = await supabase
         .from('rooms')
-        .update({ status, is_available: !isOccupied })
+        .update({ status })
         .eq('id', roomId);
       
       if (error) {

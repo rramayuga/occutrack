@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Building, Room, ReservationFormValues } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -75,6 +76,7 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
   const selectedBuildingName = buildings.find(b => b.id === selectedBuilding)?.name || '';
   const selectedRoomName = rooms.find(r => r.id === selectedRoom)?.name || '';
   
+  // Modified submission handler with improved validation and error handling
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -108,9 +110,34 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
       return;
     }
     
+    // Validate date is not in the past
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const selectedDate = new Date(date);
+    selectedDate.setHours(0, 0, 0, 0);
+    
+    if (selectedDate < today) {
+      toast({
+        title: "Date Error",
+        description: "Please select today or a future date",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setIsLoading(true);
     
     try {
+      console.log("Creating reservation with data:", {
+        building: selectedBuildingName,
+        roomNumber: selectedRoomName,
+        date,
+        startTime,
+        endTime,
+        purpose,
+        roomId: selectedRoom
+      });
+      
       const result = await createReservation({
         building: selectedBuildingName,
         roomNumber: selectedRoomName,
@@ -121,6 +148,10 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
       }, selectedRoom);
       
       if (result) {
+        toast({
+          title: "Room Booked",
+          description: `Successfully booked ${selectedRoomName} in ${selectedBuildingName}`,
+        });
         onOpenChange(false);
       }
     } catch (error) {

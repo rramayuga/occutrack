@@ -1,5 +1,5 @@
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useCallback } from 'react';
 import { useReservationStatusManager } from './reservation/useReservationStatusManager';
 
 export function useReservationTimeTracker() {
@@ -17,30 +17,30 @@ export function useReservationTimeTracker() {
   const processedThisRender = useRef(false);
   const lastProcessTime = useRef(Date.now());
   
-  // Set up an effect to process reservations only once on mount
-  // This prevents excessive processing on every render
-  useEffect(() => {
-    // Only process if it's been at least 1 minute since last check
+  // Process reservations on a fixed interval and update the UI accordingly
+  const processAndUpdate = useCallback(() => {
     const now = Date.now();
-    if (now - lastProcessTime.current > 60000) { // 1 minute between checks
-      console.log("Processing reservations in useReservationTimeTracker (initial setup)");
+    if (now - lastProcessTime.current > 30000) { // 30 seconds between checks for faster updates
+      console.log("Processing reservations in useReservationTimeTracker");
       processReservations();
       lastProcessTime.current = now;
-      
-      // Set up a minimum 1 minute interval for processing
-      const intervalId = setInterval(() => {
-        const currentTime = Date.now();
-        // Prevent processing more frequently than once per minute
-        if (currentTime - lastProcessTime.current > 60000) { // 1 minute minimum
-          console.log("Processing reservations in useReservationTimeTracker (interval)");
-          processReservations();
-          lastProcessTime.current = currentTime;
-        }
-      }, 60000); // Check every minute
-      
-      return () => clearInterval(intervalId);
     }
   }, [processReservations]);
+  
+  // Set up an effect to process reservations on mount and at regular intervals
+  useEffect(() => {
+    console.log("Setting up reservation tracking in useReservationTimeTracker");
+    
+    // Initial processing
+    processAndUpdate();
+    
+    // Set up a more frequent interval for better responsiveness
+    const intervalId = setInterval(() => {
+      processAndUpdate();
+    }, 30000); // Check every 30 seconds for more responsive status updates
+    
+    return () => clearInterval(intervalId);
+  }, [processAndUpdate]);
 
   return {
     activeReservations,
