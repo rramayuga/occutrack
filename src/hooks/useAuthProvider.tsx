@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -22,33 +23,41 @@ export function useAuthProvider() {
         return null;
       }
       
-      // First check for pending/rejected status - CRITICAL CHECK
+      // STRICT ENFORCEMENT: First check faculty_requests approval status
       const { data: facultyRequest, error: facultyError } = await supabase
         .from('faculty_requests')
-        .select('status')
+        .select('status, department')
         .eq('user_id', userId)
         .maybeSingle();
 
       if (facultyError) {
         console.error('Error checking approval status:', facultyError);
+        // Continue to allow check for user, but note the error
       }
       
-      // STRICT ENFORCEMENT: If the user has been rejected or is pending, sign them out immediately
-      if (facultyRequest && (facultyRequest.status === 'rejected' || facultyRequest.status === 'pending')) {
-        console.log(`User access denied: account is ${facultyRequest.status}, signing out immediately`);
+      // CRITICAL: Block access if user is not approved
+      // Note: We check for both null/undefined and explicit status values
+      if (!facultyRequest || 
+          facultyRequest.status === 'rejected' || 
+          facultyRequest.status === 'pending') {
+        
+        const statusMessage = !facultyRequest ? 'not found' : facultyRequest.status;
+        console.log(`Access denied: account status is ${statusMessage}, signing out immediately`);
+        
         await supabase.auth.signOut();
         
-        const message = facultyRequest.status === 'rejected' 
-          ? 'Your account has been rejected. Please contact administration for more information.'
-          : 'Your account registration is pending approval. Please wait for administrator review.';
-          
+        const message = !facultyRequest ? 'Your account requires approval.' :
+                        facultyRequest.status === 'rejected' ? 
+                          'Your account has been rejected. Please contact administration.' :
+                          'Your account registration is pending approval. Please wait for administrator review.';
+        
         toast({
-          title: facultyRequest.status === 'rejected' ? 'Access Denied' : 'Account Pending Approval',
+          title: facultyRequest?.status === 'rejected' ? 'Access Denied' : 'Account Pending Approval',
           description: message,
-          variant: facultyRequest.status === 'rejected' ? 'destructive' : 'default'
+          variant: facultyRequest?.status === 'rejected' ? 'destructive' : 'default'
         });
         
-        if (facultyRequest.status === 'pending') {
+        if (facultyRequest?.status === 'pending') {
           navigate('/faculty-confirmation');
         } else {
           navigate('/login');
@@ -59,9 +68,9 @@ export function useAuthProvider() {
         return null;
       }
 
-      // If user passed rejection/pending checks, proceed with profile fetching
-      console.log('User passed status checks, fetching profile data');
+      console.log('User approval verified, fetching profile data');
       
+      // If user passed approval check, proceed with profile fetching
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
@@ -76,43 +85,32 @@ export function useAuthProvider() {
       if (profile) {
         console.log('Profile fetched successfully:', profile);
         
-        // Get the user's status from faculty_requests for proper status tracking
-        const { data: userRequest } = await supabase
-          .from('faculty_requests')
-          .select('status')
-          .eq('user_id', userId)
-          .maybeSingle();
-        
         // Build the user data with the necessary fields
         const userData: User = {
           id: profile.id,
           name: profile.name,
           email: profile.email,
           role: profile.role as UserRole,
-          avatarUrl: profile.avatar
+          avatarUrl: profile.avatar,
+          status: facultyRequest.status // Include status from faculty_requests
         };
         
-        // If we have status info from faculty_requests, add it to userData
-        if (userRequest && userRequest.status) {
-          userData.status = userRequest.status;
-        }
-        
-        // STRICT ENFORCEMENT: If status is rejected or pending in faculty_requests, sign out
-        if (userRequest && (userRequest.status === 'rejected' || userRequest.status === 'pending')) {
-          console.log(`User access denied by status check: account is ${userRequest.status}`);
+        // STRICT ENFORCEMENT: Double-check status one more time
+        if (userData.status !== 'approved') {
+          console.log(`User access denied: account status is ${userData.status}`);
           await supabase.auth.signOut();
           
-          const message = userRequest.status === 'rejected' 
-            ? 'Your account has been rejected. Please contact administration for more information.'
-            : 'Your account registration is pending approval. Please wait for administrator review.';
+          const message = userData.status === 'rejected' ? 
+            'Your account has been rejected. Please contact administration.' :
+            'Your account registration is pending approval. Please wait for administrator review.';
             
           toast({
-            title: userRequest.status === 'rejected' ? 'Access Denied' : 'Account Pending Approval',
+            title: userData.status === 'rejected' ? 'Access Denied' : 'Account Pending Approval',
             description: message,
-            variant: userRequest.status === 'rejected' ? 'destructive' : 'default'
+            variant: userData.status === 'rejected' ? 'destructive' : 'default'
           });
           
-          if (userRequest.status === 'pending') {
+          if (userData.status === 'pending') {
             navigate('/faculty-confirmation');
           } else {
             navigate('/login');

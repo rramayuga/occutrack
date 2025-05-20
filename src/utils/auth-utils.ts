@@ -34,10 +34,6 @@ export const handleStudentRegistration = async (
       });
 
     if (requestError) throw requestError;
-    
-    // Since we can't update the status in the profiles table directly,
-    // we'll rely on the faculty_requests table for status tracking
-    // No need to update profiles here
   }
 
   return { user: data.user, session: data.session };
@@ -75,10 +71,6 @@ export const handleFacultyRegistration = async (
       });
 
     if (requestError) throw requestError;
-    
-    // Since we can't update the status in the profiles table directly,
-    // we'll rely on the faculty_requests table for status tracking
-    // No need to update profiles here
   }
 
   return { user: data.user, session: data.session };
@@ -106,30 +98,43 @@ export const handleLogin = async (email: string, password: string) => {
   try {
     console.log('Attempting login for:', email);
     
-    // First check if the user has a faculty request (which all users should have now)
-    // This critical check must be done BEFORE attempting to log in
-    const { data: facultyRequest } = await supabase
+    // CRITICAL: First check if the user has a faculty_requests entry and verify approval status
+    const { data: facultyRequest, error: requestError } = await supabase
       .from('faculty_requests')
       .select('status')
       .eq('email', email)
       .maybeSingle();
-
-    console.log('User registration status check result:', facultyRequest);
     
-    // Block login for rejected or pending users
-    if (facultyRequest) {
-      if (facultyRequest.status === 'rejected') {
-        console.error('Login blocked: Account has been rejected');
-        throw new Error('Your account has been rejected. Please contact administration for more information.');
-      }
-
-      if (facultyRequest.status === 'pending') {
-        console.error('Login blocked: Account pending approval');
-        throw new Error('Your account registration is pending approval. Please wait for administrator review.');
-      }
+    if (requestError) {
+      console.error('Error checking approval status:', requestError);
+      throw new Error('Error verifying account status. Please try again later.');
     }
 
-    // Only attempt login if the account is approved or for special cases
+    // Block login for any user without an approval entry or with rejected/pending status
+    if (!facultyRequest) {
+      console.error('Login blocked: No approval record found');
+      throw new Error('Your account requires approval. Please contact administration.');
+    }
+    
+    if (facultyRequest.status === 'rejected') {
+      console.error('Login blocked: Account has been rejected');
+      throw new Error('Your account has been rejected. Please contact administration for more information.');
+    }
+
+    if (facultyRequest.status === 'pending') {
+      console.error('Login blocked: Account pending approval');
+      throw new Error('Your account registration is pending approval. Please wait for administrator review.');
+    }
+    
+    // ONLY PROCEED with login if status is explicitly 'approved'
+    if (facultyRequest.status !== 'approved') {
+      console.error('Login blocked: Account not approved');
+      throw new Error('Your account does not have the required approval status to log in.');
+    }
+
+    console.log('User approval status verified, proceeding with login attempt');
+
+    // Attempt login only if the account is approved
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
@@ -144,28 +149,24 @@ export const handleLogin = async (email: string, password: string) => {
       throw new Error('Authentication failed');
     }
 
-    // Double-check approval status after authentication using faculty_requests
-    // instead of relying on the profiles table
-    if (data.user) {
-      const { data: userRequest } = await supabase
-        .from('faculty_requests')
-        .select('status')
-        .eq('user_id', data.user.id)
-        .maybeSingle();
-      
-      if (userRequest) {
-        if (userRequest.status === 'pending') {
-          // Force sign out if status is pending
-          await supabase.auth.signOut();
-          throw new Error('Your account registration is pending approval. Please wait for administrator review.');
-        }
-        
-        if (userRequest.status === 'rejected') {
-          // Force sign out if status is rejected
-          await supabase.auth.signOut();
-          throw new Error('Your account has been rejected. Please contact administration for more information.');
-        }
+    // Double-check approval status after authentication as an additional security measure
+    const { data: userRequest } = await supabase
+      .from('faculty_requests')
+      .select('status')
+      .eq('user_id', data.user.id)
+      .maybeSingle();
+    
+    if (userRequest) {
+      if (userRequest.status !== 'approved') {
+        // Force sign out if status is not approved
+        await supabase.auth.signOut();
+        throw new Error('Your account does not have proper approval to access this application.');
       }
+    } else {
+      // No faculty request found for authenticated user - this should not happen
+      // Force sign out
+      await supabase.auth.signOut();
+      throw new Error('Account verification failed. Please contact administration.');
     }
 
     console.log('Login successful for user ID:', data.user.id);
