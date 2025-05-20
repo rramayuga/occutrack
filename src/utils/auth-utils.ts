@@ -6,7 +6,12 @@ export const handleStudentRegistration = async (
   password: string,
   name: string
 ) => {
-  // ALL registrations now require approval, regardless of email domain
+  // Check if the email is from neu.edu.ph domain
+  const isNeuEmail = email.toLowerCase().endsWith('@neu.edu.ph');
+  
+  // Automatically approve NEU domain emails, others require approval
+  const accountStatus = isNeuEmail ? 'approved' : 'pending';
+  
   const { data, error: signUpError } = await supabase.auth.signUp({
     email,
     password,
@@ -14,14 +19,14 @@ export const handleStudentRegistration = async (
       data: {
         name,
         role: 'student',
-        status: 'pending'  // All registrations are pending by default
+        status: accountStatus  // Set status based on email domain
       }
     }
   });
 
   if (signUpError) throw signUpError;
   
-  // Create a pending request for ALL users
+  // Create a request entry for ALL users (approved or pending)
   if (data.user) {
     const { error: requestError } = await supabase
       .from('faculty_requests')
@@ -30,7 +35,7 @@ export const handleStudentRegistration = async (
         name,
         email,
         department: 'Student',
-        status: 'pending'
+        status: accountStatus
       });
 
     if (requestError) throw requestError;
@@ -45,14 +50,20 @@ export const handleFacultyRegistration = async (
   name: string,
   department: string
 ) => {
+  // Check if the email is from neu.edu.ph domain
+  const isNeuEmail = email.toLowerCase().endsWith('@neu.edu.ph');
+  
+  // Faculty from NEU domain are pre-approved, others require approval
+  const accountStatus = isNeuEmail ? 'approved' : 'pending';
+  
   const { data, error: signUpError } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: {
         name,
-        role: 'student', // Start as student until approved
-        status: 'pending'
+        role: isNeuEmail ? 'faculty' : 'student', // Set appropriate role based on domain
+        status: accountStatus
       }
     }
   });
@@ -67,7 +78,7 @@ export const handleFacultyRegistration = async (
         name,
         email,
         department,
-        status: 'pending'
+        status: accountStatus
       });
 
     if (requestError) throw requestError;
@@ -110,7 +121,7 @@ export const handleLogin = async (email: string, password: string) => {
       throw new Error('Error verifying account status. Please try again later.');
     }
 
-    // Block login for any user without an approval entry or with rejected/pending status
+    // Block login for any user without an approval entry or with rejected status
     if (!facultyRequest) {
       console.error('Login blocked: No approval record found');
       throw new Error('Your account requires approval. Please contact administration.');
