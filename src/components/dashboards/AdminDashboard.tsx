@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BuildingWithFloors, User } from '@/lib/types';
@@ -242,6 +243,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
         selectedBuilding={selectedBuilding}
         setSelectedBuilding={setSelectedBuilding}
         onBuildingSubmit={onBuildingSubmit}
+        onRoomSubmit={onRoomSubmit}
         onEditBuildingSubmit={onEditBuildingSubmit}
         onDeleteBuilding={onDeleteBuilding}
       />
