@@ -17,10 +17,9 @@ interface NavLinkListProps {
 
 const NavLinkList: React.FC<NavLinkListProps> = ({ links, userRole }) => {
   // Filter links based on user role if provided
-  // If no role is provided (not logged in), only show links marked for unauthenticated users
   const filteredLinks = userRole 
     ? links.filter(link => link.roles.includes(userRole))
-    : links.filter(link => link.roles.includes('unauthenticated'));
+    : links;
   
   return (
     <div className="flex flex-row items-center space-x-6">

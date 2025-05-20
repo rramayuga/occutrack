@@ -1,13 +1,13 @@
+
 export interface User {
   id: string;
   name: string;
   email: string;
   avatarUrl: string | null;
   role: UserRole;
-  status?: string; // Add status field
 }
 
-export type UserRole = 'student' | 'faculty' | 'admin' | 'superadmin' | 'unauthenticated';
+export type UserRole = 'student' | 'faculty' | 'admin' | 'superadmin';
 
 export interface Building {
   id: string;

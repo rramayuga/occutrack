@@ -17,7 +17,7 @@ const NavLink: React.FC<NavLinkProps> = ({ path, name, icon, isActive }) => {
   // If isActive is provided, use it; otherwise, determine based on path
   const isActiveLink = isActive !== undefined 
     ? isActive 
-    : location.pathname === path || location.pathname.startsWith(`${path}/`);
+    : location.pathname === path;
 
   return (
     <li className="my-1">

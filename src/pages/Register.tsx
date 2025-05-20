@@ -51,12 +51,6 @@ const Register = () => {
       return;
     }
     
-    // Validate NEU email domain
-    if (!email.toLowerCase().endsWith('@neu.edu.ph')) {
-      setError('Only @neu.edu.ph email addresses are allowed to register.');
-      return;
-    }
-    
     if (role === 'faculty' && !department) {
       setError('Please select a department.');
       return;
@@ -123,7 +117,7 @@ const Register = () => {
           </div>
           <CardTitle className="text-2xl">Create an account</CardTitle>
           <CardDescription>
-            Enter your NEU email to register for OccuTrack
+            Enter your details to register for NEU OccuTrack
           </CardDescription>
         </CardHeader>
         

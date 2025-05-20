@@ -11,7 +11,7 @@ export const navLinks = [
     name: 'Home', 
     path: '/', 
     icon: React.createElement(Home, { size: 18 }), 
-    roles: ['student', 'faculty', 'admin', 'superadmin', 'unauthenticated'] as UserRole[] 
+    roles: ['student', 'faculty', 'admin', 'superadmin'] as UserRole[] 
   },
   { 
     name: 'Dashboard', 
