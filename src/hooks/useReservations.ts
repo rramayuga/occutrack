@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,7 +33,7 @@ export function useReservations() {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
-    }, 10000); // 10-second timeout
+    }, 15000); // 15-second timeout (increased from 10s)
     
     try {
       setLoading(true);
@@ -67,51 +68,55 @@ export function useReservations() {
         if (roomsError) throw roomsError;
         
         // Get building information for all rooms
-        const buildingIds = roomsData.map(room => room.building_id);
-        const { data: buildingsData, error: buildingsError } = await supabase
-          .from('buildings')
-          .select('id, name')
-          .in('id', buildingIds);
+        const buildingIds = roomsData?.map(room => room.building_id) || [];
+        if (buildingIds.length > 0) {
+          const { data: buildingsData, error: buildingsError } = await supabase
+            .from('buildings')
+            .select('id, name')
+            .in('id', buildingIds);
+            
+          if (buildingsError) throw buildingsError;
           
-        if (buildingsError) throw buildingsError;
-        
-        // Create a mapping of room ids to room data
-        const roomMap = roomsData.reduce((acc, room) => {
-          acc[room.id] = room;
-          return acc;
-        }, {} as Record<string, any>);
-        
-        // Create a mapping of building ids to building names
-        const buildingMap = buildingsData.reduce((acc, building) => {
-          acc[building.id] = building.name;
-          return acc;
-        }, {} as Record<string, string>);
-        
-        // Transform the data
-        const transformedReservations: Reservation[] = reservationData.map(item => {
-          const room = roomMap[item.room_id] || { name: 'Unknown Room', building_id: null };
-          const buildingName = room.building_id ? buildingMap[room.building_id] : 'Unknown Building';
+          // Create a mapping of room ids to room data
+          const roomMap = roomsData?.reduce((acc, room) => {
+            acc[room.id] = room;
+            return acc;
+          }, {} as Record<string, any>) || {};
           
-          return {
-            id: item.id,
-            roomId: item.room_id,
-            roomNumber: room.name,
-            building: buildingName,
-            date: item.date,
-            startTime: item.start_time,
-            endTime: item.end_time,
-            purpose: item.purpose || '',
-            status: item.status,
-            faculty: user.name
-          };
-        });
-        
-        setReservations(transformedReservations);
-        console.log("Fetched reservations:", transformedReservations);
-        
-        // Reset failed attempts counter
-        if (failedAttempts > 0) {
-          setFailedAttempts(0);
+          // Create a mapping of building ids to building names
+          const buildingMap = buildingsData?.reduce((acc, building) => {
+            acc[building.id] = building.name;
+            return acc;
+          }, {} as Record<string, string>) || {};
+          
+          // Transform the data
+          const transformedReservations: Reservation[] = reservationData.map(item => {
+            const room = roomMap[item.room_id] || { name: 'Unknown Room', building_id: null };
+            const buildingName = room.building_id ? buildingMap[room.building_id] : 'Unknown Building';
+            
+            return {
+              id: item.id,
+              roomId: item.room_id,
+              roomNumber: room.name,
+              building: buildingName,
+              date: item.date,
+              startTime: item.start_time,
+              endTime: item.end_time,
+              purpose: item.purpose || '',
+              status: item.status,
+              faculty: user.name
+            };
+          });
+          
+          setReservations(transformedReservations);
+          console.log("Fetched reservations:", transformedReservations);
+          
+          // Reset failed attempts counter
+          if (failedAttempts > 0) {
+            setFailedAttempts(0);
+          }
+        } else {
+          setReservations([]);
         }
       } else {
         setReservations([]);
@@ -163,7 +168,7 @@ export function useReservations() {
     const abortController = new AbortController();
     const timeoutId = setTimeout(() => {
       abortController.abort();
-    }, 15000); // 15-second timeout for reservation creation
+    }, 20000); // 20-second timeout for reservation creation (increased from 15s)
     
     try {
       // First, check if the room is under maintenance
@@ -171,7 +176,7 @@ export function useReservations() {
         .from('rooms')
         .select('status')
         .eq('id', roomId)
-        .single();
+        .maybeSingle(); // Using maybeSingle instead of single to handle null case better
         
       if (roomError) {
         console.error("Room fetch error:", roomError);
@@ -221,7 +226,7 @@ export function useReservations() {
         return null;
       }
       
-      // Create the reservation
+      // Create the reservation with better error handling
       const newReservation = {
         room_id: roomId,
         faculty_id: user.id,
@@ -234,6 +239,7 @@ export function useReservations() {
       
       console.log("Submitting reservation data:", newReservation);
       
+      // Use .select().maybeSingle() approach for better error handling
       const { data, error } = await supabase
         .from('room_reservations')
         .insert(newReservation)
@@ -261,11 +267,11 @@ export function useReservations() {
       return null;
     } catch (error: any) {
       // Handle aborted requests differently
-      if (error.name === 'AbortError') {
-        console.error("Reservation request timed out");
+      if (error.name === 'AbortError' || error.message?.includes('fetch failed')) {
+        console.error("Reservation request timed out or network error");
         toast({
-          title: "Request Timeout",
-          description: "The reservation request took too long. Please check your connection and try again.",
+          title: "Connection Issue",
+          description: "The reservation request failed due to a connection issue. Please check your network and try again.",
           variant: "destructive",
           duration: 5000,
         });
@@ -290,7 +296,7 @@ export function useReservations() {
     return hours * 60 + minutes;
   };
 
-  // Setup real-time subscription for reservation updates
+  // Setup real-time subscription for reservation updates with improved error handling
   const setupReservationsSubscription = useCallback(() => {
     if (!user) return () => {};
     
@@ -318,7 +324,7 @@ export function useReservations() {
       // Return empty cleanup function in case of error
       return () => {};
     }
-  }, [user?.id, fetchReservations]);
+  }, [user, fetchReservations]);
 
   useEffect(() => {
     if (user) {
@@ -335,7 +341,7 @@ export function useReservations() {
         }
       };
     }
-  }, [user?.id, fetchReservations, setupReservationsSubscription]);
+  }, [user, fetchReservations, setupReservationsSubscription]);
 
   return {
     reservations,

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Building, Room, ReservationFormValues } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from 'lucide-react';
+import { Loader2, WifiOff } from 'lucide-react';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface RoomBookingDialogProps {
@@ -17,6 +17,7 @@ interface RoomBookingDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   isCreating?: boolean;
+  connectionError?: boolean;
 }
 
 export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
@@ -25,7 +26,8 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
   createReservation,
   isOpen,
   onOpenChange,
-  isCreating = false
+  isCreating = false,
+  connectionError = false
 }) => {
   const [selectedBuilding, setSelectedBuilding] = useState<string>('');
   const [selectedRoom, setSelectedRoom] = useState<string>('');
@@ -57,11 +59,34 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
       const today = new Date().toISOString().split('T')[0];
       setDate(today);
       setFormError(null);
+      
+      // Set default times based on current time if during business hours
+      const now = new Date();
+      const hour = now.getHours();
+      const minute = now.getMinutes();
+      
+      // Round current time to nearest hour for better UX
+      let startHour = hour;
+      if (minute > 30) startHour = hour + 1;
+      if (startHour > 23) startHour = 23;
+      
+      // End time is start time + 1 hour
+      let endHour = startHour + 1;
+      if (endHour > 23) endHour = 23;
+      
+      const formattedStartTime = `${String(startHour).padStart(2, '0')}:00`;
+      const formattedEndTime = `${String(endHour).padStart(2, '0')}:00`;
+      
+      // Only set these if within business hours
+      if (hour >= 7 && hour < 22) {
+        setStartTime(formattedStartTime);
+        setEndTime(formattedEndTime);
+      }
     }
   }, [isOpen]);
   
   // Sort rooms alphabetically/numerically for display
-  const sortedRooms = React.useMemo(() => {
+  const sortedRooms = useMemo(() => {
     return [...rooms]
       .filter(room => room.buildingId === selectedBuilding && room.status !== 'maintenance')
       .sort((a, b) => {
@@ -82,7 +107,7 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
   }, [rooms, selectedBuilding]);
 
   // Sort buildings for display
-  const sortedBuildings = React.useMemo(() => {
+  const sortedBuildings = useMemo(() => {
     return [...buildings].sort((a, b) => a.name.localeCompare(b.name));
   }, [buildings]);
 
@@ -93,6 +118,12 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
+    
+    // Check for connection issues first
+    if (connectionError) {
+      setFormError("Unable to create reservation due to connection issues. Please check your network connection and try again.");
+      return;
+    }
     
     // Increment submit attempts counter for retry tracking
     setSubmitAttempts(prev => prev + 1);
@@ -173,6 +204,13 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
       if (result) {
         console.log("Reservation created successfully:", result);
         onOpenChange(false);
+        
+        // Final confirmation toast
+        toast({
+          title: "Room Booked Successfully",
+          description: `You've reserved ${selectedRoomName} for ${date} at ${startTime}.`,
+          duration: 3000,
+        });
       } else if (submitAttempts >= 3) {
         // After 3 failed attempts, suggest the user try again later
         toast({
@@ -197,11 +235,33 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
   };
   
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      // If there's a network issue, show a toast instead of allowing close
+      if (!open && isCreating) {
+        toast({
+          title: "Please wait",
+          description: "Room booking is in progress...",
+          duration: 3000,
+        });
+        return;
+      }
+      onOpenChange(open);
+    }}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Book a Room</DialogTitle>
         </DialogHeader>
+        
+        {connectionError && (
+          <Alert variant="destructive" className="mb-4">
+            <div className="flex items-center">
+              <WifiOff className="h-4 w-4 mr-2" />
+              <AlertDescription>
+                Connection error. Room booking is unavailable while offline.
+              </AlertDescription>
+            </div>
+          </Alert>
+        )}
         
         {formError && (
           <Alert variant="destructive" className="mb-4">
@@ -215,6 +275,7 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
             <Select
               value={selectedBuilding}
               onValueChange={setSelectedBuilding}
+              disabled={connectionError}
             >
               <SelectTrigger id="building">
                 <SelectValue placeholder="Select building" />
@@ -234,7 +295,7 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
             <Select
               value={selectedRoom}
               onValueChange={setSelectedRoom}
-              disabled={!selectedBuilding}
+              disabled={!selectedBuilding || connectionError}
             >
               <SelectTrigger id="room">
                 <SelectValue placeholder="Select room" />
@@ -263,6 +324,7 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
               value={date}
               onChange={(e) => setDate(e.target.value)}
               min={new Date().toISOString().split('T')[0]}
+              disabled={connectionError}
             />
           </div>
           
@@ -274,6 +336,7 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
                 type="time"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
+                disabled={connectionError}
               />
             </div>
             <div className="space-y-2">
@@ -283,6 +346,7 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
                 type="time"
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
+                disabled={connectionError}
               />
             </div>
           </div>
@@ -294,20 +358,21 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
               placeholder="e.g. Lecture, Meeting, Study Group"
               value={purpose}
               onChange={(e) => setPurpose(e.target.value)}
+              disabled={connectionError}
             />
           </div>
           
           <Button 
             type="submit" 
             className="w-full" 
-            disabled={isLoading || isCreating}
+            disabled={isLoading || isCreating || connectionError}
           >
             {(isLoading || isCreating) ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Booking...
               </>
-            ) : "Book Room"}
+            ) : connectionError ? "Connection Error" : "Book Room"}
           </Button>
         </form>
       </DialogContent>

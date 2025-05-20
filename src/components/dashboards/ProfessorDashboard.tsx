@@ -11,8 +11,9 @@ import { useReservationStatusManager } from '@/hooks/reservation/useReservationS
 import { useBuildings } from '@/hooks/useBuildings';
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, RefreshCw } from "lucide-react";
+import { AlertCircle, RefreshCw, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { checkNetworkConnectivity } from '@/integrations/supabase/client';
 
 interface ProfessorDashboardProps {
   user: User;
@@ -23,6 +24,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
   const [selectedRoomId, setSelectedRoomId] = useState<string>('');
   const [isCreating, setIsCreating] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [networkConnected, setNetworkConnected] = useState(true);
   const { simplifiedBuildings } = useBuildings();
   const { rooms, refreshRooms } = useRooms();
   const { reservations, createReservation, fetchReservations } = useReservations();
@@ -36,6 +38,22 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
     connectionError: reservationConnectionError
   } = useReservationStatusManager();
   
+  // Check network connectivity on a regular interval
+  useEffect(() => {
+    const checkConnectivity = async () => {
+      const isConnected = await checkNetworkConnectivity();
+      setNetworkConnected(isConnected);
+    };
+    
+    // Initial check
+    checkConnectivity();
+    
+    // Set interval for regular checks
+    const intervalId = setInterval(checkConnectivity, 30000); // Check every 30 seconds
+    
+    return () => clearInterval(intervalId);
+  }, []);
+  
   // Function to retry connections and refresh data
   const retryConnection = useCallback(async () => {
     setIsConnecting(true);
@@ -45,7 +63,14 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
         description: "Attempting to reconnect to the server",
       });
       
-      // Try to refresh all data sources
+      // Check network connectivity first
+      const isConnected = await checkNetworkConnectivity();
+      
+      if (!isConnected) {
+        throw new Error("Network connection unavailable");
+      }
+      
+      // Try to refresh all data sources with longer timeouts
       await Promise.allSettled([
         refreshRooms(),
         fetchReservations(),
@@ -59,13 +84,17 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
         title: "Reconnected",
         description: "Successfully reconnected to the server",
       });
+      
+      setNetworkConnected(true);
     } catch (error) {
       console.error("Reconnection failed:", error);
       toast({
         title: "Connection Failed",
-        description: "Unable to connect to the server. Please try again later.",
+        description: "Unable to connect to the server. Please check your network connection and try again.",
         variant: "destructive",
       });
+      
+      setNetworkConnected(false);
     } finally {
       setIsConnecting(false);
     }
@@ -109,6 +138,16 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
   
   // Handler for room reservation with proper parameters
   const handleReserveClick = (buildingId: string, roomId: string, buildingName: string, roomName: string) => {
+    // Check network connectivity first
+    if (!networkConnected || reservationConnectionError) {
+      toast({
+        title: "Connection Error",
+        description: "Cannot reserve rooms while offline. Please check your connection and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setSelectedRoomId(roomId); // Store the selected room ID
     setIsDialogOpen(true);
   };
@@ -140,12 +179,16 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
     [reservations]
   );
   
+  const connectionError = !networkConnected || reservationConnectionError;
+  
   return (
     <div className="container mx-auto px-4 py-8">
-      {reservationConnectionError && (
+      {connectionError && (
         <Alert variant="destructive" className="mb-6">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Connection Error</AlertTitle>
+          <div className="flex items-center">
+            <WifiOff className="h-4 w-4 mr-2" />
+            <AlertTitle>Connection Error</AlertTitle>
+          </div>
           <AlertDescription className="flex items-center justify-between">
             <span>Unable to connect to the reservation system. Some features may not work correctly.</span>
             <Button 
@@ -180,6 +223,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
           buildings={simplifiedBuildings}
           rooms={rooms}
           isCreating={isCreating}
+          connectionError={connectionError}
           createReservation={async (data, roomId) => {
             try {
               setIsCreating(true);
@@ -246,7 +290,8 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
         <AvailableRooms 
           rooms={rooms} 
           buildings={simplifiedBuildings} 
-          onReserveClick={handleReserveClick} 
+          onReserveClick={handleReserveClick}
+          connectionError={connectionError} 
         />
       </div>
     </div>

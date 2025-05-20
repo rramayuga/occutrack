@@ -1,93 +1,96 @@
-import React, { useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+
+import React from 'react';
 import { Building, Room } from '@/lib/types';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { RoomStatusBadge } from "@/components/rooms/RoomStatusBadge";
+import { Button } from "@/components/ui/button";
+import { WifiOff } from "lucide-react";
 
 interface AvailableRoomsProps {
-  buildings: Building[];
   rooms: Room[];
+  buildings: Building[];
   onReserveClick: (buildingId: string, roomId: string, buildingName: string, roomName: string) => void;
+  connectionError?: boolean;
 }
 
-export const AvailableRooms: React.FC<AvailableRoomsProps> = ({ buildings, rooms, onReserveClick }) => {
-  // Get only available rooms and sort them by name
-  const availableRooms = useMemo(() => {
-    const available = rooms.filter(room => room.isAvailable && room.status === 'available');
-    
-    // Sort rooms by name, handling numeric parts properly
-    return available.sort((a, b) => {
-      // Extract numeric part if room names follow a pattern like "Room 101"
-      const aMatch = a.name.match(/(\d+)/);
-      const bMatch = b.name.match(/(\d+)/);
-      
-      if (aMatch && bMatch) {
-        // If both room names contain numbers, sort numerically
-        const aNum = parseInt(aMatch[0], 10);
-        const bNum = parseInt(bMatch[0], 10);
-        return aNum - bNum;
-      }
-      
-      // Otherwise sort alphabetically
-      return a.name.localeCompare(b.name);
-    });
-  }, [rooms]);
+export const AvailableRooms: React.FC<AvailableRoomsProps> = ({ 
+  rooms, 
+  buildings, 
+  onReserveClick,
+  connectionError = false
+}) => {
+  // Filter for available rooms
+  const availableRooms = rooms.filter(room => room.status === 'available');
 
-  // Create a mapping from room IDs to building names for easier lookup
-  const buildingMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    rooms.forEach(room => {
-      const building = buildings.find(b => b.id === room.buildingId);
-      if (building) {
-        map[room.id] = building.name;
-      }
-    });
-    return map;
-  }, [buildings, rooms]);
+  // Group rooms by building
+  const roomsByBuilding: Record<string, Room[]> = {};
+  availableRooms.forEach(room => {
+    if (!roomsByBuilding[room.buildingId]) {
+      roomsByBuilding[room.buildingId] = [];
+    }
+    roomsByBuilding[room.buildingId].push(room);
+  });
+
+  // Get building names
+  const getBuildingName = (id: string) => {
+    const building = buildings.find(b => b.id === id);
+    return building ? building.name : 'Unknown Building';
+  };
 
   return (
-    <Card className="col-span-1">
-      <CardHeader>
-        <CardTitle>Available Rooms</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4 max-h-[300px] overflow-y-auto">
-          {availableRooms.length > 0 ? (
-            availableRooms.map((room) => (
-              <div 
-                key={room.id} 
-                className="flex items-center justify-between p-3 border rounded-lg"
-              >
-                <div>
-                  <p className="font-medium text-sm">{room.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {buildingMap[room.id]}, Floor {room.floor}
-                  </p>
-                  <Badge variant="outline" className="mt-1">
-                    {room.type}
-                  </Badge>
-                </div>
-                <Button
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => onReserveClick(
-                    room.buildingId,
-                    room.id,
-                    buildingMap[room.id] || '',
-                    room.name
-                  )}
-                >
-                  Reserve
-                </Button>
+    <div className="col-span-2">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>Available Rooms</span>
+            {connectionError && (
+              <div className="flex items-center text-sm text-destructive font-normal">
+                <WifiOff className="h-3 w-3 mr-1" />
+                <span>Connection Error</span>
               </div>
-            ))
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {Object.keys(roomsByBuilding).length === 0 ? (
+            <div className="text-center py-6">
+              <p>{connectionError ? "Unable to fetch available rooms due to connection issues." : "No available rooms at this time."}</p>
+            </div>
           ) : (
-            <div className="text-center p-4">
-              <p className="text-muted-foreground">No rooms available at this time.</p>
+            <div className="space-y-6">
+              {Object.keys(roomsByBuilding).map((buildingId) => (
+                <div key={buildingId}>
+                  <h3 className="font-medium mb-2">{getBuildingName(buildingId)}</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {roomsByBuilding[buildingId].map((room) => (
+                      <Card key={room.id} className="border shadow-sm">
+                        <CardContent className="py-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-medium">{room.name}</h4>
+                            <RoomStatusBadge status={room.status} />
+                          </div>
+                          <p className="text-sm text-muted-foreground">Floor {room.floor}</p>
+                          <p className="text-sm text-muted-foreground">Capacity: {room.capacity}</p>
+                        </CardContent>
+                        <CardFooter className="pt-0 pb-4">
+                          <Button 
+                            onClick={() => onReserveClick(buildingId, room.id, getBuildingName(buildingId), room.name)} 
+                            size="sm" 
+                            className="w-full"
+                            disabled={connectionError}
+                          >
+                            {connectionError ? "Offline" : "Reserve"}
+                          </Button>
+                        </CardFooter>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 };

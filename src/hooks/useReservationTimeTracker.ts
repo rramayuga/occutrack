@@ -1,6 +1,7 @@
 
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { useReservationStatusManager } from './reservation/useReservationStatusManager';
+import { useToast } from "@/hooks/use-toast";
 
 export function useReservationTimeTracker() {
   // This hook is a wrapper around our centralized status manager
@@ -9,7 +10,8 @@ export function useReservationTimeTracker() {
     activeReservations,
     completedReservationIds, 
     fetchActiveReservations,
-    processReservations
+    processReservations,
+    connectionError: managerConnectionError
   } = useReservationStatusManager();
   
   // Track if we've already processed reservations this render cycle
@@ -18,6 +20,8 @@ export function useReservationTimeTracker() {
   const lastProcessTime = useRef(Date.now());
   const [connectionError, setConnectionError] = useState(false);
   const retryCount = useRef(0);
+  const maxRetries = 8; // Increase max retries
+  const { toast } = useToast();
   
   // Process reservations on a fixed interval and update the UI accordingly
   const processAndUpdate = useCallback(async () => {
@@ -37,6 +41,16 @@ export function useReservationTimeTracker() {
     } catch (error) {
       console.error("Error in processAndUpdate:", error);
       setConnectionError(true);
+      
+      // If we're getting too many failures, show a toast to inform the user
+      if (retryCount.current === 3) {
+        toast({
+          title: "Connection Issues",
+          description: "Having trouble connecting to the reservation system. Will continue trying...",
+          variant: "destructive",
+        });
+      }
+      
       retryCount.current += 1;
       
       // If we have connection errors, we'll try again with exponential backoff
@@ -44,7 +58,7 @@ export function useReservationTimeTracker() {
       console.log(`Will retry after ${backoffDelay}ms (attempt ${retryCount.current})`);
       
       // Try to recover by forcing a new fetch after a delay
-      if (retryCount.current <= 5) {
+      if (retryCount.current <= maxRetries) {
         setTimeout(() => {
           fetchActiveReservations().catch(e => {
             console.error("Error during retry fetch:", e);
@@ -52,7 +66,7 @@ export function useReservationTimeTracker() {
         }, backoffDelay);
       }
     }
-  }, [processReservations, connectionError, fetchActiveReservations]);
+  }, [processReservations, connectionError, fetchActiveReservations, toast]);
   
   // Set up an effect to process reservations on mount and at regular intervals
   useEffect(() => {
@@ -80,11 +94,16 @@ export function useReservationTimeTracker() {
     return () => clearInterval(intervalId);
   }, [fetchActiveReservations, processAndUpdate]);
 
+  // Sync our local connection error state with the manager's
+  useEffect(() => {
+    setConnectionError(managerConnectionError || connectionError);
+  }, [managerConnectionError]);
+
   return {
     activeReservations,
     completedReservations: completedReservationIds,
     fetchActiveReservations,
     processReservations,
-    connectionError
+    connectionError: connectionError || managerConnectionError
   };
 }
