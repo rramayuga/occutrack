@@ -85,6 +85,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           avatarUrl: profile.avatar
         };
         
+        // If status property exists in the profile, add it to userData
+        if (Object.prototype.hasOwnProperty.call(profile, 'status')) {
+          userData.status = profile.status;
+        }
+        
         setUser(userData);
         return userData;
       }
