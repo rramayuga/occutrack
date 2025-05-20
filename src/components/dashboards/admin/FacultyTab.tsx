@@ -30,7 +30,7 @@ interface FacultyTabProps {
   facultyMembers: FacultyMember[];
   handleViewFaculty: (facultyId: string) => void;
   refreshFacultyData?: () => void;
-  handleDeleteFaculty?: (facultyId: string) => Promise<void>;
+  handleDeleteFaculty?: (facultyId: string) => void;
 }
 
 const FacultyTab: React.FC<FacultyTabProps> = ({
@@ -59,13 +59,9 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
       // Call the parent component's delete handler with the faculty ID
       await handleDeleteFaculty(selectedFaculty.id);
       
-      // Close dialog
+      // Close dialog and refresh data
       setIsDeleteDialogOpen(false);
-      setSelectedFaculty(null);
-      
-      // Explicitly refresh data after deletion
       if (refreshFacultyData) {
-        console.log('Refreshing faculty data after deletion');
         refreshFacultyData();
       }
       

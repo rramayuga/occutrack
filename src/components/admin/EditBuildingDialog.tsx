@@ -33,8 +33,13 @@ const EditBuildingDialog: React.FC<EditBuildingDialogProps> = ({
           }}
           onSubmit={(data) => {
             // Log the submission data
-            console.log('Submitting edit building form with data:', data);
-            onSubmit(data);
+            console.log('Submitting edit building form:', data);
+            onSubmit({
+              ...data,
+              // Ensure floorCount is properly passed as a number
+              floorCount: typeof data.floorCount === 'string' ? 
+                parseInt(data.floorCount, 10) : data.floorCount
+            });
           }}
           onCancel={onClose}
         />

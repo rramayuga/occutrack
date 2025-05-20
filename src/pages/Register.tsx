@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { UserRole } from '@/lib/types';
 import { 
@@ -12,7 +12,6 @@ import { useToast } from "@/components/ui/use-toast";
 import { Building } from 'lucide-react';
 import RegistrationForm from '@/components/auth/RegistrationForm';
 import { handleStudentRegistration, handleFacultyRegistration, handleGoogleSignIn } from '@/utils/auth-utils';
-import { useAuth } from '@/lib/auth';
 
 interface LocationState {
   fromGoogle?: boolean;
@@ -21,9 +20,7 @@ interface LocationState {
 }
 
 const Register = () => {
-  const { user } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
   const locationState = location.state as LocationState || {};
   
   const [name, setName] = useState(locationState.name || '');
@@ -35,14 +32,9 @@ const Register = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [isGoogleSignIn, setIsGoogleSignIn] = useState(Boolean(locationState.fromGoogle));
+  
+  const navigate = useNavigate();
   const { toast } = useToast();
-
-  // Redirect to dashboard if already logged in
-  useEffect(() => {
-    if (user) {
-      navigate('/dashboard', { replace: true });
-    }
-  }, [user, navigate]);
 
   const showDepartmentField = role === 'faculty';
   
@@ -63,9 +55,6 @@ const Register = () => {
       setError('Please select a department.');
       return;
     }
-
-    // Check if email has @neu.edu.ph domain
-    const isNeuEmail = email.toLowerCase().endsWith('@neu.edu.ph');
     
     setIsLoading(true);
     setError('');
@@ -74,38 +63,20 @@ const Register = () => {
       if (role === 'faculty') {
         const authData = await handleFacultyRegistration(email, password || '', name, department);
         if (authData.user) {
-          // NEU emails get automatically approved
-          if (isNeuEmail) {
-            toast({
-              title: "Registration Successful",
-              description: "Your faculty account has been automatically approved. Welcome!",
-            });
-            navigate('/dashboard');
-          } else {
-            toast({
-              title: "Registration Submitted",
-              description: "Your faculty account request has been submitted for approval.",
-            });
-            navigate('/faculty-confirmation');
-          }
+          toast({
+            title: "Registration Submitted",
+            description: "Your faculty account request has been submitted for approval.",
+          });
+          navigate('/faculty-confirmation');
         }
       } else {
         const authData = await handleStudentRegistration(email, password || '', name);
         if (authData.user) {
-          // NEU emails get automatically approved
-          if (isNeuEmail) {
-            toast({
-              title: "Registration Successful",
-              description: "Welcome to NEU OccuTrack!",
-            });
-            navigate('/dashboard');
-          } else {
-            toast({
-              title: "Registration Submitted",
-              description: "Your account has been submitted for approval.",
-            });
-            navigate('/faculty-confirmation');
-          }
+          toast({
+            title: "Registration Successful",
+            description: "Welcome to NEU OccuTrack!",
+          });
+          navigate('/dashboard');
         }
       }
     } catch (error: any) {
@@ -148,11 +119,6 @@ const Register = () => {
           <CardDescription>
             Enter your details to register for NEU OccuTrack
           </CardDescription>
-          {email?.toLowerCase().endsWith('@neu.edu.ph') && (
-            <div className="bg-green-50 text-green-700 p-2 rounded-md text-sm mt-2">
-              NEU email detected! Your account will be automatically approved.
-            </div>
-          )}
         </CardHeader>
         
         <CardContent>
