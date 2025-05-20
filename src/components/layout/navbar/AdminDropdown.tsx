@@ -2,10 +2,9 @@
 import React from 'react';
 import { Shield } from 'lucide-react';
 import NavLink from './NavLink';
-import { NavLinkItem } from './NavLinkList';
 
 interface AdminDropdownProps {
-  adminLinks: NavLinkItem[];
+  adminLinks: any[];
 }
 
 const AdminDropdown: React.FC<AdminDropdownProps> = ({ adminLinks }) => {

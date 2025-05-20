@@ -10,7 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Trash } from 'lucide-react';
+import { Badge } from "@/components/ui/badge";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -21,23 +21,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Trash } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { FacultyMember } from '@/hooks/useFacultyManagement';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { supabase } from '@/integrations/supabase/client';
+import { useFacultyManagement } from '@/hooks/useFacultyManagement';
 import { deleteUser } from '@/utils/auth-utils';
 
 interface FacultyTabProps {
   isLoadingFaculty: boolean;
   facultyMembers: FacultyMember[];
   handleViewFaculty: (facultyId: string) => void;
-  refreshFacultyData?: () => void;
+  refreshFacultyData?: () => void; // Optional callback to refresh data after deletion
 }
 
 const FacultyTab: React.FC<FacultyTabProps> = ({
@@ -51,21 +45,6 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
   const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
 
-  // List of departments
-  const departments = [
-    "Computer Science",
-    "Information Technology",
-    "Engineering",
-    "Business",
-    "Education",
-    "Arts and Sciences",
-    "Medicine",
-    "Law",
-    "Architecture",
-    "Nursing",
-    "Other"
-  ];
-
   const handleDeleteClick = (faculty: FacultyMember) => {
     setSelectedFaculty(faculty);
     setIsDeleteDialogOpen(true);
@@ -77,62 +56,31 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
     try {
       setIsDeleting(true);
       
-      console.log("Deleting user with ID:", selectedFaculty.user_id);
+      console.log("Permanently deleting user:", selectedFaculty);
       
-      // Call the deleteUser function from utils
+      // Call the deleteUser function to permanently delete the user
       await deleteUser(selectedFaculty.user_id);
       
       toast({
         title: "User deleted",
-        description: `${selectedFaculty.name} has been successfully deleted from the system.`,
+        description: `${selectedFaculty.name} has been permanently removed from the system.`,
       });
       
+      // Close dialog and refresh data
       setIsDeleteDialogOpen(false);
       if (refreshFacultyData) {
         refreshFacultyData();
       }
       
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error deleting user:', error);
       toast({
-        title: "Operation failed",
-        description: error.message || "There was a problem deleting this user.",
+        title: "Deletion failed",
+        description: "There was a problem deleting this user.",
         variant: "destructive",
       });
     } finally {
       setIsDeleting(false);
-    }
-  };
-
-  const handleDepartmentChange = async (faculty: FacultyMember, department: string) => {
-    try {
-      console.log(`Updating department for ${faculty.name} to ${department}`);
-      
-      // Update the faculty_requests table
-      const { error } = await supabase
-        .from('faculty_requests')
-        .update({ department })
-        .eq('id', faculty.id);
-        
-      if (error) throw error;
-      
-      toast({
-        title: "Department updated",
-        description: `${faculty.name}'s department has been updated to ${department}.`,
-      });
-      
-      // Refresh the faculty list
-      if (refreshFacultyData) {
-        refreshFacultyData();
-      }
-      
-    } catch (error: any) {
-      console.error("Error updating department:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update department",
-        variant: "destructive"
-      });
     }
   };
 
@@ -153,6 +101,7 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Department</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead>Joined</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -162,20 +111,13 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
                 <TableRow key={faculty.id}>
                   <TableCell className="font-medium">{faculty.name}</TableCell>
                   <TableCell>{faculty.email}</TableCell>
+                  <TableCell>{faculty.department}</TableCell>
                   <TableCell>
-                    <Select
-                      defaultValue={faculty.department}
-                      onValueChange={(value) => handleDepartmentChange(faculty, value)}
+                    <Badge 
+                      variant={faculty.status === 'approved' ? 'default' : 'secondary'}
                     >
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Select department" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {departments.map((dept) => (
-                          <SelectItem key={dept} value={dept}>{dept}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      {faculty.status}
+                    </Badge>
                   </TableCell>
                   <TableCell>
                     {faculty.createdAt ? format(new Date(faculty.createdAt), 'MMM dd, yyyy') : 'Unknown'}
@@ -215,7 +157,7 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete {selectedFaculty?.name}'s account from the system.
+              This will permanently delete {selectedFaculty?.name}'s account. 
               This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>

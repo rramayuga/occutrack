@@ -2,12 +2,11 @@
 import React from 'react';
 import NavLink from './NavLink';
 import { UserRole } from '@/lib/types';
-import { LucideIcon } from 'lucide-react';
 
-export interface NavLinkItem {
+interface NavLinkItem {
   name: string;
   path: string;
-  icon: LucideIcon;
+  icon: React.ReactNode;
   roles: UserRole[];
 }
 

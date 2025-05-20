@@ -1,7 +1,8 @@
 
 import React from 'react';
-import { UserX, Trash } from 'lucide-react';
+import { Check, X, UserX, Trash } from 'lucide-react';
 import { Button } from "@/components/ui/button";
+import { Badge } from '@/components/ui/badge';
 import { FacultyMember } from '@/lib/types';
 import {
   Table,
@@ -11,13 +12,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 interface FacultyListProps {
   isLoading: boolean;
@@ -26,7 +20,6 @@ interface FacultyListProps {
   onRejectClick: (faculty: FacultyMember) => void;
   onDeleteClick: (faculty: FacultyMember) => void;
   formatDate: (dateString: string) => string;
-  onDepartmentChange?: (faculty: FacultyMember, department: string) => void;
 }
 
 const FacultyList: React.FC<FacultyListProps> = ({
@@ -35,23 +28,18 @@ const FacultyList: React.FC<FacultyListProps> = ({
   handleUpdateStatus,
   onRejectClick,
   onDeleteClick,
-  formatDate,
-  onDepartmentChange
+  formatDate
 }) => {
-  // List of departments
-  const departments = [
-    "Computer Science",
-    "Information Technology",
-    "Engineering",
-    "Business",
-    "Education",
-    "Arts and Sciences",
-    "Medicine",
-    "Law",
-    "Architecture",
-    "Nursing",
-    "Other"
-  ];
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'approved':
+        return <Badge className="bg-green-500">Approved</Badge>;
+      case 'rejected':
+        return <Badge variant="destructive">Rejected</Badge>;
+      default:
+        return <Badge variant="outline" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">Pending</Badge>;
+    }
+  };
 
   if (isLoading) {
     return <div className="text-center py-10">Loading faculty members...</div>;
@@ -75,6 +63,7 @@ const FacultyList: React.FC<FacultyListProps> = ({
             <TableHead>Email</TableHead>
             <TableHead>Department</TableHead>
             <TableHead>Requested On</TableHead>
+            <TableHead>Status</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -83,24 +72,55 @@ const FacultyList: React.FC<FacultyListProps> = ({
             <TableRow key={faculty.id}>
               <TableCell className="font-medium">{faculty.name}</TableCell>
               <TableCell>{faculty.email}</TableCell>
-              <TableCell>
-                <Select
-                  defaultValue={faculty.department}
-                  onValueChange={(value) => onDepartmentChange && onDepartmentChange(faculty, value)}
-                >
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Select department" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {departments.map((dept) => (
-                      <SelectItem key={dept} value={dept}>{dept}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </TableCell>
+              <TableCell>{faculty.department}</TableCell>
               <TableCell>{formatDate(faculty.createdAt)}</TableCell>
+              <TableCell>{getStatusBadge(faculty.status)}</TableCell>
               <TableCell className="text-right">
                 <div className="flex justify-end space-x-2">
+                  {faculty.status === 'pending' && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="bg-green-50 text-green-600 hover:bg-green-100"
+                        onClick={() => handleUpdateStatus(faculty, 'approved')}
+                      >
+                        <Check className="h-4 w-4 mr-1" />
+                        Approve
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="bg-red-50 text-red-600 hover:bg-red-100"
+                        onClick={() => onRejectClick(faculty)}
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        Reject
+                      </Button>
+                    </>
+                  )}
+                  {faculty.status === 'rejected' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="bg-green-50 text-green-600 hover:bg-green-100"
+                      onClick={() => handleUpdateStatus(faculty, 'approved')}
+                    >
+                      <Check className="h-4 w-4 mr-1" />
+                      Approve
+                    </Button>
+                  )}
+                  {faculty.status === 'approved' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="bg-red-50 text-red-600 hover:bg-red-100"
+                      onClick={() => onRejectClick(faculty)}
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Reject
+                    </Button>
+                  )}
                   {/* Delete button for all faculty members */}
                   <Button
                     variant="outline"

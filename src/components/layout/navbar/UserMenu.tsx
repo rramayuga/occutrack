@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ChevronDown, LogOut } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -23,13 +24,16 @@ interface UserMenuProps {
 const UserMenu: React.FC<UserMenuProps> = ({ user, onSignOut }) => {
   const [open, setOpen] = useState(false);
   
-  // Return only Google login button if no user
+  // Return login/register buttons if no user
   if (!user) {
     return (
       <div className="flex items-center space-x-4">
-        <Button variant="outline" size="sm" onClick={() => window.location.href = "/login"}>
-          Sign in with Google
-        </Button>
+        <Link to="/login">
+          <Button variant="outline" size="sm">Log in</Button>
+        </Link>
+        <Link to="/register">
+          <Button size="sm">Register</Button>
+        </Link>
       </div>
     );
   }

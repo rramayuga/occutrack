@@ -10,6 +10,7 @@ import NotFound from "./pages/NotFound";
 import Dashboard from "./pages/Dashboard";
 import Rooms from "./pages/Rooms";
 import RoomManagement from "./pages/RoomManagement";
+import FacultyManagement from "./pages/FacultyManagement";
 import UserManagement from "./pages/UserManagement";
 import UserRightsManagementPage from "./pages/UserRightsManagementPage";
 import Login from "./pages/Login";
@@ -75,6 +76,7 @@ const App = () => (
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/rooms" element={<ProtectedRoute><Rooms /></ProtectedRoute>} />
           <Route path="/room-management" element={<ProtectedRoute><RoomManagement /></ProtectedRoute>} />
+          <Route path="/faculty-management" element={<ProtectedRoute><FacultyManagement /></ProtectedRoute>} />
           <Route path="/user-management" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
           <Route path="/user-rights" element={<ProtectedRoute><UserRightsManagementPage /></ProtectedRoute>} />
           <Route path="/login" element={<Login />} />
