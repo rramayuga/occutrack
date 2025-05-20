@@ -28,7 +28,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
-  const { buildings, loading, addBuilding, editBuilding, updateBuilding, deleteBuilding } = useBuildings();
+  const { buildings, loading, addBuilding, updateBuilding, deleteBuilding } = useBuildings();
   const { addRoom } = useEnhancedRoomsManagement();
   const { facultyCount, facultyMembers, isLoadingFaculty, fetchFacultyData, deleteFacultyMember } = useFacultyManagement();
   const utilizationRate = useRoomUtilization();
@@ -44,11 +44,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
 
   const onEditBuildingSubmit = async (data: any) => {
     if (selectedBuilding) {
-      // Use updateBuilding instead of editBuilding to correctly save floor count
+      console.log('Editing building with data:', data);
+      
+      // Ensure floorCount is parsed as an integer
+      const floorCount = typeof data.floorCount === 'string' 
+        ? parseInt(data.floorCount, 10) 
+        : data.floorCount;
+      
       const result = await updateBuilding(
         selectedBuilding.id, 
         data.name, 
-        typeof data.floorCount === 'string' ? parseInt(data.floorCount, 10) : data.floorCount,
+        floorCount,
         data.location
       );
       
@@ -117,6 +123,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
       const facultyToDelete = facultyMembers.find(f => f.id === facultyId);
       if (facultyToDelete) {
         await deleteFacultyMember(facultyToDelete);
+        // After successful deletion, refresh data
+        fetchFacultyData();
         toast({
           title: "Faculty deleted",
           description: "Faculty member has been removed successfully"

@@ -59,9 +59,13 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
       // Call the parent component's delete handler with the faculty ID
       await handleDeleteFaculty(selectedFaculty.id);
       
-      // Close dialog and refresh data
+      // Close dialog
       setIsDeleteDialogOpen(false);
+      setSelectedFaculty(null);
+      
+      // Explicitly refresh data after deletion
       if (refreshFacultyData) {
+        console.log('Refreshing faculty data after deletion');
         refreshFacultyData();
       }
       
