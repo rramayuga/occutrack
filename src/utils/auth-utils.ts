@@ -143,6 +143,7 @@ export const handleLogin = async (email: string, password: string) => {
       .eq('id', data.user.id)
       .single();
       
+    // Check if profile.status exists before using it
     if (profile && profile.status === 'pending') {
       // Force sign out if status is pending
       await supabase.auth.signOut();
