@@ -16,9 +16,10 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     autoRefreshToken: true,
   },
   global: {
-    fetch: (...args) => {
+    // Fixed: Use properly typed fetch wrapper
+    fetch: (url, options) => {
       // Add custom headers or modify fetch behavior here if needed
-      return fetch(...args);
+      return fetch(url, options);
     },
   },
   realtime: {

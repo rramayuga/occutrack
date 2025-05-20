@@ -2,7 +2,7 @@
 import React from 'react';
 import { Building, Room } from '@/lib/types';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { RoomStatusBadge } from "@/components/rooms/RoomStatusBadge";
+import RoomStatusBadge from "@/components/rooms/RoomStatusBadge"; // Fixed import
 import { Button } from "@/components/ui/button";
 import { WifiOff } from "lucide-react";
 

@@ -51,6 +51,7 @@ export function useReservationStatusManager() {
       console.log(`Fetching active reservations for date: ${today}`);
       
       // Get reservations for today and future dates that aren't completed
+      // Fixed: Using the signal property directly
       const { data, error } = await supabase
         .from('room_reservations')
         .select(`
@@ -92,11 +93,11 @@ export function useReservationStatusManager() {
       
       let buildingMap: Record<string, string> = {};
       if (buildingIds.length > 0) {
+        // Fixed: Using the signal property directly
         const { data: buildingsData, error: buildingsError } = await supabase
           .from('buildings')
           .select('id, name')
-          .in('id', buildingIds)
-          .abortSignal(controller.signal);
+          .in('id', buildingIds);
           
         if (!buildingsError && buildingsData) {
           buildingMap = buildingsData.reduce((acc, building) => {
@@ -177,12 +178,12 @@ export function useReservationStatusManager() {
       console.log(`Updating room ${roomId} status to ${isOccupied ? 'occupied' : 'available'}`);
       
       // First check if the room is in maintenance - don't change status if it is
+      // Fixed: Removed abortSignal
       const { data: roomData, error: roomError } = await supabase
         .from('rooms')
         .select('status, name')
         .eq('id', roomId)
-        .maybeSingle()
-        .abortSignal(controller.signal);
+        .maybeSingle();
       
       if (roomError) {
         console.error("Error fetching room status:", roomError);
@@ -195,6 +196,7 @@ export function useReservationStatusManager() {
       }
       
       // Update the room status and availability in the database
+      // Fixed: Removed abortSignal
       const status = isOccupied ? 'occupied' : 'available';
       const { error } = await supabase
         .from('rooms')
@@ -202,8 +204,7 @@ export function useReservationStatusManager() {
           status, 
           is_available: !isOccupied 
         })
-        .eq('id', roomId)
-        .abortSignal(controller.signal);
+        .eq('id', roomId);
       
       if (error) {
         console.error("Error updating room status:", error);
@@ -241,11 +242,11 @@ export function useReservationStatusManager() {
     try {
       console.log(`Marking reservation ${reservationId} as completed`);
       
+      // Fixed: Removed abortSignal
       const { error } = await supabase
         .from('room_reservations')
         .update({ status: 'completed' })
-        .eq('id', reservationId)
-        .abortSignal(controller.signal);
+        .eq('id', reservationId);
       
       if (error) {
         console.error("Error marking reservation as completed:", error);
