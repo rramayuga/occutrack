@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,7 +36,6 @@ export function useReservations() {
           faculty_id
         `)
         .eq('faculty_id', user.id)
-        .neq('status', 'completed') // Don't get completed reservations by default
         .order('date', { ascending: true })
         .order('start_time', { ascending: true });
       
@@ -125,14 +125,7 @@ export function useReservations() {
       return null;
     }
     
-    if (user.role !== 'faculty') {
-      toast({
-        title: "Access denied",
-        description: "Only faculty members can make room reservations.",
-        variant: "destructive"
-      });
-      return null;
-    }
+    console.log("Creating reservation with values:", values, "and roomId:", roomId);
     
     try {
       // First, check if the room is under maintenance
@@ -142,7 +135,10 @@ export function useReservations() {
         .eq('id', roomId)
         .single();
         
-      if (roomError) throw roomError;
+      if (roomError) {
+        console.error("Room fetch error:", roomError);
+        throw roomError;
+      }
       
       if (roomData?.status === 'maintenance') {
         toast({
@@ -161,7 +157,10 @@ export function useReservations() {
         .eq('date', values.date)
         .neq('status', 'completed');
       
-      if (conflictError) throw conflictError;
+      if (conflictError) {
+        console.error("Conflict check error:", conflictError);
+        throw conflictError;
+      }
 
       // Manually check for time overlaps
       const hasTimeConflict = conflicts?.some(booking => {
@@ -191,34 +190,44 @@ export function useReservations() {
         date: values.date,
         start_time: values.startTime,
         end_time: values.endTime,
-        purpose: values.purpose,
+        purpose: values.purpose || "",
         status: 'approved' // Auto-approve for now
       };
+      
+      console.log("Submitting reservation data:", newReservation);
       
       const { data, error } = await supabase
         .from('room_reservations')
         .insert(newReservation)
         .select();
       
-      if (error) throw error;
+      if (error) {
+        console.error("Reservation creation error:", error);
+        throw error;
+      }
       
       if (data && data.length > 0) {
+        console.log("Reservation created successfully:", data[0]);
+        
         toast({
-          title: "Room booked successfully",
-          description: `You've booked ${values.roomNumber || 'a room'} in ${values.building || 'the building'} on ${values.date} from ${values.startTime} to ${values.endTime}`,
+          title: "Room Reserved",
+          description: `You've booked ${values.roomNumber} in ${values.building} on ${values.date} from ${values.startTime} to ${values.endTime}`,
+          duration: 3000,
         });
         
         // Refresh reservations
         fetchReservations();
         return data[0];
       }
+      
       return null;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating reservation:", error);
       toast({
         title: "Error",
-        description: "Failed to book the room. Please try again.",
-        variant: "destructive"
+        description: error?.message || "Failed to book the room. Please try again.",
+        variant: "destructive",
+        duration: 5000,
       });
       return null;
     }
@@ -230,7 +239,7 @@ export function useReservations() {
     return hours * 60 + minutes;
   };
 
-  // Setup real-time subscription for reservation updates with better error handling
+  // Setup real-time subscription for reservation updates
   const setupReservationsSubscription = useCallback(() => {
     if (!user) return () => {};
     
@@ -248,14 +257,6 @@ export function useReservations() {
         })
         .subscribe((status) => {
           console.log('Reservation subscription status:', status);
-          
-          // If subscription fails, retry after a delay
-          if (status !== 'SUBSCRIBED') {
-            setTimeout(() => {
-              console.log('Retrying reservation subscription...');
-              setupReservationsSubscription();
-            }, 5000); // 5 second retry delay
-          }
         });
 
       return () => {

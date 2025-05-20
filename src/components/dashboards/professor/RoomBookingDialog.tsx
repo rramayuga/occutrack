@@ -44,13 +44,17 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
         setEndTime('');
         setPurpose('');
       }, 200);
+    } else {
+      // Set default date to today when opening
+      const today = new Date().toISOString().split('T')[0];
+      setDate(today);
     }
   }, [isOpen]);
   
   // Sort rooms alphabetically/numerically for display
   const sortedRooms = React.useMemo(() => {
     return [...rooms]
-      .filter(room => room.buildingId === selectedBuilding)
+      .filter(room => room.buildingId === selectedBuilding && room.status !== 'maintenance')
       .sort((a, b) => {
         // Extract numeric part if room names follow a pattern like "Room 101"
         const aMatch = a.name.match(/(\d+)/);
@@ -84,7 +88,8 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
       toast({
         title: "Validation Error",
         description: "Please fill in all required fields.",
-        variant: "destructive"
+        variant: "destructive",
+        duration: 3000,
       });
       return;
     }
@@ -95,7 +100,8 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
       toast({
         title: "Time Format Error",
         description: "Please use HH:MM format for times, e.g. 09:30",
-        variant: "destructive"
+        variant: "destructive",
+        duration: 3000,
       });
       return;
     }
@@ -105,7 +111,8 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
       toast({
         title: "Time Error",
         description: "End time must be after start time",
-        variant: "destructive"
+        variant: "destructive",
+        duration: 3000,
       });
       return;
     }
@@ -120,7 +127,8 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
       toast({
         title: "Date Error",
         description: "Please select today or a future date",
-        variant: "destructive"
+        variant: "destructive",
+        duration: 3000,
       });
       return;
     }
@@ -138,28 +146,39 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
         roomId: selectedRoom
       });
       
-      const result = await createReservation({
+      // Ensure all form values are properly passed
+      const formValues: ReservationFormValues = {
         building: selectedBuildingName,
         roomNumber: selectedRoomName,
         date,
         startTime,
         endTime,
-        purpose
-      }, selectedRoom);
+        purpose: purpose || ""  // Ensure purpose is never undefined
+      };
+      
+      const result = await createReservation(formValues, selectedRoom);
       
       if (result) {
+        console.log("Reservation created successfully:", result);
+        
         toast({
-          title: "Room Booked",
+          title: "Room Reserved",
           description: `Successfully booked ${selectedRoomName} in ${selectedBuildingName}`,
+          duration: 3000,
         });
+        
         onOpenChange(false);
+      } else {
+        // createReservation returns null on error and already shows a toast
+        console.log("Reservation creation failed or was cancelled");
       }
     } catch (error) {
       console.error("Room booking error:", error);
       toast({
         title: "Error",
         description: "Failed to book the room. Please try again.",
-        variant: "destructive"
+        variant: "destructive",
+        duration: 3000,
       });
     } finally {
       setIsLoading(false);
@@ -205,7 +224,7 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
               <SelectContent>
                 {sortedRooms.map((room) => (
                   <SelectItem key={room.id} value={room.id}>
-                    {room.name}
+                    {room.name} {room.status !== 'available' ? `(${room.status})` : ''}
                   </SelectItem>
                 ))}
               </SelectContent>

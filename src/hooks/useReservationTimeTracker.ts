@@ -20,7 +20,7 @@ export function useReservationTimeTracker() {
   // Process reservations on a fixed interval and update the UI accordingly
   const processAndUpdate = useCallback(() => {
     const now = Date.now();
-    if (now - lastProcessTime.current > 30000) { // 30 seconds between checks for faster updates
+    if (now - lastProcessTime.current > 15000) { // 15 seconds between checks for faster updates
       console.log("Processing reservations in useReservationTimeTracker");
       processReservations();
       lastProcessTime.current = now;
@@ -32,15 +32,16 @@ export function useReservationTimeTracker() {
     console.log("Setting up reservation tracking in useReservationTimeTracker");
     
     // Initial processing
+    fetchActiveReservations();
     processAndUpdate();
     
     // Set up a more frequent interval for better responsiveness
     const intervalId = setInterval(() => {
       processAndUpdate();
-    }, 30000); // Check every 30 seconds for more responsive status updates
+    }, 15000); // Check every 15 seconds for more responsive status updates
     
     return () => clearInterval(intervalId);
-  }, [processAndUpdate]);
+  }, [fetchActiveReservations, processAndUpdate]);
 
   return {
     activeReservations,

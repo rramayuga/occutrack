@@ -43,6 +43,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
     const timeoutId = setTimeout(() => {
       console.log("ProfessorDashboard - Processing reservations after delay");
       processReservations();
+      refreshRooms();
     }, 2000);
     
     return () => clearTimeout(timeoutId);
@@ -114,8 +115,8 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
                   setTimeout(() => {
                     console.log("Processing reservations after room reservation");
                     processReservations();
-                  }, 1000);
-                }, 1000);
+                  }, 500);
+                }, 500);
                 
                 return result;
               }

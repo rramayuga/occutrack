@@ -82,7 +82,7 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
     // Increase check frequency for more timely status updates
     const now = new Date();
     const timeSinceLastCheck = now.getTime() - lastCheckTime.current.getTime();
-    if (timeSinceLastCheck < 15000) return; // 15 seconds between global checks
+    if (timeSinceLastCheck < 10000) return; // 10 seconds between global checks
     
     lastCheckTime.current = now;
     isProcessing.current = true;
