@@ -77,17 +77,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (profile) {
         console.log('Profile fetched successfully:', profile);
-        const userData: User = {
-          id: profile.id,
-          name: profile.name,
-          email: profile.email,
-          role: profile.role as UserRole,
-          avatarUrl: profile.avatar
+        // Create a properly typed profile object with optional status
+        const profileData = profile as { 
+          id: string; 
+          name: string; 
+          email: string; 
+          role: string; 
+          avatar: string | null;
+          status?: string;
         };
         
-        // If status property exists in the profile, add it to userData
-        if (profile && Object.prototype.hasOwnProperty.call(profile, 'status')) {
-          (userData as User).status = profile.status as string;
+        const userData: User = {
+          id: profileData.id,
+          name: profileData.name,
+          email: profileData.email,
+          role: profileData.role as UserRole,
+          avatarUrl: profileData.avatar
+        };
+        
+        // If status exists in the profile data, add it to userData
+        if (profileData.status) {
+          userData.status = profileData.status;
         }
         
         setUser(userData);
