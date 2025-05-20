@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { startOfMonth, endOfMonth } from "date-fns";
-import { Download, FileSpreadsheet } from "lucide-react";
+import { Download } from "lucide-react";
 import RoomUsageStats from '@/components/admin/RoomUsageStats';
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
@@ -73,7 +73,7 @@ const AnalyticsTab: React.FC = () => {
           onClick={handleExport}
           className="flex items-center gap-2"
         >
-          <FileSpreadsheet className="h-4 w-4" />
+          <Download className="h-4 w-4" />
           Export to Excel
         </Button>
       </div>

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BuildingWithFloors, User } from '@/lib/types';
 import { Button } from "@/components/ui/button";
@@ -28,18 +28,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
-  const { buildings, loading, addBuilding, updateBuilding, deleteBuilding, fetchBuildings } = useBuildings();
+  const { buildings, loading, addBuilding, updateBuilding, deleteBuilding } = useBuildings();
   const { addRoom } = useEnhancedRoomsManagement();
   const { facultyCount, facultyMembers, isLoadingFaculty, fetchFacultyData, deleteFacultyMember } = useFacultyManagement();
   const utilizationRate = useRoomUtilization();
   const { toast } = useToast();
   const navigate = useNavigate();
-
-  // Re-fetch buildings when component mounts to ensure fresh data
-  useEffect(() => {
-    fetchBuildings();
-    fetchFacultyData(); // Also fetch faculty data when component mounts
-  }, [fetchBuildings, fetchFacultyData]);
 
   const onBuildingSubmit = async (data: any) => {
     const result = await addBuilding(data.name, data.floorCount, data.location);
@@ -52,8 +46,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
     if (selectedBuilding) {
       console.log('Editing building with data:', data);
       
-      // Convert floorCount to number
-      const floorCount = parseInt(data.floorCount, 10);
+      // Ensure floorCount is parsed as an integer
+      const floorCount = typeof data.floorCount === 'string' 
+        ? parseInt(data.floorCount, 10) 
+        : data.floorCount;
       
       const result = await updateBuilding(
         selectedBuilding.id, 
@@ -69,9 +65,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
           title: "Building updated",
           description: `${data.name} has been updated successfully.`
         });
-        
-        // Refresh buildings data to reflect changes
-        fetchBuildings();
       }
     }
   };
@@ -126,41 +119,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
 
   const handleDeleteFaculty = async (facultyId: string) => {
     try {
-      console.log(`Starting deletion process for faculty ID: ${facultyId}`);
-      
       // Find the faculty member by ID
       const facultyToDelete = facultyMembers.find(f => f.id === facultyId);
-      
-      if (!facultyToDelete) {
-        console.error("Faculty member not found with ID:", facultyId);
+      if (facultyToDelete) {
+        await deleteFacultyMember(facultyToDelete);
+        // After successful deletion, refresh data
+        fetchFacultyData();
         toast({
-          title: "Error",
-          description: "Faculty member not found",
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      console.log("Faculty to delete:", facultyToDelete);
-      
-      // Call the deleteFacultyMember function with the faculty object
-      const result = await deleteFacultyMember(facultyToDelete);
-      
-      if (result) {
-        // After successful deletion, refresh the data
-        console.log("Successfully deleted faculty, refreshing data");
-        await fetchFacultyData();
-        
-        toast({
-          title: "Success",
-          description: "Faculty member has been deleted successfully",
+          title: "Faculty deleted",
+          description: "Faculty member has been removed successfully"
         });
       }
     } catch (error) {
-      console.error("Error in handleDeleteFaculty:", error);
+      console.error("Error deleting faculty:", error);
       toast({
         title: "Delete failed",
-        description: "Unable to delete faculty member. Please try again.",
+        description: "Unable to delete faculty member",
         variant: "destructive"
       });
     }

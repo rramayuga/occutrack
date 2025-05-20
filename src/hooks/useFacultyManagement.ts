@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { deleteUser } from '@/utils/auth-utils';
@@ -20,7 +20,7 @@ export const useFacultyManagement = () => {
   const [isLoadingFaculty, setIsLoadingFaculty] = useState(true);
   const { toast } = useToast();
 
-  const fetchFacultyData = useCallback(async () => {
+  const fetchFacultyData = async () => {
     try {
       setIsLoadingFaculty(true);
       
@@ -72,46 +72,26 @@ export const useFacultyManagement = () => {
         });
       }
       
-      console.log('Faculty data fetched:', combinedFaculty);
-      
       setFacultyCount(combinedFaculty.length);
       setFacultyMembers(combinedFaculty);
     } catch (error) {
       console.error('Error fetching faculty data:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load faculty data",
-        variant: "destructive"
-      });
     } finally {
       setIsLoadingFaculty(false);
     }
-  }, [toast]);
+  };
 
   // Function to delete faculty member
   const deleteFacultyMember = async (faculty: FacultyMember) => {
     try {
       console.log(`Attempting to delete faculty member: ${faculty.name} (${faculty.user_id})`);
       
-      // First delete the faculty request if it exists
-      const { error: facultyRequestError } = await supabase
-        .from('faculty_requests')
-        .delete()
-        .eq('user_id', faculty.user_id);
-      
-      if (facultyRequestError) {
-        console.error('Error deleting faculty request:', facultyRequestError);
-        // Continue anyway as this might not exist for all faculty
-      } else {
-        console.log('Successfully deleted faculty request');
-      }
-      
       // Use the deleteUser utility function to handle complete user deletion
       await deleteUser(faculty.user_id);
       
-      console.log(`Successfully deleted faculty member ${faculty.name} from Supabase`);
+      console.log(`Successfully deleted faculty member ${faculty.name}`);
       
-      // Update the local state immediately after successful deletion
+      // Update the local state after successful deletion
       setFacultyMembers(prevMembers => 
         prevMembers.filter(member => member.user_id !== faculty.user_id)
       );
@@ -138,28 +118,7 @@ export const useFacultyManagement = () => {
 
   useEffect(() => {
     fetchFacultyData();
-    
-    // Set up a real-time subscription for faculty changes
-    const facultyChannel = supabase
-      .channel('faculty_changes')
-      .on('postgres_changes', 
-          { event: '*', schema: 'public', table: 'faculty_requests' }, 
-          (payload) => {
-            console.log('Faculty requests changes detected:', payload);
-            fetchFacultyData();
-          })
-      .on('postgres_changes', 
-          { event: '*', schema: 'public', table: 'profiles' }, 
-          (payload) => {
-            console.log('Profiles changes detected:', payload);
-            fetchFacultyData();
-          })
-      .subscribe();
-          
-    return () => {
-      supabase.removeChannel(facultyChannel);
-    };
-  }, [fetchFacultyData]);
+  }, []);
 
   return {
     facultyCount,

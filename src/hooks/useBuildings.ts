@@ -1,7 +1,6 @@
-
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { BuildingWithFloors, Building } from '@/lib/types';
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 export const useBuildings = () => {
@@ -135,19 +134,43 @@ export const useBuildings = () => {
     }
   };
 
+  const editBuilding = async (id: string, name: string, location?: string) => {
+    try {
+      const { error } = await supabase
+        .from('buildings')
+        .update({ 
+          name,
+          location: location || null
+        })
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      // Refresh buildings data after editing
+      fetchBuildings();
+      
+      return true;
+    } catch (error) {
+      console.error('Error updating building:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update building',
+        variant: 'destructive',
+      });
+      return false;
+    }
+  };
+
   // Fix this function to correctly update floor count
   const updateBuilding = async (id: string, name: string, floorCount: number, location?: string) => {
     try {
       console.log(`Updating building ${id}: name=${name}, floors=${floorCount}, location=${location}`);
       
-      // Ensure floorCount is a number
-      const floors = typeof floorCount === 'string' ? parseInt(floorCount, 10) : floorCount;
-      
       const { error } = await supabase
         .from('buildings')
         .update({ 
           name,
-          floors,
+          floors: floorCount,
           location: location || null
         })
         .eq('id', id);
@@ -242,6 +265,7 @@ export const useBuildings = () => {
     setSelectedBuilding,
     fetchBuildings,
     addBuilding, 
+    editBuilding,
     updateBuilding,
     deleteBuilding 
   };

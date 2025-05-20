@@ -19,12 +19,6 @@ const EditBuildingDialog: React.FC<EditBuildingDialogProps> = ({
 }) => {
   if (!building) return null;
 
-  // Calculate the default floor count based on the building's floors array length
-  const floorCount = building.floors?.length || 0;
-  
-  console.log('EditBuildingDialog - Building data:', building);
-  console.log('EditBuildingDialog - Floor count:', floorCount);
-
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
@@ -34,12 +28,12 @@ const EditBuildingDialog: React.FC<EditBuildingDialogProps> = ({
         <BuildingForm 
           defaultValues={{
             name: building.name,
-            floorCount: floorCount,
+            floorCount: building.floors?.length || 0,
             location: building.location || ''
           }}
           onSubmit={(data) => {
             // Log the submission data
-            console.log('EditBuildingDialog - Submitting data:', data);
+            console.log('Submitting edit building form with data:', data);
             onSubmit(data);
           }}
           onCancel={onClose}

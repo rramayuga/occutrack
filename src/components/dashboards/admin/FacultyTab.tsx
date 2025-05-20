@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { format } from 'date-fns';
 import {
   Table,
@@ -44,12 +44,6 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
-  const [localFaculty, setLocalFaculty] = useState<FacultyMember[]>([]);
-  
-  // Update local state when props change
-  useEffect(() => {
-    setLocalFaculty(facultyMembers);
-  }, [facultyMembers]);
 
   const handleDeleteClick = (faculty: FacultyMember) => {
     setSelectedFaculty(faculty);
@@ -64,9 +58,6 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
       
       // Call the parent component's delete handler with the faculty ID
       await handleDeleteFaculty(selectedFaculty.id);
-      
-      // Update local state immediately for responsive UI
-      setLocalFaculty(prev => prev.filter(faculty => faculty.id !== selectedFaculty.id));
       
       // Close dialog
       setIsDeleteDialogOpen(false);
@@ -99,7 +90,7 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
             <div className="h-4 w-48 bg-muted rounded"></div>
           </div>
         </div>
-      ) : localFaculty.length > 0 ? (
+      ) : facultyMembers.length > 0 ? (
         <div className="rounded-md border">
           <Table>
             <TableHeader>
@@ -113,7 +104,7 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {localFaculty.map((faculty) => (
+              {facultyMembers.map((faculty) => (
                 <TableRow key={faculty.id}>
                   <TableCell className="font-medium">{faculty.name}</TableCell>
                   <TableCell>{faculty.email}</TableCell>
