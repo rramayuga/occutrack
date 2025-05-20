@@ -6,7 +6,7 @@ export const handleStudentRegistration = async (
   password: string,
   name: string
 ) => {
-  // Create a pending registration request instead of direct signup
+  // ALL registrations now require approval, regardless of email domain
   const { data, error: signUpError } = await supabase.auth.signUp({
     email,
     password,
@@ -14,28 +14,26 @@ export const handleStudentRegistration = async (
       data: {
         name,
         role: 'student',
-        status: 'pending'
+        status: 'pending'  // All registrations are pending by default
       }
     }
   });
 
   if (signUpError) throw signUpError;
   
-  // If it's not a student with an education domain, create a pending request
-  if (!email.endsWith('@neu.edu.ph')) {
-    if (data.user) {
-      const { error: requestError } = await supabase
-        .from('faculty_requests')
-        .insert({
-          user_id: data.user.id,
-          name,
-          email,
-          department: 'Student',
-          status: 'pending'
-        });
+  // Create a pending request for ALL users
+  if (data.user) {
+    const { error: requestError } = await supabase
+      .from('faculty_requests')
+      .insert({
+        user_id: data.user.id,
+        name,
+        email,
+        department: email.endsWith('@neu.edu.ph') ? 'NEU Domain' : 'External User',
+        status: 'pending'
+      });
 
-      if (requestError) throw requestError;
-    }
+    if (requestError) throw requestError;
   }
 
   return { user: data.user, session: data.session };
@@ -53,7 +51,8 @@ export const handleFacultyRegistration = async (
     options: {
       data: {
         name,
-        role: 'faculty'
+        role: 'student', // Start as student until approved
+        status: 'pending'
       }
     }
   });
@@ -78,7 +77,7 @@ export const handleFacultyRegistration = async (
 };
 
 export const handleGoogleSignIn = async () => {
-  // Ensure Google auth only allows NEU domain
+  // Google auth continues to allow NEU domain
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
@@ -99,7 +98,7 @@ export const handleLogin = async (email: string, password: string) => {
   try {
     console.log('Attempting login for:', email);
     
-    // First check if the user has a rejected faculty request
+    // First check if the user has a faculty request (which all users should have now)
     // This critical check must be done BEFORE attempting to log in
     const { data: facultyRequest } = await supabase
       .from('faculty_requests')
@@ -107,9 +106,9 @@ export const handleLogin = async (email: string, password: string) => {
       .eq('email', email)
       .maybeSingle();
 
-    console.log('Faculty request status check result:', facultyRequest);
+    console.log('User registration status check result:', facultyRequest);
     
-    // Block login for rejected users (regardless of email domain)
+    // Block login for rejected or pending users
     if (facultyRequest && facultyRequest.status === 'rejected') {
       console.error('Login blocked: Account has been rejected');
       throw new Error('Your account has been rejected. Please contact administration for more information.');
@@ -120,7 +119,8 @@ export const handleLogin = async (email: string, password: string) => {
       throw new Error('Your account registration is pending approval. Please wait for administrator review.');
     }
 
-    // Only attempt login if the account is not rejected or pending
+    // If no faculty request is found, this could be a Google auth user - let them try to sign in
+    // Only attempt login if the account is approved or for special cases (Google auth)
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
@@ -133,6 +133,26 @@ export const handleLogin = async (email: string, password: string) => {
 
     if (!data.user) {
       throw new Error('Authentication failed');
+    }
+
+    // Double-check approval status after authentication
+    // This ensures Google users are also checked
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', data.user.id)
+      .single();
+      
+    if (profile && profile.status === 'pending') {
+      // Force sign out if status is pending
+      await supabase.auth.signOut();
+      throw new Error('Your account registration is pending approval. Please wait for administrator review.');
+    }
+    
+    if (profile && profile.status === 'rejected') {
+      // Force sign out if status is rejected
+      await supabase.auth.signOut();
+      throw new Error('Your account has been rejected. Please contact administration for more information.');
     }
 
     console.log('Login successful for user ID:', data.user.id);

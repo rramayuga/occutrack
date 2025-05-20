@@ -24,8 +24,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return null;
       }
       
-      // Check for rejected status - CRITICAL CHECK MOVED TO THE TOP
-      // Always check this first to ensure rejected users can't access the app
+      // Check for pending/rejected status first - CRITICAL CHECK
       const { data: facultyRequest, error: facultyError } = await supabase
         .from('faculty_requests')
         .select('status')
@@ -33,41 +32,37 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .maybeSingle();
 
       if (facultyError) {
-        console.error('Error checking faculty status:', facultyError);
+        console.error('Error checking approval status:', facultyError);
       }
       
-      // STRICT ENFORCEMENT: If the user has been rejected, sign them out immediately
-      if (facultyRequest && facultyRequest.status === 'rejected') {
-        console.log('User is rejected, signing out immediately');
+      // STRICT ENFORCEMENT: If the user has been rejected or is pending, sign them out immediately
+      if (facultyRequest && (facultyRequest.status === 'rejected' || facultyRequest.status === 'pending')) {
+        console.log(`User access denied: account is ${facultyRequest.status}, signing out immediately`);
         await supabase.auth.signOut();
+        
+        const message = facultyRequest.status === 'rejected' 
+          ? 'Your account has been rejected. Please contact administration for more information.'
+          : 'Your account registration is pending approval. Please wait for administrator review.';
+          
         toast({
-          title: 'Access Denied',
-          description: 'Your account has been rejected. Please contact administration for more information.',
-          variant: 'destructive'
+          title: facultyRequest.status === 'rejected' ? 'Access Denied' : 'Account Pending Approval',
+          description: message,
+          variant: facultyRequest.status === 'rejected' ? 'destructive' : 'default'
         });
-        navigate('/login');
-        setUser(null);
-        setIsLoading(false);
-        return null;
-      }
-      
-      // Block users with pending requests from accessing the app
-      if (facultyRequest && facultyRequest.status === 'pending') {
-        console.log('Faculty request pending, signing out user');
-        await supabase.auth.signOut();
-        toast({
-          title: 'Account Pending Approval',
-          description: 'Your account is pending administrator approval. You will be able to log in once approved.',
-          variant: 'default'
-        });
-        navigate('/faculty-confirmation');
+        
+        if (facultyRequest.status === 'pending') {
+          navigate('/faculty-confirmation');
+        } else {
+          navigate('/login');
+        }
+        
         setUser(null);
         setIsLoading(false);
         return null;
       }
 
-      // If user passed rejection checks, proceed with profile fetching
-      console.log('User passed rejection checks, fetching profile data');
+      // If user passed rejection/pending checks, proceed with profile fetching
+      console.log('User passed status checks, fetching profile data');
       
       const { data: profile, error } = await supabase
         .from('profiles')
