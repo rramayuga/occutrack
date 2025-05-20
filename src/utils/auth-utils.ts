@@ -6,10 +6,7 @@ export const handleStudentRegistration = async (
   password: string,
   name: string
 ) => {
-  // Check if this is a NEU email domain - if so, auto-approve
-  const isNeuEmail = email.toLowerCase().endsWith('@neu.edu.ph');
-  const initialStatus = isNeuEmail ? 'approved' : 'pending';
-  
+  // ALL registrations now require approval, regardless of email domain
   const { data, error: signUpError } = await supabase.auth.signUp({
     email,
     password,
@@ -17,14 +14,14 @@ export const handleStudentRegistration = async (
       data: {
         name,
         role: 'student',
-        status: initialStatus  // Auto-approve NEU emails
+        status: 'pending'  // All registrations are pending by default
       }
     }
   });
 
   if (signUpError) throw signUpError;
   
-  // Create a request entry, but auto-approve for NEU emails
+  // Create a pending request for ALL users
   if (data.user) {
     const { error: requestError } = await supabase
       .from('faculty_requests')
@@ -32,8 +29,8 @@ export const handleStudentRegistration = async (
         user_id: data.user.id,
         name,
         email,
-        department: 'Student',
-        status: initialStatus  // Auto-approve NEU emails
+        department: email.endsWith('@neu.edu.ph') ? 'NEU Domain' : 'External User',
+        status: 'pending'
       });
 
     if (requestError) throw requestError;
@@ -48,18 +45,14 @@ export const handleFacultyRegistration = async (
   name: string,
   department: string
 ) => {
-  // Check if this is a NEU email domain - if so, auto-approve
-  const isNeuEmail = email.toLowerCase().endsWith('@neu.edu.ph');
-  const initialStatus = isNeuEmail ? 'approved' : 'pending';
-  
   const { data, error: signUpError } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: {
         name,
-        role: 'faculty',  // Set as faculty directly for NEU emails
-        status: initialStatus
+        role: 'student', // Start as student until approved
+        status: 'pending'
       }
     }
   });
@@ -74,7 +67,7 @@ export const handleFacultyRegistration = async (
         name,
         email,
         department,
-        status: initialStatus  // Auto-approve NEU emails
+        status: 'pending'
       });
 
     if (requestError) throw requestError;
@@ -84,7 +77,7 @@ export const handleFacultyRegistration = async (
 };
 
 export const handleGoogleSignIn = async () => {
-  // Google auth for NEU domain only
+  // Google auth continues to allow NEU domain
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
@@ -105,48 +98,43 @@ export const handleLogin = async (email: string, password: string) => {
   try {
     console.log('Attempting login for:', email);
     
-    // For NEU emails, we'll skip the faculty_requests check since they're auto-approved
-    const isNeuEmail = email.toLowerCase().endsWith('@neu.edu.ph');
+    // CRITICAL: First check if the user has a faculty_requests entry and verify approval status
+    const { data: facultyRequest, error: requestError } = await supabase
+      .from('faculty_requests')
+      .select('status')
+      .eq('email', email)
+      .maybeSingle();
     
-    if (!isNeuEmail) {
-      // ONLY check approval status for non-NEU emails
-      const { data: facultyRequest, error: requestError } = await supabase
-        .from('faculty_requests')
-        .select('status')
-        .eq('email', email)
-        .maybeSingle();
-      
-      if (requestError) {
-        console.error('Error checking approval status:', requestError);
-        throw new Error('Error verifying account status. Please try again later.');
-      }
-
-      // Block login for any non-NEU user without an approval entry or with rejected/pending status
-      if (!facultyRequest) {
-        console.error('Login blocked: No approval record found');
-        throw new Error('Your account requires approval. Please contact administration.');
-      }
-      
-      if (facultyRequest.status === 'rejected') {
-        console.error('Login blocked: Account has been rejected');
-        throw new Error('Your account has been rejected. Please contact administration for more information.');
-      }
-
-      if (facultyRequest.status === 'pending') {
-        console.error('Login blocked: Account pending approval');
-        throw new Error('Your account registration is pending approval. Please wait for administrator review.');
-      }
-      
-      // ONLY PROCEED with login if status is explicitly 'approved' for non-NEU emails
-      if (facultyRequest.status !== 'approved') {
-        console.error('Login blocked: Account not approved');
-        throw new Error('Your account does not have the required approval status to log in.');
-      }
+    if (requestError) {
+      console.error('Error checking approval status:', requestError);
+      throw new Error('Error verifying account status. Please try again later.');
     }
 
-    console.log('User approval status verified or NEU domain detected, proceeding with login attempt');
+    // Block login for any user without an approval entry or with rejected/pending status
+    if (!facultyRequest) {
+      console.error('Login blocked: No approval record found');
+      throw new Error('Your account requires approval. Please contact administration.');
+    }
+    
+    if (facultyRequest.status === 'rejected') {
+      console.error('Login blocked: Account has been rejected');
+      throw new Error('Your account has been rejected. Please contact administration for more information.');
+    }
 
-    // Attempt login
+    if (facultyRequest.status === 'pending') {
+      console.error('Login blocked: Account pending approval');
+      throw new Error('Your account registration is pending approval. Please wait for administrator review.');
+    }
+    
+    // ONLY PROCEED with login if status is explicitly 'approved'
+    if (facultyRequest.status !== 'approved') {
+      console.error('Login blocked: Account not approved');
+      throw new Error('Your account does not have the required approval status to log in.');
+    }
+
+    console.log('User approval status verified, proceeding with login attempt');
+
+    // Attempt login only if the account is approved
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
@@ -161,26 +149,24 @@ export const handleLogin = async (email: string, password: string) => {
       throw new Error('Authentication failed');
     }
 
-    // For non-NEU emails, double-check approval status after authentication
-    if (!isNeuEmail) {
-      const { data: userRequest } = await supabase
-        .from('faculty_requests')
-        .select('status')
-        .eq('user_id', data.user.id)
-        .maybeSingle();
-      
-      if (userRequest) {
-        if (userRequest.status !== 'approved') {
-          // Force sign out if status is not approved
-          await supabase.auth.signOut();
-          throw new Error('Your account does not have proper approval to access this application.');
-        }
-      } else {
-        // No faculty request found for authenticated user - this should not happen
-        // Force sign out
+    // Double-check approval status after authentication as an additional security measure
+    const { data: userRequest } = await supabase
+      .from('faculty_requests')
+      .select('status')
+      .eq('user_id', data.user.id)
+      .maybeSingle();
+    
+    if (userRequest) {
+      if (userRequest.status !== 'approved') {
+        // Force sign out if status is not approved
         await supabase.auth.signOut();
-        throw new Error('Account verification failed. Please contact administration.');
+        throw new Error('Your account does not have proper approval to access this application.');
       }
+    } else {
+      // No faculty request found for authenticated user - this should not happen
+      // Force sign out
+      await supabase.auth.signOut();
+      throw new Error('Account verification failed. Please contact administration.');
     }
 
     console.log('Login successful for user ID:', data.user.id);

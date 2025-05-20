@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BuildingWithFloors, User } from '@/lib/types';
@@ -28,9 +27,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
-  const { buildings, loading, addBuilding, editBuilding, updateBuilding, deleteBuilding } = useBuildings();
+  const { buildings, loading, addBuilding, editBuilding, deleteBuilding } = useBuildings();
   const { addRoom } = useEnhancedRoomsManagement();
-  const { facultyCount, facultyMembers, isLoadingFaculty, fetchFacultyData, deleteFacultyMember } = useFacultyManagement();
+  const { facultyCount, facultyMembers, isLoadingFaculty, fetchFacultyData } = useFacultyManagement();
   const utilizationRate = useRoomUtilization();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -44,14 +43,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
 
   const onEditBuildingSubmit = async (data: any) => {
     if (selectedBuilding) {
-      // Use updateBuilding instead of editBuilding to correctly save floor count
-      const result = await updateBuilding(
-        selectedBuilding.id, 
-        data.name, 
-        typeof data.floorCount === 'string' ? parseInt(data.floorCount, 10) : data.floorCount,
-        data.location
-      );
-      
+      const result = await editBuilding(selectedBuilding.id, data.name, data.location);
       if (result) {
         setIsEditDialogOpen(false);
         setSelectedBuilding(null);
@@ -111,27 +103,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
     navigate('/faculty-management', { state: { selectedFacultyId: facultyId } });
   };
 
-  const handleDeleteFaculty = async (facultyId: string) => {
-    try {
-      // Find the faculty member by ID
-      const facultyToDelete = facultyMembers.find(f => f.id === facultyId);
-      if (facultyToDelete) {
-        await deleteFacultyMember(facultyToDelete);
-        toast({
-          title: "Faculty deleted",
-          description: "Faculty member has been removed successfully"
-        });
-      }
-    } catch (error) {
-      console.error("Error deleting faculty:", error);
-      toast({
-        title: "Delete failed",
-        description: "Unable to delete faculty member",
-        variant: "destructive"
-      });
-    }
-  };
-
   const filteredBuildings = buildings.filter(building => {
     if (!searchTerm) return true;
     return building.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -188,7 +159,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
             facultyMembers={facultyMembers}
             handleViewFaculty={handleViewFaculty}
             refreshFacultyData={fetchFacultyData}
-            handleDeleteFaculty={handleDeleteFaculty}
           />
         </TabsContent>
         

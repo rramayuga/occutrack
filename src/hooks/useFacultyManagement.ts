@@ -2,7 +2,6 @@
 import { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { deleteUser } from '@/utils/auth-utils';
 
 export interface FacultyMember {
   id: string;
@@ -81,37 +80,44 @@ export const useFacultyManagement = () => {
     }
   };
 
-  // Function to delete faculty member
+  // New function to delete faculty member
   const deleteFacultyMember = async (faculty: FacultyMember) => {
     try {
-      console.log(`Attempting to delete faculty member: ${faculty.name} (${faculty.user_id})`);
+      // 1. First update profiles table to change role back to 'student'
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ role: 'student' })
+        .eq('id', faculty.user_id);
+        
+      if (profileError) {
+        console.error("Error updating profile role:", profileError);
+        throw profileError;
+      }
       
-      // Use the deleteUser utility function to handle complete user deletion
-      await deleteUser(faculty.user_id);
+      console.log(`Successfully updated user ${faculty.user_id} role to student`);
       
-      console.log(`Successfully deleted faculty member ${faculty.name}`);
+      // 2. Then delete from faculty_requests table if it exists there
+      // This second step only applies to users who went through the faculty request process
+      if (faculty.id !== faculty.user_id) { // This check helps identify if it's from faculty_requests
+        const { error: facultyRequestError } = await supabase
+          .from('faculty_requests')
+          .delete()
+          .eq('id', faculty.id);
+          
+        if (facultyRequestError) {
+          console.error("Error deleting from faculty_requests:", facultyRequestError);
+          throw facultyRequestError;
+        }
+        
+        console.log(`Successfully deleted faculty request ${faculty.id}`);
+      }
       
-      // Update the local state after successful deletion
-      setFacultyMembers(prevMembers => 
-        prevMembers.filter(member => member.user_id !== faculty.user_id)
-      );
-      
-      // Update faculty count
-      setFacultyCount(prev => prev - 1);
-      
-      toast({
-        title: "Faculty Deleted",
-        description: `${faculty.name} has been successfully removed.`,
-      });
+      // Refresh the faculty data after deletion
+      await fetchFacultyData();
       
       return true;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error deleting faculty:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to delete faculty member',
-        variant: 'destructive'
-      });
       throw error;
     }
   };
