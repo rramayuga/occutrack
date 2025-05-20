@@ -20,7 +20,7 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
     timestamp: number, 
     processed: boolean,
     reservationId: string,
-    isLocked: boolean // New flag to prevent status toggling
+    isLocked: boolean // Flag to prevent status toggling
   }>>(new Map());
   
   // Compare times in HH:MM format with better precision
@@ -66,7 +66,7 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
           // Only process if we're not already processing
           if (!isProcessing.current) {
             // Add a delay to prevent immediate processing
-            setTimeout(() => processReservations(), 2000);
+            setTimeout(() => processReservations(), 1000); // Reduced delay for faster response
           }
         })
       .subscribe((status) => {
@@ -85,7 +85,7 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
     // Increase check frequency for more timely status updates
     const now = new Date();
     const timeSinceLastCheck = now.getTime() - lastCheckTime.current.getTime();
-    if (timeSinceLastCheck < 30000) return; // 30 seconds between global checks (decreased for more frequent checks)
+    if (timeSinceLastCheck < 15000) return; // 15 seconds between global checks (decreased for more frequent checks)
     
     lastCheckTime.current = now;
     isProcessing.current = true;
@@ -134,7 +134,7 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
           if (isActive && roomToUpdate.status !== 'occupied') {
             // Check if we've already tried this recently - using shorter cooldown for more responsive updates
             if (lastProcessed && 
-                (currentTimestamp - lastProcessed.timestamp) < 600000) { // 10 minute cooldown (decreased)
+                (currentTimestamp - lastProcessed.timestamp) < 300000) { // 5 minute cooldown (decreased)
               console.log(`Skipping status update for ${roomToUpdate.name} to OCCUPIED - processed recently`);
               continue;
             }

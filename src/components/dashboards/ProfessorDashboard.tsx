@@ -37,7 +37,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
     fetchActiveReservations();
     
     // Process reservations only once initially with a delay
-    const timeoutId = setTimeout(() => processReservations(), 4000);
+    const timeoutId = setTimeout(() => processReservations(), 2000);
     
     return () => clearTimeout(timeoutId);
   }, []); // Empty deps array - run only on mount
@@ -46,16 +46,16 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
   useEffect(() => {
     // Refresh data much less frequently 
     const intervalId = setInterval(() => {
-      // Only refresh if it's been at least 10 minutes since the last refresh
+      // Only refresh if it's been at least 5 minutes since the last refresh
       const now = Date.now();
-      if (now - lastRefreshTime > 600000) { // 10 minutes minimum between refreshes (increased from 5 minutes)
+      if (now - lastRefreshTime > 300000) { // 5 minutes minimum between refreshes
         console.log("ProfessorDashboard - Scheduled refresh");
         refreshRooms();
         fetchReservations();
         fetchActiveReservations();
         setLastRefreshTime(now);
       }
-    }, 600000); // Every 10 minutes (increased from 5 minutes)
+    }, 300000); // Every 5 minutes
     
     return () => clearInterval(intervalId);
   }, [refreshRooms, fetchReservations, fetchActiveReservations, lastRefreshTime]);
@@ -130,7 +130,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
               toast({
                 title: "Room Reserved",
                 description: "Your room has been reserved successfully",
-                duration: 3000, // Ensure toast auto-dismisses after 3 seconds
+                duration: 3000,
               });
               // Manually refresh data after reservation with delay
               setTimeout(() => {
@@ -146,7 +146,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
                 title: "Error",
                 description: "Failed to reserve room. Please try again.",
                 variant: "destructive",
-                duration: 3000, // Ensure error toast also auto-dismisses
+                duration: 3000,
               });
             }
           }}

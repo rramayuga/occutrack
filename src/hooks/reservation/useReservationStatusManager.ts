@@ -268,7 +268,7 @@ export function useReservationStatusManager() {
     const intervalId = setInterval(() => {
       console.log("Checking reservation statuses");
       processReservations();
-    }, 30000); // Check every 30 seconds - changed to be more frequent for automatic status updates
+    }, 15000); // Check every 15 seconds for faster updates
     
     // Set up realtime subscription to reservation changes
     try {

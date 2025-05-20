@@ -137,9 +137,6 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
   
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>
-        <Button className="bg-primary">Book a Room</Button>
-      </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Book a Room</DialogTitle>
