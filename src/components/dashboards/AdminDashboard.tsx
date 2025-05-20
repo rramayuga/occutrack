@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BuildingWithFloors, User } from '@/lib/types';
@@ -38,7 +37,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   // Re-fetch buildings when component mounts to ensure fresh data
   useEffect(() => {
     fetchBuildings();
-  }, [fetchBuildings]);
+    fetchFacultyData(); // Also fetch faculty data when component mounts
+  }, [fetchBuildings, fetchFacultyData]);
 
   const onBuildingSubmit = async (data: any) => {
     const result = await addBuilding(data.name, data.floorCount, data.location);
@@ -143,16 +143,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
       console.log("Faculty to delete:", facultyToDelete);
       
       // Call the deleteFacultyMember function with the faculty object
-      await deleteFacultyMember(facultyToDelete);
+      const result = await deleteFacultyMember(facultyToDelete);
       
-      // After successful deletion, refresh the data
-      console.log("Refreshing faculty data after deletion");
-      await fetchFacultyData();
-      
-      toast({
-        title: "Success",
-        description: "Faculty member has been deleted successfully",
-      });
+      if (result) {
+        // After successful deletion, refresh the data
+        console.log("Successfully deleted faculty, refreshing data");
+        await fetchFacultyData();
+        
+        toast({
+          title: "Success",
+          description: "Faculty member has been deleted successfully",
+        });
+      }
     } catch (error) {
       console.error("Error in handleDeleteFaculty:", error);
       toast({
@@ -240,7 +242,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
         selectedBuilding={selectedBuilding}
         setSelectedBuilding={setSelectedBuilding}
         onBuildingSubmit={onBuildingSubmit}
-        onRoomSubmit={onRoomSubmit}
         onEditBuildingSubmit={onEditBuildingSubmit}
         onDeleteBuilding={onDeleteBuilding}
       />

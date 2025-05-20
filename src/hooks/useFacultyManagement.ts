@@ -72,7 +72,6 @@ export const useFacultyManagement = () => {
         });
       }
       
-      // Log collected data for debugging
       console.log('Faculty data fetched:', combinedFaculty);
       
       setFacultyCount(combinedFaculty.length);
@@ -103,14 +102,16 @@ export const useFacultyManagement = () => {
       if (facultyRequestError) {
         console.error('Error deleting faculty request:', facultyRequestError);
         // Continue anyway as this might not exist for all faculty
+      } else {
+        console.log('Successfully deleted faculty request');
       }
       
       // Use the deleteUser utility function to handle complete user deletion
       await deleteUser(faculty.user_id);
       
-      console.log(`Successfully deleted faculty member ${faculty.name}`);
+      console.log(`Successfully deleted faculty member ${faculty.name} from Supabase`);
       
-      // Update the local state after successful deletion
+      // Update the local state immediately after successful deletion
       setFacultyMembers(prevMembers => 
         prevMembers.filter(member => member.user_id !== faculty.user_id)
       );
@@ -138,7 +139,7 @@ export const useFacultyManagement = () => {
   useEffect(() => {
     fetchFacultyData();
     
-    // Set up a subscription to faculty_requests changes
+    // Set up a real-time subscription for faculty changes
     const facultyChannel = supabase
       .channel('faculty_changes')
       .on('postgres_changes', 
