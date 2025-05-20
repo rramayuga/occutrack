@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/lib/auth';
@@ -12,14 +12,28 @@ export function useReservations() {
   const [failedAttempts, setFailedAttempts] = useState(0);
   const { user } = useAuth();
   const { toast } = useToast();
+  const abortControllerRef = useRef<AbortController | null>(null);
   
   // Add cooldown for error toasts to prevent spam
   const ERROR_COOLDOWN_MS = 10000; // 10 seconds between error messages
   const MAX_RETRY_ATTEMPTS = 3;
 
-  // Fetch user's reservations with retry logic
+  // Fetch user's reservations with retry logic and timeout handling
   const fetchReservations = useCallback(async () => {
     if (!user) return;
+    
+    // Cancel previous request if it exists
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    // Create new abort controller
+    abortControllerRef.current = new AbortController();
+    const timeoutId = setTimeout(() => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    }, 10000); // 10-second timeout
     
     try {
       setLoading(true);
@@ -129,11 +143,12 @@ export function useReservations() {
       }
     } finally {
       setLoading(false);
+      clearTimeout(timeoutId);
     }
   }, [user, toast, lastError, failedAttempts]);
 
-  // Create a new reservation
-  const createReservation = async (values: ReservationFormValues, roomId: string) => {
+  // Create a new reservation with better error handling
+  const createReservation = useCallback(async (values: ReservationFormValues, roomId: string) => {
     if (!user) {
       toast({
         title: "Authentication required",
@@ -144,6 +159,12 @@ export function useReservations() {
     }
     
     console.log("Creating reservation with values:", values, "and roomId:", roomId);
+    
+    // Create new abort controller for this request
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(() => {
+      abortController.abort();
+    }, 15000); // 15-second timeout for reservation creation
     
     try {
       // First, check if the room is under maintenance
@@ -240,16 +261,29 @@ export function useReservations() {
       
       return null;
     } catch (error: any) {
-      console.error("Error creating reservation:", error);
-      toast({
-        title: "Error",
-        description: error?.message || "Failed to book the room. Please try again.",
-        variant: "destructive",
-        duration: 5000,
-      });
+      // Handle aborted requests differently
+      if (error.name === 'AbortError') {
+        console.error("Reservation request timed out");
+        toast({
+          title: "Request Timeout",
+          description: "The reservation request took too long. Please check your connection and try again.",
+          variant: "destructive",
+          duration: 5000,
+        });
+      } else {
+        console.error("Error creating reservation:", error);
+        toast({
+          title: "Error",
+          description: error?.message || "Failed to book the room. Please try again.",
+          variant: "destructive",
+          duration: 5000,
+        });
+      }
       return null;
+    } finally {
+      clearTimeout(timeoutId);
     }
-  };
+  }, [user, fetchReservations, toast]);
 
   // Helper function to convert time string (HH:MM) to minutes
   const convertTimeToMinutes = (timeString: string): number => {
@@ -296,6 +330,10 @@ export function useReservations() {
       
       return () => {
         unsubscribe();
+        // Cleanup any pending requests
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
       };
     }
   }, [user?.id, fetchReservations, setupReservationsSubscription]);
@@ -306,4 +344,4 @@ export function useReservations() {
     createReservation,
     fetchReservations
   };
-}
+}, []);

@@ -17,12 +17,13 @@ export function useReservationTimeTracker() {
   const processedThisRender = useRef(false);
   const lastProcessTime = useRef(Date.now());
   const [connectionError, setConnectionError] = useState(false);
+  const retryCount = useRef(0);
   
   // Process reservations on a fixed interval and update the UI accordingly
   const processAndUpdate = useCallback(async () => {
     try {
       const now = Date.now();
-      if (now - lastProcessTime.current > 10000) { // 10 seconds between checks for faster updates
+      if (now - lastProcessTime.current > 5000) { // 5 seconds between checks for faster updates
         console.log("Processing reservations in useReservationTimeTracker");
         await processReservations();
         lastProcessTime.current = now;
@@ -30,16 +31,28 @@ export function useReservationTimeTracker() {
         // Clear any previous connection error state if successful
         if (connectionError) {
           setConnectionError(false);
+          retryCount.current = 0;
         }
       }
     } catch (error) {
       console.error("Error in processAndUpdate:", error);
       setConnectionError(true);
+      retryCount.current += 1;
       
-      // If we have connection errors, we'll try again later
-      // but we won't spam with too many retries
+      // If we have connection errors, we'll try again with exponential backoff
+      const backoffDelay = Math.min(1000 * Math.pow(2, retryCount.current - 1), 30000);
+      console.log(`Will retry after ${backoffDelay}ms (attempt ${retryCount.current})`);
+      
+      // Try to recover by forcing a new fetch after a delay
+      if (retryCount.current <= 5) {
+        setTimeout(() => {
+          fetchActiveReservations().catch(e => {
+            console.error("Error during retry fetch:", e);
+          });
+        }, backoffDelay);
+      }
     }
-  }, [processReservations, connectionError]);
+  }, [processReservations, connectionError, fetchActiveReservations]);
   
   // Set up an effect to process reservations on mount and at regular intervals
   useEffect(() => {
@@ -53,6 +66,7 @@ export function useReservationTimeTracker() {
       } catch (error) {
         console.error("Error during initial reservation setup:", error);
         setConnectionError(true);
+        // Don't increment retry count for initial setup to allow more immediate retries
       }
     };
     
@@ -61,7 +75,7 @@ export function useReservationTimeTracker() {
     // Set up a more frequent interval for better responsiveness
     const intervalId = setInterval(() => {
       processAndUpdate();
-    }, 10000); // Check every 10 seconds for more responsive status updates
+    }, 5000); // Check every 5 seconds for more responsive status updates
     
     return () => clearInterval(intervalId);
   }, [fetchActiveReservations, processAndUpdate]);

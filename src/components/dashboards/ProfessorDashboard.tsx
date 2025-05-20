@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { User } from '@/lib/types';
 import { useRooms } from '@/hooks/useRooms';
 import { useReservations } from '@/hooks/useReservations';
@@ -10,6 +10,9 @@ import { AvailableRooms } from './professor/AvailableRooms';
 import { useReservationStatusManager } from '@/hooks/reservation/useReservationStatusManager';
 import { useBuildings } from '@/hooks/useBuildings';
 import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface ProfessorDashboardProps {
   user: User;
@@ -19,6 +22,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedRoomId, setSelectedRoomId] = useState<string>('');
   const [isCreating, setIsCreating] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   const { simplifiedBuildings } = useBuildings();
   const { rooms, refreshRooms } = useRooms();
   const { reservations, createReservation, fetchReservations } = useReservations();
@@ -28,8 +32,44 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
   const { 
     activeReservations, 
     fetchActiveReservations, 
-    processReservations 
+    processReservations,
+    connectionError: reservationConnectionError
   } = useReservationStatusManager();
+  
+  // Function to retry connections and refresh data
+  const retryConnection = useCallback(async () => {
+    setIsConnecting(true);
+    try {
+      toast({
+        title: "Reconnecting...",
+        description: "Attempting to reconnect to the server",
+      });
+      
+      // Try to refresh all data sources
+      await Promise.allSettled([
+        refreshRooms(),
+        fetchReservations(),
+        fetchActiveReservations()
+      ]);
+      
+      // Process reservations after fetching data
+      await processReservations();
+      
+      toast({
+        title: "Reconnected",
+        description: "Successfully reconnected to the server",
+      });
+    } catch (error) {
+      console.error("Reconnection failed:", error);
+      toast({
+        title: "Connection Failed",
+        description: "Unable to connect to the server. Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsConnecting(false);
+    }
+  }, [refreshRooms, fetchReservations, fetchActiveReservations, processReservations, toast]);
   
   // Initial data fetch on mount - once only
   useEffect(() => {
@@ -44,7 +84,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
         console.error("Error fetching initial data:", error);
         toast({
           title: "Connection Issue",
-          description: "Unable to connect to the server. Please try again later.",
+          description: "Unable to connect to the server. Please try refreshing.",
           variant: "destructive",
           duration: 5000
         });
@@ -102,6 +142,35 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
   
   return (
     <div className="container mx-auto px-4 py-8">
+      {reservationConnectionError && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Connection Error</AlertTitle>
+          <AlertDescription className="flex items-center justify-between">
+            <span>Unable to connect to the reservation system. Some features may not work correctly.</span>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={retryConnection} 
+              disabled={isConnecting}
+              className="ml-2"
+            >
+              {isConnecting ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Connecting...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Retry Connection
+                </>
+              )}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="flex flex-wrap items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold mb-2">Professor Dashboard</h1>
@@ -124,18 +193,24 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
                   duration: 3000,
                 });
                 
-                // Manually refresh data with reduced delays
-                setTimeout(() => {
+                // Aggressively refresh data to ensure UI reflects the new reservation
+                setTimeout(async () => {
                   console.log("Refreshing data after room reservation");
-                  refreshRooms().catch(console.error);
-                  fetchReservations().catch(console.error);
-                  fetchActiveReservations().catch(console.error);
-                  
-                  // Process reservations to update room status
-                  setTimeout(() => {
-                    console.log("Processing reservations after room reservation");
-                    processReservations().catch(console.error);
-                  }, 500);
+                  try {
+                    await Promise.all([
+                      refreshRooms(),
+                      fetchReservations(), 
+                      fetchActiveReservations()
+                    ]);
+                    
+                    // Process reservations to update room status
+                    setTimeout(() => {
+                      console.log("Processing reservations after room reservation");
+                      processReservations().catch(console.error);
+                    }, 500);
+                  } catch (error) {
+                    console.error("Error refreshing data after reservation:", error);
+                  }
                 }, 500);
                 
                 return result;

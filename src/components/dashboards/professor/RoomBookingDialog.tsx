@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { Loader2 } from 'lucide-react';
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface RoomBookingDialogProps {
   buildings: Building[];
@@ -33,6 +35,7 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
   const [purpose, setPurpose] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [submitAttempts, setSubmitAttempts] = useState(0);
   const { toast } = useToast();
   
   // Reset form when dialog opens or closes
@@ -47,6 +50,7 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
         setEndTime('');
         setPurpose('');
         setFormError(null);
+        setSubmitAttempts(0);
       }, 200);
     } else {
       // Set default date to today when opening
@@ -85,10 +89,13 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
   const selectedBuildingName = buildings.find(b => b.id === selectedBuilding)?.name || '';
   const selectedRoomName = rooms.find(r => r.id === selectedRoom)?.name || '';
   
-  // Modified submission handler with improved validation and error handling
+  // Modified submission handler with improved validation, error handling and retry logic
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
+    
+    // Increment submit attempts counter for retry tracking
+    setSubmitAttempts(prev => prev + 1);
     
     // Validate form fields
     if (!selectedBuilding || !selectedRoom || !date || !startTime || !endTime) {
@@ -166,11 +173,24 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
       if (result) {
         console.log("Reservation created successfully:", result);
         onOpenChange(false);
-      } 
-      // createReservation function handles its own error toasts
+      } else if (submitAttempts >= 3) {
+        // After 3 failed attempts, suggest the user try again later
+        toast({
+          title: "Multiple Failed Attempts",
+          description: "We're having trouble completing your reservation. Please try again later.",
+          variant: "destructive",
+          duration: 5000
+        });
+      }
+      // createReservation function handles its own error toasts for other cases
     } catch (error) {
       console.error("Room booking error:", error);
-      setFormError("Failed to book the room. Please try again.");
+      if (submitAttempts >= 3) {
+        // After multiple attempts, provide more detailed error guidance
+        setFormError("Unable to book the room due to connection issues. Please check your network connection and try again later.");
+      } else {
+        setFormError("Failed to book the room. Please try again.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -184,9 +204,9 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
         </DialogHeader>
         
         {formError && (
-          <div className="bg-red-50 border border-red-200 text-red-800 rounded-md p-3 mb-4 text-sm">
-            {formError}
-          </div>
+          <Alert variant="destructive" className="mb-4">
+            <AlertDescription>{formError}</AlertDescription>
+          </Alert>
         )}
         
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -277,8 +297,17 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
             />
           </div>
           
-          <Button type="submit" className="w-full" disabled={isLoading || isCreating}>
-            {(isLoading || isCreating) ? "Booking..." : "Book Room"}
+          <Button 
+            type="submit" 
+            className="w-full" 
+            disabled={isLoading || isCreating}
+          >
+            {(isLoading || isCreating) ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Booking...
+              </>
+            ) : "Book Room"}
           </Button>
         </form>
       </DialogContent>

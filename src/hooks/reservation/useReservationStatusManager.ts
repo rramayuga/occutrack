@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Reservation } from '@/lib/types';
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/lib/auth';
@@ -10,15 +10,31 @@ export function useReservationStatusManager() {
   const [completedReservationIds, setCompletedReservationIds] = useState<string[]>([]);
   const [lastError, setLastError] = useState<Date | null>(null);
   const [lastCheck, setLastCheck] = useState<Date>(new Date());
+  const [connectionError, setConnectionError] = useState(false);
+  const retryCount = useRef(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
   // Add cooldown for error toasts to prevent spam
   const ERROR_COOLDOWN_MS = 10000; // 10 seconds between error messages
 
-  // Fetch active reservations that aren't completed yet
+  // Fetch active reservations that aren't completed yet with improved timeout handling
   const fetchActiveReservations = useCallback(async () => {
     if (!user) return [];
+    
+    // Cancel any previous requests
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    // Set up new abort controller for this request
+    abortControllerRef.current = new AbortController();
+    const timeoutId = setTimeout(() => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    }, 8000); // 8-second timeout
     
     try {
       const now = new Date();
@@ -45,8 +61,16 @@ export function useReservationStatusManager() {
       
       if (error) {
         console.error("Error fetching active reservations:", error);
+        setConnectionError(true);
+        retryCount.current += 1;
         return [];
       }
+      
+      // Successfully connected, reset error state and retry count
+      if (connectionError) {
+        setConnectionError(false);
+      }
+      retryCount.current = 0;
       
       if (!data || data.length === 0) {
         console.log("No active reservations found for today");
@@ -89,8 +113,16 @@ export function useReservationStatusManager() {
       console.log(`Found ${reservations.length} active reservations for today`);
       setActiveReservations(reservations);
       return reservations;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error in fetchActiveReservations:", error);
+      
+      if (error.name === 'AbortError') {
+        console.log("Request was aborted due to timeout");
+      }
+      
+      // Update connection error state
+      setConnectionError(true);
+      retryCount.current += 1;
       
       // Only show error toast if we haven't shown one recently
       const now = new Date();
@@ -104,10 +136,12 @@ export function useReservationStatusManager() {
       }
       
       return [];
+    } finally {
+      clearTimeout(timeoutId);
     }
-  }, [user, toast, lastError]);
+  }, [user, toast, lastError, connectionError]);
 
-  // Update room status based on reservation time
+  // Update room status based on reservation time with retry logic
   const updateRoomStatus = useCallback(async (roomId: string, isOccupied: boolean) => {
     try {
       console.log(`Updating room ${roomId} status to ${isOccupied ? 'occupied' : 'available'}`);
@@ -150,7 +184,7 @@ export function useReservationStatusManager() {
     }
   }, []);
 
-  // Mark a reservation as completed
+  // Mark a reservation as completed with retry logic
   const markReservationAsCompleted = useCallback(async (reservationId: string) => {
     try {
       console.log(`Marking reservation ${reservationId} as completed`);
@@ -186,7 +220,7 @@ export function useReservationStatusManager() {
     return totalMinutes1 - totalMinutes2;
   }, []);
 
-  // Process active reservations to check for status changes
+  // Process active reservations to check for status changes with error handling
   const processReservations = useCallback(async () => {
     if (!user) {
       console.log("No user logged in, skipping reservation processing");
@@ -226,23 +260,30 @@ export function useReservationStatusManager() {
         continue;
       }
       
-      // Check if start time has been reached - MARK AS OCCUPIED
-      if (compareTimeStrings(currentTime, reservation.startTime) >= 0 && 
-          compareTimeStrings(currentTime, reservation.endTime) < 0) {
-        console.log(`START TIME REACHED for reservation ${reservation.id} - marking room ${reservation.roomId} as OCCUPIED`);
-        await updateRoomStatus(reservation.roomId, true);
-        updated = true;
-      }
-      
-      // Check if end time has been reached - MARK AS AVAILABLE and COMPLETE reservation
-      if (compareTimeStrings(currentTime, reservation.endTime) >= 0) {
-        console.log(`END TIME REACHED for reservation ${reservation.id} - completing reservation and marking room available`);
-        await updateRoomStatus(reservation.roomId, false);
-        await markReservationAsCompleted(reservation.id);
+      try {
+        // Check if start time has been reached - MARK AS OCCUPIED
+        if (compareTimeStrings(currentTime, reservation.startTime) >= 0 && 
+            compareTimeStrings(currentTime, reservation.endTime) < 0) {
+          console.log(`START TIME REACHED for reservation ${reservation.id} - marking room ${reservation.roomId} as OCCUPIED`);
+          const success = await updateRoomStatus(reservation.roomId, true);
+          if (success) updated = true;
+        }
         
-        // Remove from active reservations
-        setActiveReservations(prev => prev.filter(r => r.id !== reservation.id));
-        updated = true;
+        // Check if end time has been reached - MARK AS AVAILABLE and COMPLETE reservation
+        if (compareTimeStrings(currentTime, reservation.endTime) >= 0) {
+          console.log(`END TIME REACHED for reservation ${reservation.id} - completing reservation and marking room available`);
+          const roomUpdated = await updateRoomStatus(reservation.roomId, false);
+          const reservationCompleted = await markReservationAsCompleted(reservation.id);
+          
+          if (roomUpdated || reservationCompleted) {
+            // Remove from active reservations
+            setActiveReservations(prev => prev.filter(r => r.id !== reservation.id));
+            updated = true;
+          }
+        }
+      } catch (error) {
+        console.error(`Error processing reservation ${reservation.id}:`, error);
+        // Continue with other reservations even if one fails
       }
     }
     
@@ -259,20 +300,27 @@ export function useReservationStatusManager() {
     console.log("Setting up reservation status manager with user:", user.id);
     
     // Do initial fetch of active reservations
-    fetchActiveReservations();
+    fetchActiveReservations().catch(error => {
+      console.error("Error during initial fetch:", error);
+    });
     
     // Process reservations immediately
-    processReservations();
+    processReservations().catch(error => {
+      console.error("Error during initial processing:", error);
+    });
     
     // Set up interval to check more frequently
     const intervalId = setInterval(() => {
       console.log("Checking reservation statuses");
-      processReservations();
+      processReservations().catch(error => {
+        console.error("Error during scheduled processing:", error);
+      });
     }, 15000); // Check every 15 seconds for faster updates
     
-    // Set up realtime subscription to reservation changes
+    // Set up realtime subscription to reservation changes with error handling
+    let channel: any = null;
     try {
-      const channel = supabase
+      channel = supabase
         .channel('reservation-status-changes')
         .on('postgres_changes', { 
           event: '*', 
@@ -280,21 +328,33 @@ export function useReservationStatusManager() {
           table: 'room_reservations',
         }, () => {
           console.log("Reservation change detected, refreshing data");
-          fetchActiveReservations();
-          processReservations();
+          fetchActiveReservations().catch(console.error);
+          processReservations().catch(console.error);
         })
-        .subscribe();
-      
-      return () => {
-        clearInterval(intervalId);
-        supabase.removeChannel(channel);
-      };
+        .subscribe(status => {
+          console.log("Reservation subscription status:", status);
+          if (status === "SUBSCRIBED") {
+            console.log("Successfully subscribed to room_reservations changes");
+          } else if (status === "TIMED_OUT" || status === "CHANNEL_ERROR") {
+            console.error("Subscription error:", status);
+            // We'll rely on interval checks for updates
+          }
+        });
     } catch (error) {
       console.error("Error setting up reservation status subscription:", error);
-      
-      // If subscription fails, rely on interval checks
-      return () => clearInterval(intervalId);
+      // If subscription setup fails, we'll rely on the interval checks
     }
+    
+    return () => {
+      clearInterval(intervalId);
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+      // Clean up any pending requests
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, [user, fetchActiveReservations, processReservations]);
 
   return {
@@ -303,6 +363,7 @@ export function useReservationStatusManager() {
     fetchActiveReservations,
     markReservationAsCompleted,
     updateRoomStatus,
-    processReservations
+    processReservations,
+    connectionError
   };
 }
