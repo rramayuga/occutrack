@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Button } from "@/components/ui/button";
 import { X } from 'lucide-react';
 import { Reservation } from '@/lib/types';
@@ -18,42 +18,40 @@ const RoomScheduleList: React.FC<RoomScheduleListProps> = ({
 }) => {
   if (!showSchedules) return null;
   
-  // Filter active schedules with improved filtering logic
-  const activeSchedules = useMemo(() => {
-    // Get current date and time for filtering
+  // Compare times in HH:MM format
+  const compareTimeStrings = (time1: string, time2: string): number => {
+    // Parse times to ensure proper comparison
+    const [hours1, minutes1] = time1.split(':').map(Number);
+    const [hours2, minutes2] = time2.split(':').map(Number);
+    
+    if (hours1 !== hours2) {
+      return hours1 - hours2;
+    }
+    return minutes1 - minutes2;
+  };
+  
+  // Filter out finished schedules more accurately
+  const activeSchedules = roomSchedules.filter(schedule => {
+    // Filter out completed reservations
+    if (schedule.status === 'completed') return false;
+    
+    // Get current date and time
     const now = new Date();
     const today = now.toISOString().split('T')[0];
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-    const currentTimeInMinutes = currentHour * 60 + currentMinute;
+    const currentTime = now.toTimeString().substring(0, 5); // HH:MM format
     
-    return roomSchedules.filter(schedule => {
-      // Filter out explicitly completed reservations
-      if (schedule.status === 'completed') {
-        return false;
-      }
-      
-      // Filter out past days
-      if (schedule.date < today) {
-        return false;
-      }
-      
-      // For today's schedules, check if end time has passed
-      if (schedule.date === today) {
-        // Convert end time to minutes for comparison
-        const [endHours, endMinutes] = schedule.endTime.split(':').map(Number);
-        const endTimeInMinutes = endHours * 60 + endMinutes;
-        
-        // If end time has passed, don't show this reservation
-        if (endTimeInMinutes <= currentTimeInMinutes) {
-          return false;
-        }
-      }
-      
-      // Keep all future reservations
-      return true;
-    });
-  }, [roomSchedules]);
+    // If schedule date is in the future, keep it
+    if (schedule.date > today) return true;
+    
+    // If schedule date is today, check if end time has passed
+    if (schedule.date === today) {
+      // FIX: Using proper comparison instead of string comparison
+      return compareTimeStrings(currentTime, schedule.endTime) < 0;
+    }
+    
+    // Schedule date is in the past
+    return false;
+  });
   
   // Handle click internally to manage the event
   const handleCancelButtonClick = (e: React.MouseEvent, reservation: Reservation) => {

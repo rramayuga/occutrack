@@ -17,72 +17,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       console.log('Fetching user profile for ID:', userId, 'Force refresh:', forceRefresh);
       
-      // Get the user's email from the auth session
-      const { data: authUser } = await supabase.auth.getUser();
-      if (!authUser.user) {
-        console.log('No auth user found');
-        return null;
-      }
-      
-      // Check if this is a Google auth user with an NEU email
-      const isGoogleAuth = authUser.user.app_metadata?.provider === 'google';
-      const isNeuEmail = authUser.user.email?.endsWith('@neu.edu.ph');
-      
-      // If this is a Google auth user with NEU email, ensure they have a profile
-      if (isGoogleAuth && isNeuEmail) {
-        console.log('Google auth user with NEU email detected');
-        
-        // Check if profile exists
-        const { data: existingProfile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .maybeSingle();
-          
-        if (profileError) {
-          console.error('Error checking profile:', profileError);
-        }
-        
-        // If no profile exists, create one with student role
-        if (!existingProfile) {
-          console.log('Creating profile for Google auth NEU user');
-          const { error: insertError } = await supabase
-            .from('profiles')
-            .insert({
-              id: userId,
-              name: authUser.user.user_metadata.full_name || 'NEU Student',
-              email: authUser.user.email,
-              role: 'student' // Default role for NEU email users
-            });
-            
-          if (insertError) {
-            console.error('Error creating profile:', insertError);
-            throw insertError;
-          }
-          
-          console.log('Profile created successfully for NEU user');
-        }
-      }
-      
-      // Check for rejected status - CRITICAL CHECK MOVED TO THE TOP
-      // Always check this first to ensure rejected users can't access the app
+      // Check if this is a faculty member with a rejected request
       const { data: facultyRequest, error: facultyError } = await supabase
         .from('faculty_requests')
         .select('status')
         .eq('user_id', userId)
+        .eq('status', 'rejected')
         .maybeSingle();
 
       if (facultyError) {
         console.error('Error checking faculty status:', facultyError);
       }
       
-      // STRICT ENFORCEMENT: If the user has been rejected, sign them out immediately
+      // If the faculty request was rejected, sign the user out
       if (facultyRequest && facultyRequest.status === 'rejected') {
-        console.log('User is rejected, signing out immediately');
+        console.log('Faculty request rejected, signing out user');
         await supabase.auth.signOut();
         toast({
           title: 'Access Denied',
-          description: 'Your account has been rejected. Please contact administration for more information.',
+          description: 'Your faculty account request has been rejected. Please contact administration for more information.',
           variant: 'destructive'
         });
         navigate('/login');
@@ -90,26 +43,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setIsLoading(false);
         return null;
       }
-      
-      // Block users with pending requests from accessing the app
-      // But make an exception for NEU Google auth users
-      if (facultyRequest && facultyRequest.status === 'pending' && !(isGoogleAuth && isNeuEmail)) {
-        console.log('Faculty request pending, signing out user');
+
+      // Check for pending faculty requests for new Google sign-in users
+      const { data: pendingRequest } = await supabase
+        .from('faculty_requests')
+        .select('status')
+        .eq('user_id', userId)
+        .eq('status', 'pending')
+        .maybeSingle();
+
+      if (pendingRequest && pendingRequest.status === 'pending') {
+        console.log('Faculty request pending, redirecting to confirmation page');
         await supabase.auth.signOut();
         toast({
-          title: 'Account Pending Approval',
-          description: 'Your account is pending administrator approval. You will be able to log in once approved.',
-          variant: 'default'
+          title: 'Account Pending',
+          description: 'Your faculty account request is pending approval. Please wait for administrator review.',
         });
         navigate('/faculty-confirmation');
         setUser(null);
         setIsLoading(false);
         return null;
       }
-
-      // If user passed rejection checks, proceed with profile fetching
-      console.log('User passed rejection checks, fetching profile data');
       
+      // Use a transaction-level isolation to prevent stale reads
+      console.log('Fetching profile data');
+      
+      // Use direct database query with cache control headers
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
@@ -167,6 +126,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     let mounted = true;
+    let visibilityChangeHandler: null | ((e: Event) => void) = null;
     
     // Initial auth check
     const checkAuth = async () => {
@@ -179,7 +139,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (sessionData.session?.user && mounted) {
           console.log('Found existing session, auth provider:', sessionData.session.user.app_metadata?.provider);
           console.log('User ID from session:', sessionData.session.user.id);
-          console.log('User email:', sessionData.session.user.email);
           
           // Initial fetch of user profile
           await fetchUserProfile(sessionData.session.user.id);
@@ -209,8 +168,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             if (mounted) {
               console.log('Auth state changed to logged in, fetching profile');
               console.log('User ID from auth state change:', session.user.id);
-              console.log('User email:', session.user.email);
-              console.log('Auth provider:', session.user.app_metadata?.provider);
               
               await fetchUserProfile(session.user.id);
               setIsLoading(false);
@@ -224,10 +181,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     );
 
+    // Don't refresh on tab visibility change
+    // This prevents the unnecessary refreshes when changing tabs
+
     return () => {
       console.log('Cleaning up AuthProvider');
       mounted = false;
       subscription.unsubscribe();
+      
+      if (visibilityChangeHandler) {
+        document.removeEventListener('visibilitychange', visibilityChangeHandler);
+      }
     };
   }, [fetchUserProfile]);
 

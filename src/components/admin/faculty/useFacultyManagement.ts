@@ -122,7 +122,6 @@ export const useFacultyManagement = () => {
       if (error) throw error;
 
       if (newStatus === 'approved') {
-        // Update profile to faculty role
         const { error: profileError } = await supabase
           .from('profiles')
           .update({ role: 'faculty' })
@@ -130,12 +129,10 @@ export const useFacultyManagement = () => {
           
         if (profileError) {
           console.error('Error updating user role:', profileError);
-          throw profileError;
         }
       }
 
       if (newStatus === 'rejected') {
-        // Update profile back to student role
         const { error: profileError } = await supabase
           .from('profiles')
           .update({ role: 'student' })
@@ -143,7 +140,6 @@ export const useFacultyManagement = () => {
           
         if (profileError) {
           console.error('Error updating user role:', profileError);
-          throw profileError;
         }
       }
 
@@ -194,7 +190,6 @@ export const useFacultyManagement = () => {
     setNotes,
     handleUpdateStatus,
     handleConfirmReject,
-    formatDate,
-    fetchFacultyMembers // Expose this function to allow refreshing the list
+    formatDate
   };
 };

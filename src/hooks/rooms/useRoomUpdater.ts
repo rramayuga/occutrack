@@ -49,7 +49,8 @@ export function useRoomUpdater(
         console.log("Cannot update a maintenance room unless superadmin");
         toast({
           title: "Permission Denied",
-          description: "Only SuperAdmin users can change the status of rooms under maintenance"
+          description: "Only SuperAdmin users can change the status of rooms under maintenance",
+          variant: "destructive"
         });
         updateInProgress.current[roomId] = false;
         return;
@@ -58,7 +59,7 @@ export function useRoomUpdater(
       // Use explicit status if provided, otherwise derive from isAvailable
       const newStatus: RoomStatus = explicitStatus || (isAvailable ? 'available' : 'occupied');
       
-      // Update the rooms table first with the new status
+      // Update the rooms table first with the new status - this is crucial
       const { error: updateError } = await supabase
         .from('rooms')
         .update({
@@ -70,7 +71,8 @@ export function useRoomUpdater(
         console.error("Error updating room status:", updateError);
         toast({
           title: "Error",
-          description: `Failed to update room status: ${updateError.message}`
+          description: `Failed to update room status: ${updateError.message}`,
+          variant: "destructive"
         });
         updateInProgress.current[roomId] = false;
         return;
@@ -85,6 +87,7 @@ export function useRoomUpdater(
           .insert({
             room_id: roomId,
             is_available: isAvailable,
+            status: newStatus, // Store the status explicitly
             updated_by: user.id,
             updated_at: new Date().toISOString()
           });
@@ -109,17 +112,21 @@ export function useRoomUpdater(
         )
       );
       
+      // Force a refresh to ensure all components have the latest data
+      setTimeout(() => refetchRooms(), 300);
+      
     } catch (error: any) {
       console.error("Error updating room availability:", error);
       toast({
         title: "Error",
-        description: `Failed to update room availability: ${error?.message || 'Unknown error'}`
+        description: `Failed to update room availability: ${error?.message || 'Unknown error'}`,
+        variant: "destructive"
       });
     } finally {
       // Clear update lock
       updateInProgress.current[roomId] = false;
     }
-  }, [user, setRooms, toast]);
+  }, [user, setRooms, toast, refetchRooms]);
 
   // Handle toggling room availability
   const handleToggleRoomAvailability = useCallback((roomId: string) => {
@@ -130,7 +137,8 @@ export function useRoomUpdater(
     if (roomToToggle && roomToToggle.status === 'maintenance' && user?.role !== 'superadmin') {
       toast({
         title: "Cannot Toggle",
-        description: "Room is under maintenance. Only SuperAdmin can change this status."
+        description: "Room is under maintenance. Only SuperAdmin can change this status.",
+        variant: "destructive"
       });
       return;
     }

@@ -5,7 +5,6 @@ import { useRoomFetching } from './rooms/useRoomFetching';
 import { useRoomUpdater } from './rooms/useRoomUpdater';
 import { useRoomSubscriptions } from './rooms/useRoomSubscriptions';
 import { useRoomReservationCheck } from './useRoomReservationCheck';
-import { useReservationStatusManager } from './reservation/useReservationStatusManager';
 
 /**
  * Main hook for managing room data and operations
@@ -14,8 +13,6 @@ export function useRooms() {
   // Track initial setup to prevent multiple setups
   const isInitialized = useRef(false);
   const [selectedBuilding, setSelectedBuilding] = useState<string>('');
-  const lastProcessTime = useRef<number>(Date.now());
-  const lastFetchTime = useRef<number>(Date.now());
 
   // Get building data
   const { buildings } = useBuildings();
@@ -41,9 +38,6 @@ export function useRooms() {
     setupRoomAvailabilitySubscription
   } = useRoomSubscriptions(fetchRooms, setRooms);
   
-  // Get active reservations to check and update room status
-  const { activeReservations, processReservations } = useReservationStatusManager();
-  
   // Check and update rooms based on reservations - this helps catch any misalignment
   useRoomReservationCheck(rooms, updateRoomAvailability);
 
@@ -60,17 +54,6 @@ export function useRooms() {
     const unsubscribeRooms = setupRoomSubscription();
     const unsubscribeAvailability = setupRoomAvailabilitySubscription();
     
-    // Increase the delay for initial processing to allow other systems to initialize
-    const timeoutId = setTimeout(() => {
-      // Only process if we haven't processed recently
-      const now = Date.now();
-      if (now - lastProcessTime.current > 20000) {
-        console.log("Initial processing of reservations in useRooms");
-        processReservations();
-        lastProcessTime.current = now;
-      }
-    }, 5000); // Longer initial delay
-    
     isInitialized.current = true;
     
     // Clean up subscriptions on unmount
@@ -78,9 +61,8 @@ export function useRooms() {
       console.log("Cleaning up room subscriptions");
       unsubscribeRooms();
       unsubscribeAvailability();
-      clearTimeout(timeoutId);
     };
-  }, [fetchRooms, setupRoomSubscription, setupRoomAvailabilitySubscription, processReservations]);
+  }, [fetchRooms, setupRoomSubscription, setupRoomAvailabilitySubscription]);
 
   return {
     buildings,

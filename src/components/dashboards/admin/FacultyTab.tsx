@@ -22,10 +22,18 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Trash } from 'lucide-react';
-import { useToast } from "@/hooks/use-toast";
-import { FacultyMember } from '@/hooks/useFacultyManagement';
-import { useFacultyManagement } from '@/hooks/useFacultyManagement';
-import { deleteUser } from '@/utils/auth-utils';
+import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+
+interface FacultyMember {
+  id: string;
+  name: string;
+  email: string;
+  department: string;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: string;
+  user_id: string;
+}
 
 interface FacultyTabProps {
   isLoadingFaculty: boolean;
@@ -43,7 +51,6 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
   const [selectedFaculty, setSelectedFaculty] = useState<FacultyMember | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const { toast } = useToast();
 
   const handleDeleteClick = (faculty: FacultyMember) => {
     setSelectedFaculty(faculty);
@@ -56,14 +63,25 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
     try {
       setIsDeleting(true);
       
-      console.log("Permanently deleting user:", selectedFaculty);
+      // 1. Delete from faculty_requests table
+      const { error: facultyRequestError } = await supabase
+        .from('faculty_requests')
+        .delete()
+        .eq('id', selectedFaculty.id);
+        
+      if (facultyRequestError) throw facultyRequestError;
       
-      // Call the deleteUser function to permanently delete the user
-      await deleteUser(selectedFaculty.user_id);
+      // 2. Delete from profiles table
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', selectedFaculty.user_id);
+        
+      if (profileError) throw profileError;
       
       toast({
-        title: "User deleted",
-        description: `${selectedFaculty.name} has been permanently removed from the system.`,
+        title: "Faculty deleted",
+        description: `${selectedFaculty.name} has been removed successfully.`,
       });
       
       // Close dialog and refresh data
@@ -73,10 +91,10 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
       }
       
     } catch (error) {
-      console.error('Error deleting user:', error);
+      console.error('Error deleting faculty:', error);
       toast({
         title: "Deletion failed",
-        description: "There was a problem deleting this user.",
+        description: "There was a problem deleting this faculty member.",
         variant: "destructive",
       });
     } finally {
@@ -126,7 +144,7 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      onClick={() => handleViewFaculty(faculty.id)}
+                      onClick={() => handleViewFaculty(faculty.user_id)}
                     >
                       View
                     </Button>
@@ -168,7 +186,7 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
               disabled={isDeleting}
               className="bg-red-500 hover:bg-red-600"
             >
-              {isDeleting ? "Deleting..." : "Delete User"}
+              {isDeleting ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
