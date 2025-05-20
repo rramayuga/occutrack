@@ -18,7 +18,6 @@ import Register from "./pages/Register";
 import FacultyConfirmation from "./pages/FacultyConfirmation";
 import Announcements from "./pages/Announcements";
 import AnnouncementsManager from "./pages/admin/AnnouncementsManager";
-import AdminSetup from "./pages/AdminSetup";
 import { useAuth } from "@/lib/auth";
 
 // Create a protected route component to handle redirects based on authentication
@@ -85,7 +84,6 @@ const App = () => (
           <Route path="/faculty-confirmation" element={<FacultyConfirmation />} />
           <Route path="/announcements" element={<ProtectedRoute><Announcements /></ProtectedRoute>} />
           <Route path="/admin/announcements" element={<ProtectedRoute><AnnouncementsManager /></ProtectedRoute>} />
-          <Route path="/admin-setup" element={<AdminSetup />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </AuthProvider>
