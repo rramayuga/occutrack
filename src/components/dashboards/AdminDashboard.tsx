@@ -125,24 +125,39 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
 
   const handleDeleteFaculty = async (facultyId: string) => {
     try {
+      console.log(`Starting deletion process for faculty ID: ${facultyId}`);
+      
       // Find the faculty member by ID
       const facultyToDelete = facultyMembers.find(f => f.id === facultyId);
-      if (facultyToDelete) {
-        await deleteFacultyMember(facultyToDelete);
-        
-        // After successful deletion, refresh data immediately
-        await fetchFacultyData();
-        
+      
+      if (!facultyToDelete) {
+        console.error("Faculty member not found with ID:", facultyId);
         toast({
-          title: "Faculty deleted",
-          description: "Faculty member has been removed successfully"
+          title: "Error",
+          description: "Faculty member not found",
+          variant: "destructive"
         });
+        return;
       }
+      
+      console.log("Faculty to delete:", facultyToDelete);
+      
+      // Call the deleteFacultyMember function with the faculty object
+      await deleteFacultyMember(facultyToDelete);
+      
+      // After successful deletion, refresh the data
+      console.log("Refreshing faculty data after deletion");
+      await fetchFacultyData();
+      
+      toast({
+        title: "Success",
+        description: "Faculty member has been deleted successfully",
+      });
     } catch (error) {
-      console.error("Error deleting faculty:", error);
+      console.error("Error in handleDeleteFaculty:", error);
       toast({
         title: "Delete failed",
-        description: "Unable to delete faculty member",
+        description: "Unable to delete faculty member. Please try again.",
         variant: "destructive"
       });
     }

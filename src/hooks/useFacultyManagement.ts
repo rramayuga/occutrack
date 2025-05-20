@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { deleteUser } from '@/utils/auth-utils';
@@ -20,7 +20,7 @@ export const useFacultyManagement = () => {
   const [isLoadingFaculty, setIsLoadingFaculty] = useState(true);
   const { toast } = useToast();
 
-  const fetchFacultyData = async () => {
+  const fetchFacultyData = useCallback(async () => {
     try {
       setIsLoadingFaculty(true);
       
@@ -72,19 +72,38 @@ export const useFacultyManagement = () => {
         });
       }
       
+      // Log collected data for debugging
+      console.log('Faculty data fetched:', combinedFaculty);
+      
       setFacultyCount(combinedFaculty.length);
       setFacultyMembers(combinedFaculty);
     } catch (error) {
       console.error('Error fetching faculty data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load faculty data",
+        variant: "destructive"
+      });
     } finally {
       setIsLoadingFaculty(false);
     }
-  };
+  }, [toast]);
 
   // Function to delete faculty member
   const deleteFacultyMember = async (faculty: FacultyMember) => {
     try {
       console.log(`Attempting to delete faculty member: ${faculty.name} (${faculty.user_id})`);
+      
+      // First delete the faculty request if it exists
+      const { error: facultyRequestError } = await supabase
+        .from('faculty_requests')
+        .delete()
+        .eq('user_id', faculty.user_id);
+      
+      if (facultyRequestError) {
+        console.error('Error deleting faculty request:', facultyRequestError);
+        // Continue anyway as this might not exist for all faculty
+      }
       
       // Use the deleteUser utility function to handle complete user deletion
       await deleteUser(faculty.user_id);
@@ -118,7 +137,28 @@ export const useFacultyManagement = () => {
 
   useEffect(() => {
     fetchFacultyData();
-  }, []);
+    
+    // Set up a subscription to faculty_requests changes
+    const facultyChannel = supabase
+      .channel('faculty_changes')
+      .on('postgres_changes', 
+          { event: '*', schema: 'public', table: 'faculty_requests' }, 
+          (payload) => {
+            console.log('Faculty requests changes detected:', payload);
+            fetchFacultyData();
+          })
+      .on('postgres_changes', 
+          { event: '*', schema: 'public', table: 'profiles' }, 
+          (payload) => {
+            console.log('Profiles changes detected:', payload);
+            fetchFacultyData();
+          })
+      .subscribe();
+          
+    return () => {
+      supabase.removeChannel(facultyChannel);
+    };
+  }, [fetchFacultyData]);
 
   return {
     facultyCount,
