@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { UserRole } from '@/lib/types';
 import { 
@@ -32,11 +32,21 @@ const Register = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [isGoogleSignIn, setIsGoogleSignIn] = useState(Boolean(locationState.fromGoogle));
+  const [isNeuEmail, setIsNeuEmail] = useState(false);
   
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const showDepartmentField = role === 'faculty';
+  
+  // Check if the email is from NEU domain
+  useEffect(() => {
+    if (email) {
+      setIsNeuEmail(email.toLowerCase().endsWith('@neu.edu.ph'));
+    } else {
+      setIsNeuEmail(false);
+    }
+  }, [email]);
   
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,18 +73,30 @@ const Register = () => {
       if (role === 'faculty') {
         const authData = await handleFacultyRegistration(email, password || '', name, department);
         if (authData.user) {
-          toast({
-            title: "Registration Submitted",
-            description: "Your faculty account request has been submitted for approval.",
-          });
-          navigate('/faculty-confirmation');
+          // For NEU domain emails - faculty registration is auto-approved
+          if (isNeuEmail) {
+            toast({
+              title: "Registration Successful",
+              description: "Your faculty account has been automatically approved. Welcome to NEU OccuTrack!",
+            });
+            navigate('/dashboard');
+          } else {
+            toast({
+              title: "Registration Submitted",
+              description: "Your faculty account request has been submitted for approval.",
+            });
+            navigate('/faculty-confirmation');
+          }
         }
       } else {
         const authData = await handleStudentRegistration(email, password || '', name);
         if (authData.user) {
+          // For NEU domain emails - student accounts are auto-approved
           toast({
             title: "Registration Successful",
-            description: "Welcome to NEU OccuTrack!",
+            description: isNeuEmail ? 
+              "Your NEU student account has been automatically approved. Welcome!" : 
+              "Welcome to NEU OccuTrack!",
           });
           navigate('/dashboard');
         }
@@ -93,7 +115,7 @@ const Register = () => {
       await handleGoogleSignIn();
       toast({
         title: "Google Authentication",
-        description: "Redirecting to Google sign-in...",
+        description: "Redirecting to Google sign-in for NEU accounts...",
       });
     } catch (error: any) {
       console.error('Google sign-in error:', error);
@@ -117,7 +139,9 @@ const Register = () => {
           </div>
           <CardTitle className="text-2xl">Create an account</CardTitle>
           <CardDescription>
-            Enter your details to register for NEU OccuTrack
+            {isNeuEmail ? 
+              "NEU students and faculty get instant access!" : 
+              "Enter your details to register for NEU OccuTrack"}
           </CardDescription>
         </CardHeader>
         

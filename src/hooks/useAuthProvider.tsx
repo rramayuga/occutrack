@@ -23,58 +23,107 @@ export function useAuthProvider() {
         return null;
       }
       
-      // STRICT ENFORCEMENT: First check faculty_requests approval status
-      const { data: facultyRequest, error: facultyError } = await supabase
-        .from('faculty_requests')
-        .select('status, department')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (facultyError) {
-        console.error('Error checking approval status:', facultyError);
-        // Critical error - sign out and force login page
-        await supabase.auth.signOut();
-        toast({
-          title: 'Authentication Error',
-          description: 'Error verifying account status. Please try again.',
-          variant: 'destructive'
-        });
-        navigate('/login');
-        setUser(null);
-        setIsLoading(false);
-        return null;
+      const userEmail = authUser.user.email;
+      const isNeuEmail = userEmail ? userEmail.toLowerCase().endsWith('@neu.edu.ph') : false;
+      
+      // Check if this is a Google sign-in that needs auto-approval
+      if (isNeuEmail && authUser.user.app_metadata?.provider === 'google') {
+        console.log('NEU domain Google sign-in detected, ensuring approval status');
+        
+        // Check if faculty request exists
+        const { data: existingRequest } = await supabase
+          .from('faculty_requests')
+          .select('status')
+          .eq('user_id', userId)
+          .maybeSingle();
+          
+        // If not exists or not approved, create/update an approved entry for NEU Google users
+        if (!existingRequest || existingRequest.status !== 'approved') {
+          console.log('Creating or updating auto-approved status for NEU Google user');
+          const { error: upsertError } = await supabase
+            .from('faculty_requests')
+            .upsert({
+              user_id: userId,
+              name: authUser.user.user_metadata?.full_name || 'NEU Student',
+              email: userEmail,
+              department: 'Student',
+              status: 'approved'
+            }, { onConflict: 'user_id' });
+            
+          if (upsertError) {
+            console.error('Error auto-approving NEU Google user:', upsertError);
+          }
+          
+          // Also update the user profile to ensure role is set
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .upsert({
+              id: userId,
+              name: authUser.user.user_metadata?.full_name || 'NEU Student',
+              email: userEmail,
+              role: 'student' // Default role for Google NEU users
+            }, { onConflict: 'id' });
+            
+          if (profileError) {
+            console.error('Error updating profile for NEU Google user:', profileError);
+          }
+        }
       }
       
-      // CRITICAL: Block access if user is not approved
-      // Note: We check for both null/undefined and explicit status values
-      if (!facultyRequest || 
-          facultyRequest.status === 'rejected' || 
-          facultyRequest.status === 'pending') {
+      // FACULTY_REQUESTS APPROVAL STATUS CHECK
+      // Skip strict faculty_request approval for NEU emails
+      if (!isNeuEmail) {
+        const { data: facultyRequest, error: facultyError } = await supabase
+          .from('faculty_requests')
+          .select('status, department')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (facultyError) {
+          console.error('Error checking approval status:', facultyError);
+          // Critical error - sign out and force login page
+          await supabase.auth.signOut();
+          toast({
+            title: 'Authentication Error',
+            description: 'Error verifying account status. Please try again.',
+            variant: 'destructive'
+          });
+          navigate('/login');
+          setUser(null);
+          setIsLoading(false);
+          return null;
+        }
         
-        const statusMessage = !facultyRequest ? 'not found' : facultyRequest.status;
-        console.log(`Access denied: account status is ${statusMessage}, signing out immediately`);
-        
-        await supabase.auth.signOut();
-        
-        const message = !facultyRequest ? 'Your account requires approval.' :
-                        facultyRequest.status === 'rejected' ? 
-                          'Your account has been rejected. Please contact administration.' :
-                          'Your account registration is pending approval. Please wait for administrator review.';
-        
-        toast({
-          title: facultyRequest?.status === 'rejected' ? 'Access Denied' : 'Account Pending Approval',
-          description: message,
-          variant: facultyRequest?.status === 'rejected' ? 'destructive' : 'default'
-        });
-        
-        navigate('/login');
-        
-        setUser(null);
-        setIsLoading(false);
-        return null;
+        // Only check non-NEU emails for approval status
+        if (!isNeuEmail && (!facultyRequest || 
+            facultyRequest.status === 'rejected' || 
+            facultyRequest.status === 'pending')) {
+          
+          const statusMessage = !facultyRequest ? 'not found' : facultyRequest.status;
+          console.log(`Access denied: account status is ${statusMessage}, signing out immediately`);
+          
+          await supabase.auth.signOut();
+          
+          const message = !facultyRequest ? 'Your account requires approval.' :
+                          facultyRequest.status === 'rejected' ? 
+                            'Your account has been rejected. Please contact administration.' :
+                            'Your account registration is pending approval. Please wait for administrator review.';
+          
+          toast({
+            title: facultyRequest?.status === 'rejected' ? 'Access Denied' : 'Account Pending Approval',
+            description: message,
+            variant: facultyRequest?.status === 'rejected' ? 'destructive' : 'default'
+          });
+          
+          navigate('/login');
+          
+          setUser(null);
+          setIsLoading(false);
+          return null;
+        }
       }
 
-      console.log('User approval verified, fetching profile data');
+      console.log('User approval verified or NEU email detected, fetching profile data');
       
       // If user passed approval check, proceed with profile fetching
       const { data: profile, error } = await supabase
@@ -98,29 +147,42 @@ export function useAuthProvider() {
           email: profile.email,
           role: profile.role as UserRole,
           avatarUrl: profile.avatar,
-          status: facultyRequest.status // Include status from faculty_requests
+          status: 'approved' // Default to approved for NEU users
         };
         
-        // STRICT ENFORCEMENT: Double-check status one more time
-        if (userData.status !== 'approved') {
-          console.log(`User access denied: account status is ${userData.status}`);
-          await supabase.auth.signOut();
-          
-          const message = userData.status === 'rejected' ? 
-            'Your account has been rejected. Please contact administration.' :
-            'Your account registration is pending approval. Please wait for administrator review.';
+        // For non-NEU emails, double check status
+        if (!isNeuEmail) {
+          const { data: facultyRequest } = await supabase
+            .from('faculty_requests')
+            .select('status')
+            .eq('user_id', userId)
+            .maybeSingle();
             
-          toast({
-            title: userData.status === 'rejected' ? 'Access Denied' : 'Account Pending Approval',
-            description: message,
-            variant: userData.status === 'rejected' ? 'destructive' : 'default'
-          });
-          
-          navigate('/login');
-          
-          setUser(null);
-          setIsLoading(false);
-          return null;
+          if (facultyRequest) {
+            userData.status = facultyRequest.status;
+          }
+            
+          // STRICT ENFORCEMENT: Double-check status one more time for non-NEU emails
+          if (userData.status !== 'approved') {
+            console.log(`User access denied: account status is ${userData.status}`);
+            await supabase.auth.signOut();
+            
+            const message = userData.status === 'rejected' ? 
+              'Your account has been rejected. Please contact administration.' :
+              'Your account registration is pending approval. Please wait for administrator review.';
+              
+            toast({
+              title: userData.status === 'rejected' ? 'Access Denied' : 'Account Pending Approval',
+              description: message,
+              variant: userData.status === 'rejected' ? 'destructive' : 'default'
+            });
+            
+            navigate('/login');
+            
+            setUser(null);
+            setIsLoading(false);
+            return null;
+          }
         }
         
         setUser(userData);
