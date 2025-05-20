@@ -30,7 +30,7 @@ interface FacultyTabProps {
   facultyMembers: FacultyMember[];
   handleViewFaculty: (facultyId: string) => void;
   refreshFacultyData?: () => void;
-  handleDeleteFaculty?: (facultyId: string) => void;
+  handleDeleteFaculty?: (facultyId: string) => Promise<void>;
 }
 
 const FacultyTab: React.FC<FacultyTabProps> = ({
