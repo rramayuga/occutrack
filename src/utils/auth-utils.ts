@@ -145,13 +145,15 @@ export const handleLogin = async (email: string, password: string) => {
       
     // Check the status property using hasOwnProperty to avoid TypeScript errors
     if (profile && Object.prototype.hasOwnProperty.call(profile, 'status')) {
-      if (profile.status === 'pending') {
+      const status = profile.status as string;
+      
+      if (status === 'pending') {
         // Force sign out if status is pending
         await supabase.auth.signOut();
         throw new Error('Your account registration is pending approval. Please wait for administrator review.');
       }
       
-      if (profile.status === 'rejected') {
+      if (status === 'rejected') {
         // Force sign out if status is rejected
         await supabase.auth.signOut();
         throw new Error('Your account has been rejected. Please contact administration for more information.');

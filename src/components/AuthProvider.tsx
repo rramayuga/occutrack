@@ -77,7 +77,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (profile) {
         console.log('Profile fetched successfully:', profile);
-        const userData = {
+        const userData: User = {
           id: profile.id,
           name: profile.name,
           email: profile.email,
@@ -86,8 +86,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         };
         
         // If status property exists in the profile, add it to userData
-        if (Object.prototype.hasOwnProperty.call(profile, 'status')) {
-          userData.status = profile.status;
+        if (profile && Object.prototype.hasOwnProperty.call(profile, 'status')) {
+          (userData as User).status = profile.status as string;
         }
         
         setUser(userData);
