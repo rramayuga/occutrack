@@ -75,13 +75,6 @@ const BuildingsTab: React.FC<BuildingsTabProps> = ({
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  onClick={() => handleEditBuilding(building)}
-                >
-                  Edit
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
                   onClick={() => handleDeleteBuilding(building)}
                 >
                   Delete
