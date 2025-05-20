@@ -1,10 +1,9 @@
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Reservation } from '@/lib/types';
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/lib/auth';
 import { useToast } from "@/hooks/use-toast";
-import { useRoomStatusManager } from './useRoomStatusManager';
 
 export function useReservationStatusManager() {
   const [activeReservations, setActiveReservations] = useState<Reservation[]>([]);
@@ -13,15 +12,7 @@ export function useReservationStatusManager() {
   const [lastCheck, setLastCheck] = useState<Date>(new Date());
   const { user } = useAuth();
   const { toast } = useToast();
-  const { updateRoomStatus } = useRoomStatusManager();
-  
-  // Tracking system for reservation status transitions
-  const reservationStatusCache = useRef<Map<string, {
-    status: string,
-    roomStatus: string,
-    lastProcessed: number
-  }>>(new Map());
-  
+
   // Add cooldown for error toasts to prevent spam
   const ERROR_COOLDOWN_MS = 10000; // 10 seconds between error messages
 
@@ -116,20 +107,52 @@ export function useReservationStatusManager() {
     }
   }, [user, toast, lastError]);
 
+  // Update room status based on reservation time
+  const updateRoomStatus = useCallback(async (roomId: string, isOccupied: boolean) => {
+    try {
+      console.log(`Updating room ${roomId} status to ${isOccupied ? 'occupied' : 'available'}`);
+      
+      // First check if the room is in maintenance - don't change status if it is
+      const { data: roomData, error: roomError } = await supabase
+        .from('rooms')
+        .select('status, name')
+        .eq('id', roomId)
+        .single();
+      
+      if (roomError) {
+        console.error("Error fetching room status:", roomError);
+        return false;
+      }
+      
+      if (roomData?.status === 'maintenance') {
+        console.log(`Room ${roomData.name} is under maintenance, skipping status update`);
+        return false;
+      }
+      
+      // Update the room status in the database
+      const status = isOccupied ? 'occupied' : 'available';
+      const { error } = await supabase
+        .from('rooms')
+        .update({ status, is_available: !isOccupied })
+        .eq('id', roomId);
+      
+      if (error) {
+        console.error("Error updating room status:", error);
+        return false;
+      }
+      
+      console.log(`Successfully updated room ${roomId} status to ${status}`);
+      
+      return true;
+    } catch (error) {
+      console.error("Error in updateRoomStatus:", error);
+      return false;
+    }
+  }, []);
+
   // Mark a reservation as completed
   const markReservationAsCompleted = useCallback(async (reservationId: string) => {
     try {
-      // Check if we've already processed this completion recently
-      const cacheKey = `completion-${reservationId}`;
-      const cached = reservationStatusCache.current.get(cacheKey);
-      const now = Date.now();
-      
-      // Don't attempt to complete the same reservation multiple times
-      if (cached && now - cached.lastProcessed < 300000) { // 5 minute cooldown
-        console.log(`Skipping redundant completion for reservation ${reservationId} - processed recently`);
-        return true;
-      }
-      
       console.log(`Marking reservation ${reservationId} as completed`);
       
       const { error } = await supabase
@@ -141,13 +164,6 @@ export function useReservationStatusManager() {
         console.error("Error marking reservation as completed:", error);
         return false;
       }
-      
-      // Track this in our cache
-      reservationStatusCache.current.set(cacheKey, {
-        status: 'completed',
-        roomStatus: 'available',
-        lastProcessed: now
-      });
       
       setCompletedReservationIds(prev => [...prev, reservationId]);
       return true;
@@ -182,7 +198,7 @@ export function useReservationStatusManager() {
     const now = new Date();
     
     // Force refresh if it's been a while
-    if (now.getTime() - lastCheck.getTime() > 60000) { // 60 seconds (increased from 30)
+    if (now.getTime() - lastCheck.getTime() > 30000) { // 30 seconds
       console.log("Force refreshing reservations due to time elapsed");
       reservationsToProcess = await fetchActiveReservations();
       setLastCheck(now);
@@ -210,62 +226,19 @@ export function useReservationStatusManager() {
         continue;
       }
       
-      // Get cache for this reservation
-      const reservationKey = `reservation-${reservation.id}`;
-      const cached = reservationStatusCache.current.get(reservationKey);
-      const currentTimestamp = Date.now();
-      
       // Check if start time has been reached - MARK AS OCCUPIED
       if (compareTimeStrings(currentTime, reservation.startTime) >= 0 && 
           compareTimeStrings(currentTime, reservation.endTime) < 0) {
-        
-        // If we've already marked this as occupied recently, skip
-        if (cached && 
-            cached.roomStatus === 'occupied' && 
-            currentTimestamp - cached.lastProcessed < 600000) { // 10 minute cooldown
-          console.log(`Skipping redundant occupied update for reservation ${reservation.id} - updated ${Math.round((currentTimestamp - cached.lastProcessed)/1000)}s ago`);
-          continue;
-        }
-        
         console.log(`START TIME REACHED for reservation ${reservation.id} - marking room ${reservation.roomId} as OCCUPIED`);
-        
-        // Pass the reservation ID to updateRoomStatus for more precise tracking
-        const success = await updateRoomStatus(reservation.roomId, true, reservation.id);
-        
-        if (success) {
-          // Record this status update in our cache
-          reservationStatusCache.current.set(reservationKey, {
-            status: reservation.status,
-            roomStatus: 'occupied',
-            lastProcessed: currentTimestamp
-          });
-          
-          updated = true;
-        }
+        await updateRoomStatus(reservation.roomId, true);
+        updated = true;
       }
       
       // Check if end time has been reached - MARK AS AVAILABLE and COMPLETE reservation
       if (compareTimeStrings(currentTime, reservation.endTime) >= 0) {
-        // If we've already processed this completion recently, skip
-        if (cached && 
-            cached.status === 'completed' && 
-            currentTimestamp - cached.lastProcessed < 600000) { // 10 minute cooldown
-          console.log(`Skipping redundant completion for reservation ${reservation.id} - processed recently`);
-          continue;
-        }
-        
         console.log(`END TIME REACHED for reservation ${reservation.id} - completing reservation and marking room available`);
-        
-        // Pass the reservation ID to updateRoomStatus for more precise tracking
-        await updateRoomStatus(reservation.roomId, false, reservation.id);
+        await updateRoomStatus(reservation.roomId, false);
         await markReservationAsCompleted(reservation.id);
-        
-        // Record this status update in our cache
-        reservationStatusCache.current.set(reservationKey, {
-          status: 'completed',
-          roomStatus: 'available',
-          lastProcessed: currentTimestamp
-        });
         
         // Remove from active reservations
         setActiveReservations(prev => prev.filter(r => r.id !== reservation.id));
@@ -273,13 +246,13 @@ export function useReservationStatusManager() {
       }
     }
     
-    // If any updates were made, refresh the reservations but with a delay
+    // If any updates were made, refresh the reservations
     if (updated) {
-      setTimeout(() => fetchActiveReservations(), 3000); // Delay refresh to allow database to update
+      await fetchActiveReservations();
     }
   }, [activeReservations, completedReservationIds, updateRoomStatus, markReservationAsCompleted, fetchActiveReservations, lastCheck, compareTimeStrings, user]);
 
-  // Setup checks for reservation status changes - less frequent and with clearer cleanup
+  // Setup frequent checks for reservation status changes
   useEffect(() => {
     if (!user) return;
     
@@ -288,47 +261,40 @@ export function useReservationStatusManager() {
     // Do initial fetch of active reservations
     fetchActiveReservations();
     
-    // Process reservations immediately - this is important for initial state
+    // Process reservations immediately
     processReservations();
     
-    // Set up interval to check LESS frequently - increase to 30 seconds 
+    // Set up interval to check more frequently
     const intervalId = setInterval(() => {
-      console.log("Periodic check of reservation statuses");
+      console.log("Checking reservation statuses");
       processReservations();
-    }, 30000); // Check every 30 seconds (increased from 5 seconds)
+    }, 30000); // Check every 30 seconds - changed to be more frequent for automatic status updates
     
     // Set up realtime subscription to reservation changes
-    let channel: any = null;
-    
     try {
-      channel = supabase
+      const channel = supabase
         .channel('reservation-status-changes')
         .on('postgres_changes', { 
           event: '*', 
           schema: 'public', 
           table: 'room_reservations',
-        }, (payload) => {
-          console.log("Reservation change detected via realtime:", payload);
-          // Delay processing slightly to allow database to update fully
-          setTimeout(() => {
-            fetchActiveReservations();
-            processReservations();
-          }, 2000);
+        }, () => {
+          console.log("Reservation change detected, refreshing data");
+          fetchActiveReservations();
+          processReservations();
         })
-        .subscribe((status) => {
-          console.log("Realtime subscription status for reservations:", status);
-        });
+        .subscribe();
+      
+      return () => {
+        clearInterval(intervalId);
+        supabase.removeChannel(channel);
+      };
     } catch (error) {
       console.error("Error setting up reservation status subscription:", error);
+      
+      // If subscription fails, rely on interval checks
+      return () => clearInterval(intervalId);
     }
-    
-    return () => {
-      console.log("Cleaning up reservation status manager");
-      clearInterval(intervalId);
-      if (channel) {
-        supabase.removeChannel(channel);
-      }
-    };
   }, [user, fetchActiveReservations, processReservations]);
 
   return {

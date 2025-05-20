@@ -47,7 +47,7 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
     return new Date().toISOString().split('T')[0];
   }, []);
   
-  // Set up real-time subscription for reservation changes - maintain this logic but reduce frequency
+  // Set up real-time subscription for reservation changes
   useEffect(() => {
     if (!user) return;
     
@@ -66,7 +66,7 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
           // Only process if we're not already processing
           if (!isProcessing.current) {
             // Add a delay to prevent immediate processing
-            setTimeout(() => processReservations(), 5000); // Increased delay
+            setTimeout(() => processReservations(), 2000);
           }
         })
       .subscribe((status) => {
@@ -78,14 +78,14 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
     };
   }, [user, processReservations]);
   
-  // Effect for processing room status changes based on reservations - with optimized checks
+  // Effect for processing room status changes based on reservations
   useEffect(() => {
     if (!user || activeReservations.length === 0 || isProcessing.current) return;
     
-    // Increase check interval to reduce frequency significantly
+    // Increase check frequency for more timely status updates
     const now = new Date();
     const timeSinceLastCheck = now.getTime() - lastCheckTime.current.getTime();
-    if (timeSinceLastCheck < 120000) return; // 2 minutes between global checks (increased from 1 min)
+    if (timeSinceLastCheck < 30000) return; // 30 seconds between global checks (decreased for more frequent checks)
     
     lastCheckTime.current = now;
     isProcessing.current = true;
@@ -132,9 +132,9 @@ export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (
           
           // Case: Room should be OCCUPIED but currently isn't
           if (isActive && roomToUpdate.status !== 'occupied') {
-            // Check if we've already tried this recently - much longer cooldown 
+            // Check if we've already tried this recently - using shorter cooldown for more responsive updates
             if (lastProcessed && 
-                (currentTimestamp - lastProcessed.timestamp) < 1800000) { // 30 minute cooldown (increased)
+                (currentTimestamp - lastProcessed.timestamp) < 600000) { // 10 minute cooldown (decreased)
               console.log(`Skipping status update for ${roomToUpdate.name} to OCCUPIED - processed recently`);
               continue;
             }
