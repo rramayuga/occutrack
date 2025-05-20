@@ -23,7 +23,7 @@ export function useAuthProvider() {
         return null;
       }
       
-      // Check for pending/rejected status first - CRITICAL CHECK
+      // First check for pending/rejected status - CRITICAL CHECK
       const { data: facultyRequest, error: facultyError } = await supabase
         .from('faculty_requests')
         .select('status')
@@ -76,7 +76,8 @@ export function useAuthProvider() {
 
       if (profile) {
         console.log('Profile fetched successfully:', profile);
-        // Create a properly typed profile object with optional status
+        
+        // Double-check status directly in profile as well for redundancy
         const profileData = profile as { 
           id: string; 
           name: string; 
@@ -85,6 +86,32 @@ export function useAuthProvider() {
           avatar: string | null;
           status?: string;
         };
+        
+        // STRICT ENFORCEMENT: If status is rejected or pending in profile, sign out
+        if (profileData.status === 'rejected' || profileData.status === 'pending') {
+          console.log(`User access denied by profile check: account is ${profileData.status}`);
+          await supabase.auth.signOut();
+          
+          const message = profileData.status === 'rejected' 
+            ? 'Your account has been rejected. Please contact administration for more information.'
+            : 'Your account registration is pending approval. Please wait for administrator review.';
+            
+          toast({
+            title: profileData.status === 'rejected' ? 'Access Denied' : 'Account Pending Approval',
+            description: message,
+            variant: profileData.status === 'rejected' ? 'destructive' : 'default'
+          });
+          
+          if (profileData.status === 'pending') {
+            navigate('/faculty-confirmation');
+          } else {
+            navigate('/login');
+          }
+          
+          setUser(null);
+          setIsLoading(false);
+          return null;
+        }
         
         const userData: User = {
           id: profileData.id,

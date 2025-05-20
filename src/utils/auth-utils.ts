@@ -34,6 +34,14 @@ export const handleStudentRegistration = async (
       });
 
     if (requestError) throw requestError;
+    
+    // Also update the status in the profiles table to ensure consistency
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({ status: 'pending' })
+      .eq('id', data.user.id);
+      
+    if (profileError) throw profileError;
   }
 
   return { user: data.user, session: data.session };
@@ -71,6 +79,14 @@ export const handleFacultyRegistration = async (
       });
 
     if (requestError) throw requestError;
+    
+    // Also update the status in the profiles table
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({ status: 'pending' })
+      .eq('id', data.user.id);
+      
+    if (profileError) throw profileError;
   }
 
   return { user: data.user, session: data.session };
@@ -109,18 +125,19 @@ export const handleLogin = async (email: string, password: string) => {
     console.log('User registration status check result:', facultyRequest);
     
     // Block login for rejected or pending users
-    if (facultyRequest && facultyRequest.status === 'rejected') {
-      console.error('Login blocked: Account has been rejected');
-      throw new Error('Your account has been rejected. Please contact administration for more information.');
+    if (facultyRequest) {
+      if (facultyRequest.status === 'rejected') {
+        console.error('Login blocked: Account has been rejected');
+        throw new Error('Your account has been rejected. Please contact administration for more information.');
+      }
+
+      if (facultyRequest.status === 'pending') {
+        console.error('Login blocked: Account pending approval');
+        throw new Error('Your account registration is pending approval. Please wait for administrator review.');
+      }
     }
 
-    if (facultyRequest && facultyRequest.status === 'pending') {
-      console.error('Login blocked: Account pending approval');
-      throw new Error('Your account registration is pending approval. Please wait for administrator review.');
-    }
-
-    // If no faculty request is found, this could be a Google auth user - let them try to sign in
-    // Only attempt login if the account is approved or for special cases (Google auth)
+    // Only attempt login if the account is approved or for special cases
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
@@ -136,7 +153,7 @@ export const handleLogin = async (email: string, password: string) => {
     }
 
     // Double-check approval status after authentication
-    // This ensures Google users are also checked
+    // This ensures all users are checked, including those without faculty requests
     const { data: profile } = await supabase
       .from('profiles')
       .select('*')
@@ -145,8 +162,8 @@ export const handleLogin = async (email: string, password: string) => {
       
     // Check the status property using type-safe access
     if (profile) {
-      // Type assertion for profile to include potential status field
-      const profileData = profile as { status?: string; [key: string]: any };
+      // Use type assertion to safely check status
+      const profileData = profile as { status?: string } & typeof profile;
       
       if (profileData.status === 'pending') {
         // Force sign out if status is pending
