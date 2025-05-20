@@ -1,6 +1,5 @@
-
-import { useState, useEffect, useCallback } from 'react';
-import { BuildingWithFloors } from '@/lib/types';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { BuildingWithFloors, Building } from '@/lib/types';
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -243,9 +242,24 @@ export const useBuildings = () => {
     }
   };
 
+  // Add a new computed property to convert BuildingWithFloors[] to Building[]
+  const simplifiedBuildings = useMemo((): Building[] => {
+    return buildings.map(building => ({
+      id: building.id,
+      name: building.name,
+      location: building.location,
+      floors: building.floors.length, // Convert floors array to number count
+      createdAt: building.createdAt,
+      updatedAt: building.updatedAt,
+      roomCount: building.roomCount,
+      utilization: building.utilization
+    }));
+  }, [buildings]);
+
   // Return the additional properties needed by other components
   return { 
     buildings, 
+    simplifiedBuildings, // Add this new property for components expecting Building[]
     loading, 
     selectedBuilding,
     setSelectedBuilding,

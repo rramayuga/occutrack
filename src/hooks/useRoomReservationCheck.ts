@@ -1,91 +1,170 @@
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { Room, RoomStatus } from '@/lib/types';
 import { useAuth } from '@/lib/auth';
-import { useReservationStatusManager } from './useReservationStatusManager';
+import { useReservationStatusManager } from './reservation/useReservationStatusManager';
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 export function useRoomReservationCheck(rooms: Room[], updateRoomAvailability: (roomId: string, isAvailable: boolean, status: RoomStatus) => void) {
   const { user } = useAuth();
-  const { activeReservations } = useReservationStatusManager();
+  const { activeReservations, processReservations } = useReservationStatusManager();
+  const { toast } = useToast();
   
-  // Use ref to track the last check time to prevent excessive checks
+  // Enhanced tracking system with last check time 
   const lastCheckTime = useRef<Date>(new Date());
+  const isProcessing = useRef<boolean>(false);
   
-  // Compare times in HH:MM format
-  const compareTimeStrings = (time1: string, time2: string): number => {
-    // Parse times to ensure proper comparison (handles formats like "09:30" vs "9:30")
+  // Track room status by reservation to prevent redundant updates
+  const processedRoomStatuses = useRef<Map<string, {
+    status: string, 
+    timestamp: number, 
+    processed: boolean,
+    reservationId: string
+  }>>(new Map());
+  
+  // Compare times in HH:MM format with better precision
+  const compareTimeStrings = useCallback((time1: string, time2: string): number => {
     const [hours1, minutes1] = time1.split(':').map(Number);
     const [hours2, minutes2] = time2.split(':').map(Number);
     
-    if (hours1 !== hours2) {
-      return hours1 - hours2;
-    }
-    return minutes1 - minutes2;
-  };
-  
-  // This effect will run only when active reservations change
-  useEffect(() => {
-    if (!user || activeReservations.length === 0) return;
+    // Convert to minutes for better comparison
+    const totalMinutes1 = hours1 * 60 + minutes1;
+    const totalMinutes2 = hours2 * 60 + minutes2;
     
-    // Check if it's been at least 15 seconds since the last check
+    return totalMinutes1 - totalMinutes2;
+  }, []);
+
+  // Format current time as HH:MM for consistent comparison
+  const getCurrentTimeString = useCallback(() => {
+    const now = new Date();
+    return now.getHours().toString().padStart(2, '0') + ':' + 
+           now.getMinutes().toString().padStart(2, '0');
+  }, []);
+
+  // Get today's date in YYYY-MM-DD format for consistent comparison
+  const getCurrentDateString = useCallback(() => {
+    return new Date().toISOString().split('T')[0];
+  }, []);
+  
+  // Set up real-time subscription for reservation changes
+  useEffect(() => {
+    if (!user) return;
+    
+    console.log("Setting up real-time subscription for room reservations");
+    
+    const channel = supabase
+      .channel('room-status-channel')
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'room_reservations' 
+        }, 
+        (payload) => {
+          console.log("Reservation change detected via realtime:", payload);
+          // Process reservations when changes are detected
+          processReservations();
+        })
+      .subscribe((status) => {
+        console.log("Realtime subscription status:", status);
+      });
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, processReservations]);
+  
+  // Effect for processing room status changes based on reservations
+  useEffect(() => {
+    if (!user || activeReservations.length === 0 || isProcessing.current) return;
+    
+    // Increase check frequency for more timely status updates
     const now = new Date();
     const timeSinceLastCheck = now.getTime() - lastCheckTime.current.getTime();
-    if (timeSinceLastCheck < 15000) { // 15 seconds minimum between checks
-      return;
-    }
+    if (timeSinceLastCheck < 10000) return; // 10 seconds between global checks
     
     lastCheckTime.current = now;
+    isProcessing.current = true;
     
     const updateRoomStatusBasedOnReservations = async () => {
       try {
-        const currentDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
-        const currentTime = now.toTimeString().split(' ')[0].slice(0, 5); // HH:MM
+        const currentDate = getCurrentDateString();
+        const currentTime = getCurrentTimeString();
         
-        console.log(`Checking room statuses at ${currentDate} ${currentTime} based on ${activeReservations.length} reservations`);
+        console.log(`Checking room statuses at ${currentDate} ${currentTime}`);
         
-        // Process each active reservation
-        for (const reservation of activeReservations) {
-          // Skip if not for today
-          if (reservation.date !== currentDate) continue;
+        // Track which rooms we've processed to avoid redundant updates
+        const processedRooms = new Set<string>();
+        
+        // Process today's active reservations
+        const todayReservations = activeReservations.filter(r => r.date === currentDate);
+        
+        for (const reservation of todayReservations) {
+          // Skip if we've already processed this room in this check cycle
+          if (processedRooms.has(reservation.roomId)) continue;
+          
+          // Find the room
+          const roomToUpdate = rooms.find(r => r.id === reservation.roomId);
+          if (!roomToUpdate) continue;
+          
+          // Skip rooms under maintenance
+          if (roomToUpdate.status === 'maintenance') continue;
+          
+          processedRooms.add(reservation.roomId);
           
           const startTime = reservation.startTime;
           const endTime = reservation.endTime;
           
-          // FIX: Using a proper time comparison function instead of string comparison
-          // Check if current time is between start and end times
+          // More precise time comparison
           const isActive = compareTimeStrings(currentTime, startTime) >= 0 && 
                           compareTimeStrings(currentTime, endTime) < 0;
+                          
           const hasEnded = compareTimeStrings(currentTime, endTime) >= 0;
           
-          // Find the room to update
-          const roomToUpdate = rooms.find(r => r.id === reservation.roomId);
+          // Generate a unique key for this room+reservation status
+          const roomStatusKey = `${reservation.roomId}-${reservation.id}-${isActive ? 'active' : 'ended'}`;
+          const lastProcessed = processedRoomStatuses.current.get(roomStatusKey);
+          const currentTimestamp = Date.now();
           
-          if (roomToUpdate) {
-            // Skip rooms under maintenance
-            if (roomToUpdate.status === 'maintenance') {
-              console.log(`Room ${roomToUpdate.name} is under maintenance, skipping status update`);
-              continue;
-            }
+          // Case: Room should be OCCUPIED but currently isn't
+          if (isActive && roomToUpdate.status !== 'occupied') {
+            console.log(`Setting room ${roomToUpdate.name} to OCCUPIED (current time ${currentTime} is between ${startTime} and ${endTime})`);
+            updateRoomAvailability(reservation.roomId, false, 'occupied');
             
-            // Update room status based on reservation time
-            if (isActive && roomToUpdate.status !== 'occupied') {
-              console.log(`Room ${roomToUpdate.name} should be occupied now based on reservation ${reservation.id}`);
-              updateRoomAvailability(reservation.roomId, false, 'occupied');
-            } 
-            else if (hasEnded && roomToUpdate.status !== 'available') {
-              console.log(`Room ${roomToUpdate.name} should be available now as reservation ${reservation.id} has ended`);
-              updateRoomAvailability(reservation.roomId, true, 'available');
-            }
+            // Record this update in our tracker
+            processedRoomStatuses.current.set(roomStatusKey, { 
+              status: 'occupied', 
+              timestamp: currentTimestamp,
+              processed: true,
+              reservationId: reservation.id
+            });
+          } 
+          // Case: Room should be AVAILABLE but is currently OCCUPIED
+          else if (hasEnded && roomToUpdate.status === 'occupied') {
+            console.log(`Setting room ${roomToUpdate.name} to AVAILABLE (current time ${currentTime} is after end time ${endTime})`);
+            updateRoomAvailability(reservation.roomId, true, 'available');
+            
+            // Record this update in our tracker
+            processedRoomStatuses.current.set(roomStatusKey, { 
+              status: 'available', 
+              timestamp: currentTimestamp,
+              processed: true,
+              reservationId: reservation.id
+            });
           }
         }
       } catch (error) {
         console.error("Error updating room status based on reservations:", error);
+      } finally {
+        isProcessing.current = false;
       }
     };
 
+    // Run the update function
     updateRoomStatusBasedOnReservations();
     
-  }, [user, rooms, activeReservations, updateRoomAvailability]);
+  }, [user, rooms, activeReservations, updateRoomAvailability, processReservations, compareTimeStrings, getCurrentDateString, getCurrentTimeString]);
 
   return null;
 }

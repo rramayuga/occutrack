@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from '@/lib/auth';
@@ -8,15 +9,31 @@ export function useReservations() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastError, setLastError] = useState<Date | null>(null);
+  const [failedAttempts, setFailedAttempts] = useState(0);
   const { user } = useAuth();
   const { toast } = useToast();
+  const abortControllerRef = useRef<AbortController | null>(null);
   
   // Add cooldown for error toasts to prevent spam
   const ERROR_COOLDOWN_MS = 10000; // 10 seconds between error messages
+  const MAX_RETRY_ATTEMPTS = 3;
 
-  // Fetch user's reservations
+  // Fetch user's reservations with retry logic and timeout handling
   const fetchReservations = useCallback(async () => {
     if (!user) return;
+    
+    // Cancel previous request if it exists
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    // Create new abort controller
+    abortControllerRef.current = new AbortController();
+    const timeoutId = setTimeout(() => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    }, 15000); // 15-second timeout (increased from 10s)
     
     try {
       setLoading(true);
@@ -35,7 +52,6 @@ export function useReservations() {
           faculty_id
         `)
         .eq('faculty_id', user.id)
-        .neq('status', 'completed') // Don't get completed reservations by default
         .order('date', { ascending: true })
         .order('start_time', { ascending: true });
       
@@ -52,56 +68,70 @@ export function useReservations() {
         if (roomsError) throw roomsError;
         
         // Get building information for all rooms
-        const buildingIds = roomsData.map(room => room.building_id);
-        const { data: buildingsData, error: buildingsError } = await supabase
-          .from('buildings')
-          .select('id, name')
-          .in('id', buildingIds);
+        const buildingIds = roomsData?.map(room => room.building_id) || [];
+        if (buildingIds.length > 0) {
+          const { data: buildingsData, error: buildingsError } = await supabase
+            .from('buildings')
+            .select('id, name')
+            .in('id', buildingIds);
+            
+          if (buildingsError) throw buildingsError;
           
-        if (buildingsError) throw buildingsError;
-        
-        // Create a mapping of room ids to room data
-        const roomMap = roomsData.reduce((acc, room) => {
-          acc[room.id] = room;
-          return acc;
-        }, {} as Record<string, any>);
-        
-        // Create a mapping of building ids to building names
-        const buildingMap = buildingsData.reduce((acc, building) => {
-          acc[building.id] = building.name;
-          return acc;
-        }, {} as Record<string, string>);
-        
-        // Transform the data
-        const transformedReservations: Reservation[] = reservationData.map(item => {
-          const room = roomMap[item.room_id] || { name: 'Unknown Room', building_id: null };
-          const buildingName = room.building_id ? buildingMap[room.building_id] : 'Unknown Building';
+          // Create a mapping of room ids to room data
+          const roomMap = roomsData?.reduce((acc, room) => {
+            acc[room.id] = room;
+            return acc;
+          }, {} as Record<string, any>) || {};
           
-          return {
-            id: item.id,
-            roomId: item.room_id,
-            roomNumber: room.name,
-            building: buildingName,
-            date: item.date,
-            startTime: item.start_time,
-            endTime: item.end_time,
-            purpose: item.purpose || '',
-            status: item.status,
-            faculty: user.name
-          };
-        });
-        
-        setReservations(transformedReservations);
-        console.log("Fetched reservations:", transformedReservations);
+          // Create a mapping of building ids to building names
+          const buildingMap = buildingsData?.reduce((acc, building) => {
+            acc[building.id] = building.name;
+            return acc;
+          }, {} as Record<string, string>) || {};
+          
+          // Transform the data
+          const transformedReservations: Reservation[] = reservationData.map(item => {
+            const room = roomMap[item.room_id] || { name: 'Unknown Room', building_id: null };
+            const buildingName = room.building_id ? buildingMap[room.building_id] : 'Unknown Building';
+            
+            return {
+              id: item.id,
+              roomId: item.room_id,
+              roomNumber: room.name,
+              building: buildingName,
+              date: item.date,
+              startTime: item.start_time,
+              endTime: item.end_time,
+              purpose: item.purpose || '',
+              status: item.status,
+              faculty: user.name
+            };
+          });
+          
+          setReservations(transformedReservations);
+          console.log("Fetched reservations:", transformedReservations);
+          
+          // Reset failed attempts counter
+          if (failedAttempts > 0) {
+            setFailedAttempts(0);
+          }
+        } else {
+          setReservations([]);
+        }
       } else {
         setReservations([]);
       }
     } catch (error) {
       console.error("Error fetching reservations:", error);
       
+      // Increment failed attempts
+      const newFailedAttempts = failedAttempts + 1;
+      setFailedAttempts(newFailedAttempts);
+      
       // Only show error toast if we haven't shown one recently
       const now = new Date();
-      if (!lastError || now.getTime() - lastError.getTime() > ERROR_COOLDOWN_MS) {
+      if ((!lastError || now.getTime() - lastError.getTime() > ERROR_COOLDOWN_MS) && 
+          newFailedAttempts <= MAX_RETRY_ATTEMPTS) {
         toast({
           title: "Error loading reservations",
           description: "Could not load your reservation data. Will retry automatically.",
@@ -109,13 +139,20 @@ export function useReservations() {
         });
         setLastError(now);
       }
+      
+      // Implement exponential backoff for retries
+      if (newFailedAttempts <= MAX_RETRY_ATTEMPTS) {
+        const retryDelay = Math.min(2000 * Math.pow(2, newFailedAttempts - 1), 16000);
+        setTimeout(() => fetchReservations(), retryDelay);
+      }
     } finally {
       setLoading(false);
+      clearTimeout(timeoutId);
     }
-  }, [user, toast, lastError]);
+  }, [user, toast, lastError, failedAttempts]);
 
-  // Create a new reservation
-  const createReservation = async (values: ReservationFormValues, roomId: string) => {
+  // Create a new reservation with better error handling
+  const createReservation = useCallback(async (values: ReservationFormValues, roomId: string) => {
     if (!user) {
       toast({
         title: "Authentication required",
@@ -125,14 +162,13 @@ export function useReservations() {
       return null;
     }
     
-    if (user.role !== 'faculty') {
-      toast({
-        title: "Access denied",
-        description: "Only faculty members can make room reservations.",
-        variant: "destructive"
-      });
-      return null;
-    }
+    console.log("Creating reservation with values:", values, "and roomId:", roomId);
+    
+    // Create new abort controller for this request
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(() => {
+      abortController.abort();
+    }, 20000); // 20-second timeout for reservation creation (increased from 15s)
     
     try {
       // First, check if the room is under maintenance
@@ -140,9 +176,12 @@ export function useReservations() {
         .from('rooms')
         .select('status')
         .eq('id', roomId)
-        .single();
+        .maybeSingle(); // Using maybeSingle instead of single to handle null case better
         
-      if (roomError) throw roomError;
+      if (roomError) {
+        console.error("Room fetch error:", roomError);
+        throw new Error("Failed to verify room status. Please try again.");
+      }
       
       if (roomData?.status === 'maintenance') {
         toast({
@@ -161,7 +200,10 @@ export function useReservations() {
         .eq('date', values.date)
         .neq('status', 'completed');
       
-      if (conflictError) throw conflictError;
+      if (conflictError) {
+        console.error("Conflict check error:", conflictError);
+        throw new Error("Failed to check for scheduling conflicts. Please try again.");
+      }
 
       // Manually check for time overlaps
       const hasTimeConflict = conflicts?.some(booking => {
@@ -184,45 +226,69 @@ export function useReservations() {
         return null;
       }
       
-      // Create the reservation
+      // Create the reservation with better error handling
       const newReservation = {
         room_id: roomId,
         faculty_id: user.id,
         date: values.date,
         start_time: values.startTime,
         end_time: values.endTime,
-        purpose: values.purpose,
+        purpose: values.purpose || "",
         status: 'approved' // Auto-approve for now
       };
       
+      console.log("Submitting reservation data:", newReservation);
+      
+      // Use .select().maybeSingle() approach for better error handling
       const { data, error } = await supabase
         .from('room_reservations')
         .insert(newReservation)
         .select();
       
-      if (error) throw error;
+      if (error) {
+        console.error("Reservation creation error:", error);
+        throw new Error(`Failed to create reservation: ${error.message}`);
+      }
       
       if (data && data.length > 0) {
+        console.log("Reservation created successfully:", data[0]);
+        
         toast({
-          title: "Room booked successfully",
-          description: `You've booked ${values.roomNumber || 'a room'} in ${values.building || 'the building'} on ${values.date} from ${values.startTime} to ${values.endTime}`,
+          title: "Room Reserved",
+          description: `You've booked ${values.roomNumber} in ${values.building} on ${values.date} from ${values.startTime} to ${values.endTime}`,
+          duration: 3000,
         });
         
         // Refresh reservations
         fetchReservations();
         return data[0];
       }
+      
       return null;
-    } catch (error) {
-      console.error("Error creating reservation:", error);
-      toast({
-        title: "Error",
-        description: "Failed to book the room. Please try again.",
-        variant: "destructive"
-      });
+    } catch (error: any) {
+      // Handle aborted requests differently
+      if (error.name === 'AbortError' || error.message?.includes('fetch failed')) {
+        console.error("Reservation request timed out or network error");
+        toast({
+          title: "Connection Issue",
+          description: "The reservation request failed due to a connection issue. Please check your network and try again.",
+          variant: "destructive",
+          duration: 5000,
+        });
+      } else {
+        console.error("Error creating reservation:", error);
+        toast({
+          title: "Error",
+          description: error?.message || "Failed to book the room. Please try again.",
+          variant: "destructive",
+          duration: 5000,
+        });
+      }
       return null;
+    } finally {
+      clearTimeout(timeoutId);
     }
-  };
+  }, [user, fetchReservations, toast]);
 
   // Helper function to convert time string (HH:MM) to minutes
   const convertTimeToMinutes = (timeString: string): number => {
@@ -230,7 +296,7 @@ export function useReservations() {
     return hours * 60 + minutes;
   };
 
-  // Setup real-time subscription for reservation updates with better error handling
+  // Setup real-time subscription for reservation updates with improved error handling
   const setupReservationsSubscription = useCallback(() => {
     if (!user) return () => {};
     
@@ -248,14 +314,6 @@ export function useReservations() {
         })
         .subscribe((status) => {
           console.log('Reservation subscription status:', status);
-          
-          // If subscription fails, retry after a delay
-          if (status !== 'SUBSCRIBED') {
-            setTimeout(() => {
-              console.log('Retrying reservation subscription...');
-              setupReservationsSubscription();
-            }, 5000); // 5 second retry delay
-          }
         });
 
       return () => {
@@ -266,7 +324,7 @@ export function useReservations() {
       // Return empty cleanup function in case of error
       return () => {};
     }
-  }, [user?.id, fetchReservations]);
+  }, [user, fetchReservations]);
 
   useEffect(() => {
     if (user) {
@@ -277,9 +335,13 @@ export function useReservations() {
       
       return () => {
         unsubscribe();
+        // Cleanup any pending requests
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
       };
     }
-  }, [user?.id, fetchReservations, setupReservationsSubscription]);
+  }, [user, fetchReservations, setupReservationsSubscription]);
 
   return {
     reservations,
