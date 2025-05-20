@@ -18,32 +18,50 @@ interface ProfessorDashboardProps {
 export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedRoomId, setSelectedRoomId] = useState<string>('');
+  const [isCreating, setIsCreating] = useState(false);
   const { simplifiedBuildings } = useBuildings();
   const { rooms, refreshRooms } = useRooms();
   const { reservations, createReservation, fetchReservations } = useReservations();
   const { toast } = useToast();
   
-  // Use centralized reservation status manager
-  const { activeReservations, fetchActiveReservations, processReservations } = useReservationStatusManager();
-  
-  // Track last refresh time to limit frequency
-  const [lastRefreshTime, setLastRefreshTime] = useState<number>(Date.now());
+  // Use centralized reservation status manager with error handling
+  const { 
+    activeReservations, 
+    fetchActiveReservations, 
+    processReservations 
+  } = useReservationStatusManager();
   
   // Initial data fetch on mount - once only
   useEffect(() => {
     console.log("ProfessorDashboard - Initial data fetch");
-    refreshRooms();
-    fetchReservations();
-    fetchActiveReservations();
+    const fetchData = async () => {
+      try {
+        await refreshRooms();
+        await fetchReservations();
+        await fetchActiveReservations();
+        await processReservations();
+      } catch (error) {
+        console.error("Error fetching initial data:", error);
+        toast({
+          title: "Connection Issue",
+          description: "Unable to connect to the server. Please try again later.",
+          variant: "destructive",
+          duration: 5000
+        });
+      }
+    };
     
-    // Process reservations immediately to update status
-    processReservations();
+    fetchData();
     
     // Reprocess after a short delay to catch any updates
     const timeoutId = setTimeout(() => {
       console.log("ProfessorDashboard - Processing reservations after delay");
-      processReservations();
-      refreshRooms();
+      processReservations().catch(error => {
+        console.error("Error processing reservations:", error);
+      });
+      refreshRooms().catch(error => {
+        console.error("Error refreshing rooms:", error);
+      });
     }, 2000);
     
     return () => clearTimeout(timeoutId);
@@ -92,8 +110,10 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
         <RoomBookingDialog 
           buildings={simplifiedBuildings}
           rooms={rooms}
+          isCreating={isCreating}
           createReservation={async (data, roomId) => {
             try {
+              setIsCreating(true);
               console.log("Creating reservation with roomId:", roomId);
               const result = await createReservation(data, roomId);
               
@@ -107,14 +127,14 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
                 // Manually refresh data with reduced delays
                 setTimeout(() => {
                   console.log("Refreshing data after room reservation");
-                  refreshRooms();
-                  fetchReservations();
-                  fetchActiveReservations();
+                  refreshRooms().catch(console.error);
+                  fetchReservations().catch(console.error);
+                  fetchActiveReservations().catch(console.error);
                   
                   // Process reservations to update room status
                   setTimeout(() => {
                     console.log("Processing reservations after room reservation");
-                    processReservations();
+                    processReservations().catch(console.error);
                   }, 500);
                 }, 500);
                 
@@ -130,6 +150,8 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
                 duration: 3000,
               });
               return null;
+            } finally {
+              setIsCreating(false);
             }
           }}
           isOpen={isDialogOpen}

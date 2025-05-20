@@ -9,13 +9,15 @@ export function useReservations() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastError, setLastError] = useState<Date | null>(null);
+  const [failedAttempts, setFailedAttempts] = useState(0);
   const { user } = useAuth();
   const { toast } = useToast();
   
   // Add cooldown for error toasts to prevent spam
   const ERROR_COOLDOWN_MS = 10000; // 10 seconds between error messages
+  const MAX_RETRY_ATTEMPTS = 3;
 
-  // Fetch user's reservations
+  // Fetch user's reservations with retry logic
   const fetchReservations = useCallback(async () => {
     if (!user) return;
     
@@ -93,15 +95,25 @@ export function useReservations() {
         
         setReservations(transformedReservations);
         console.log("Fetched reservations:", transformedReservations);
+        
+        // Reset failed attempts counter
+        if (failedAttempts > 0) {
+          setFailedAttempts(0);
+        }
       } else {
         setReservations([]);
       }
     } catch (error) {
       console.error("Error fetching reservations:", error);
       
+      // Increment failed attempts
+      const newFailedAttempts = failedAttempts + 1;
+      setFailedAttempts(newFailedAttempts);
+      
       // Only show error toast if we haven't shown one recently
       const now = new Date();
-      if (!lastError || now.getTime() - lastError.getTime() > ERROR_COOLDOWN_MS) {
+      if ((!lastError || now.getTime() - lastError.getTime() > ERROR_COOLDOWN_MS) && 
+          newFailedAttempts <= MAX_RETRY_ATTEMPTS) {
         toast({
           title: "Error loading reservations",
           description: "Could not load your reservation data. Will retry automatically.",
@@ -109,10 +121,16 @@ export function useReservations() {
         });
         setLastError(now);
       }
+      
+      // Implement exponential backoff for retries
+      if (newFailedAttempts <= MAX_RETRY_ATTEMPTS) {
+        const retryDelay = Math.min(2000 * Math.pow(2, newFailedAttempts - 1), 16000);
+        setTimeout(() => fetchReservations(), retryDelay);
+      }
     } finally {
       setLoading(false);
     }
-  }, [user, toast, lastError]);
+  }, [user, toast, lastError, failedAttempts]);
 
   // Create a new reservation
   const createReservation = async (values: ReservationFormValues, roomId: string) => {
@@ -137,7 +155,7 @@ export function useReservations() {
         
       if (roomError) {
         console.error("Room fetch error:", roomError);
-        throw roomError;
+        throw new Error("Failed to verify room status. Please try again.");
       }
       
       if (roomData?.status === 'maintenance') {
@@ -159,7 +177,7 @@ export function useReservations() {
       
       if (conflictError) {
         console.error("Conflict check error:", conflictError);
-        throw conflictError;
+        throw new Error("Failed to check for scheduling conflicts. Please try again.");
       }
 
       // Manually check for time overlaps
@@ -203,7 +221,7 @@ export function useReservations() {
       
       if (error) {
         console.error("Reservation creation error:", error);
-        throw error;
+        throw new Error(`Failed to create reservation: ${error.message}`);
       }
       
       if (data && data.length > 0) {
