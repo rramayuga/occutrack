@@ -8,7 +8,8 @@ import {
   Select, SelectContent, SelectItem, 
   SelectTrigger, SelectValue 
 } from "@/components/ui/select";
-import { Mail, User, Lock, Book, AlertCircle } from 'lucide-react';
+import { Mail, User, Lock, Book, AlertCircle, Info } from 'lucide-react';
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface RegistrationFormProps {
   name: string;
@@ -60,6 +61,13 @@ const RegistrationForm = ({
         </div>
       )}
       
+      <Alert variant="default" className="bg-blue-50 border-blue-200">
+        <Info className="h-4 w-4 text-blue-500" />
+        <AlertDescription className="text-sm text-blue-700">
+          Only users with <span className="font-semibold">@neu.edu.ph</span> email addresses can register.
+        </AlertDescription>
+      </Alert>
+      
       <form onSubmit={onSubmit} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="name">Full Name</Label>
@@ -77,13 +85,13 @@ const RegistrationForm = ({
         </div>
         
         <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">NEU Email</Label>
           <div className="relative">
             <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input 
               id="email" 
               type="email" 
-              placeholder="m.example@university.edu" 
+              placeholder="example@neu.edu.ph" 
               className="pl-10"
               value={email}
               onChange={(e) => onEmailChange(e.target.value)}

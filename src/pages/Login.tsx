@@ -10,9 +10,10 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
-import { Building, Mail, Lock, AlertCircle } from 'lucide-react';
+import { Building, Mail, Lock, AlertCircle, Info } from 'lucide-react';
 import { handleLogin, handleGoogleSignIn } from '@/utils/auth-utils';
 import { useAuth } from '@/lib/auth';
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -36,6 +37,12 @@ const Login = () => {
     
     if (!email || !password) {
       setError('Please enter both email and password.');
+      return;
+    }
+    
+    // Validate NEU email domain
+    if (!email.toLowerCase().endsWith('@neu.edu.ph')) {
+      setError('Only @neu.edu.ph email addresses are allowed to login.');
       return;
     }
     
@@ -90,7 +97,7 @@ const Login = () => {
           </div>
           <CardTitle className="text-2xl">Sign in to NEU OccuTrack</CardTitle>
           <CardDescription>
-            Enter your email and password to access your account
+            Enter your NEU email and password to access your account
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -101,6 +108,13 @@ const Login = () => {
             </div>
           )}
           
+          <Alert variant="default" className="bg-blue-50 border-blue-200">
+            <Info className="h-4 w-4 text-blue-500" />
+            <AlertDescription className="text-sm text-blue-700">
+              Only users with <span className="font-semibold">@neu.edu.ph</span> email addresses can sign in.
+            </AlertDescription>
+          </Alert>
+          
           <form onSubmit={handleLoginSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -109,7 +123,7 @@ const Login = () => {
                 <Input 
                   id="email" 
                   type="email" 
-                  placeholder="m.example@neu.edu.ph" 
+                  placeholder="example@neu.edu.ph" 
                   className="pl-10"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}

@@ -23,7 +23,23 @@ export function useAuthProvider() {
         return null;
       }
       
-      // STRICT ENFORCEMENT: First check faculty_requests approval status
+      // Check email domain
+      const userEmail = authUser.user.email?.toLowerCase();
+      if (!userEmail?.endsWith('@neu.edu.ph')) {
+        console.log('Access denied: Not an @neu.edu.ph email address');
+        await supabase.auth.signOut();
+        toast({
+          title: 'Access Denied',
+          description: 'Only @neu.edu.ph email addresses are allowed.',
+          variant: 'destructive'
+        });
+        navigate('/login');
+        setUser(null);
+        setIsLoading(false);
+        return null;
+      }
+      
+      // First check faculty_requests approval status
       const { data: facultyRequest, error: facultyError } = await supabase
         .from('faculty_requests')
         .select('status, department')
@@ -35,29 +51,27 @@ export function useAuthProvider() {
         // Continue to allow check for user, but note the error
       }
       
-      // CRITICAL: Block access if user is not approved
-      // Note: We check for both null/undefined and explicit status values
-      if (!facultyRequest || 
-          facultyRequest.status === 'rejected' || 
-          facultyRequest.status === 'pending') {
+      // If faculty account pending/rejected, handle appropriately
+      if (facultyRequest && 
+          (facultyRequest.status === 'rejected' || 
+           (facultyRequest.status === 'pending' && authUser.user.user_metadata.role === 'faculty'))) {
         
-        const statusMessage = !facultyRequest ? 'not found' : facultyRequest.status;
-        console.log(`Access denied: account status is ${statusMessage}, signing out immediately`);
+        const statusMessage = facultyRequest.status;
+        console.log(`Access denied: faculty account status is ${statusMessage}, signing out immediately`);
         
         await supabase.auth.signOut();
         
-        const message = !facultyRequest ? 'Your account requires approval.' :
-                        facultyRequest.status === 'rejected' ? 
-                          'Your account has been rejected. Please contact administration.' :
-                          'Your account registration is pending approval. Please wait for administrator review.';
+        const message = facultyRequest.status === 'rejected' ? 
+                        'Your account has been rejected. Please contact administration.' :
+                        'Your faculty account registration is pending approval. Please wait for administrator review.';
         
         toast({
-          title: facultyRequest?.status === 'rejected' ? 'Access Denied' : 'Account Pending Approval',
+          title: facultyRequest.status === 'rejected' ? 'Access Denied' : 'Account Pending Approval',
           description: message,
-          variant: facultyRequest?.status === 'rejected' ? 'destructive' : 'default'
+          variant: facultyRequest.status === 'rejected' ? 'destructive' : 'default'
         });
         
-        if (facultyRequest?.status === 'pending') {
+        if (facultyRequest.status === 'pending') {
           navigate('/faculty-confirmation');
         } else {
           navigate('/login');
@@ -68,7 +82,7 @@ export function useAuthProvider() {
         return null;
       }
 
-      console.log('User approval verified, fetching profile data');
+      console.log('User verification passed, fetching profile data');
       
       // If user passed approval check, proceed with profile fetching
       const { data: profile, error } = await supabase
@@ -92,17 +106,17 @@ export function useAuthProvider() {
           email: profile.email,
           role: profile.role as UserRole,
           avatarUrl: profile.avatar,
-          status: facultyRequest.status // Include status from faculty_requests
+          status: facultyRequest?.status || 'approved' // Include status from faculty_requests
         };
         
-        // STRICT ENFORCEMENT: Double-check status one more time
-        if (userData.status !== 'approved') {
-          console.log(`User access denied: account status is ${userData.status}`);
+        // Double-check faculty status if applicable
+        if (userData.role === 'faculty' && userData.status !== 'approved') {
+          console.log(`Faculty access denied: account status is ${userData.status}`);
           await supabase.auth.signOut();
           
           const message = userData.status === 'rejected' ? 
-            'Your account has been rejected. Please contact administration.' :
-            'Your account registration is pending approval. Please wait for administrator review.';
+            'Your faculty account has been rejected. Please contact administration.' :
+            'Your faculty account registration is pending approval. Please wait for administrator review.';
             
           toast({
             title: userData.status === 'rejected' ? 'Access Denied' : 'Account Pending Approval',
