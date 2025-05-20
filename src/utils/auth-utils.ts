@@ -29,7 +29,7 @@ export const handleStudentRegistration = async (
         user_id: data.user.id,
         name,
         email,
-        department: email.endsWith('@neu.edu.ph') ? 'NEU Student' : 'External User',
+        department: email.endsWith('@neu.edu.ph') ? 'NEU Domain' : 'External User',
         status: 'pending'
       });
 
@@ -51,7 +51,7 @@ export const handleFacultyRegistration = async (
     options: {
       data: {
         name,
-        role: 'faculty', // Set as faculty from the beginning
+        role: 'student', // Start as student until approved
         status: 'pending'
       }
     }
