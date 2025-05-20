@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BuildingWithFloors, User } from '@/lib/types';
 import { Button } from "@/components/ui/button";
@@ -28,12 +28,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
-  const { buildings, loading, addBuilding, updateBuilding, deleteBuilding } = useBuildings();
+  const { buildings, loading, addBuilding, updateBuilding, deleteBuilding, fetchBuildings } = useBuildings();
   const { addRoom } = useEnhancedRoomsManagement();
   const { facultyCount, facultyMembers, isLoadingFaculty, fetchFacultyData, deleteFacultyMember } = useFacultyManagement();
   const utilizationRate = useRoomUtilization();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Re-fetch buildings when component mounts to ensure fresh data
+  useEffect(() => {
+    fetchBuildings();
+  }, [fetchBuildings]);
 
   const onBuildingSubmit = async (data: any) => {
     const result = await addBuilding(data.name, data.floorCount, data.location);
@@ -46,10 +51,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
     if (selectedBuilding) {
       console.log('Editing building with data:', data);
       
-      // Ensure floorCount is parsed as an integer
-      const floorCount = typeof data.floorCount === 'string' 
-        ? parseInt(data.floorCount, 10) 
-        : data.floorCount;
+      // Convert floorCount to number
+      const floorCount = parseInt(data.floorCount, 10);
       
       const result = await updateBuilding(
         selectedBuilding.id, 
@@ -65,6 +68,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
           title: "Building updated",
           description: `${data.name} has been updated successfully.`
         });
+        
+        // Refresh buildings data to reflect changes
+        fetchBuildings();
       }
     }
   };
@@ -123,8 +129,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
       const facultyToDelete = facultyMembers.find(f => f.id === facultyId);
       if (facultyToDelete) {
         await deleteFacultyMember(facultyToDelete);
-        // After successful deletion, refresh data
-        fetchFacultyData();
+        
+        // After successful deletion, refresh data immediately
+        await fetchFacultyData();
+        
         toast({
           title: "Faculty deleted",
           description: "Faculty member has been removed successfully"

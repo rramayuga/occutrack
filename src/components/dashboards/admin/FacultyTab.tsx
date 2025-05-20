@@ -69,6 +69,11 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
         refreshFacultyData();
       }
       
+      toast({
+        title: "Faculty deleted",
+        description: "Faculty member has been successfully removed.",
+      });
+      
     } catch (error) {
       console.error('Error deleting faculty:', error);
       toast({

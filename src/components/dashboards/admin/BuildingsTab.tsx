@@ -3,7 +3,7 @@ import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BuildingWithFloors } from '@/lib/types';
-import { Search, Plus } from 'lucide-react';
+import { Search, Plus, Pencil } from 'lucide-react';
 
 interface BuildingsTabProps {
   buildings: BuildingWithFloors[];
@@ -71,6 +71,14 @@ const BuildingsTab: React.FC<BuildingsTabProps> = ({
                   onClick={() => handleViewBuilding(building.id)}
                 >
                   View Rooms
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => handleEditBuilding(building)}
+                >
+                  <Pencil className="h-4 w-4 mr-1" />
+                  Edit
                 </Button>
                 <Button 
                   variant="outline" 
