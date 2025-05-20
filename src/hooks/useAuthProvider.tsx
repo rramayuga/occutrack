@@ -32,7 +32,17 @@ export function useAuthProvider() {
 
       if (facultyError) {
         console.error('Error checking approval status:', facultyError);
-        // Continue to allow check for user, but note the error
+        // Critical error - sign out and force login page
+        await supabase.auth.signOut();
+        toast({
+          title: 'Authentication Error',
+          description: 'Error verifying account status. Please try again.',
+          variant: 'destructive'
+        });
+        navigate('/login');
+        setUser(null);
+        setIsLoading(false);
+        return null;
       }
       
       // CRITICAL: Block access if user is not approved
@@ -57,11 +67,7 @@ export function useAuthProvider() {
           variant: facultyRequest?.status === 'rejected' ? 'destructive' : 'default'
         });
         
-        if (facultyRequest?.status === 'pending') {
-          navigate('/faculty-confirmation');
-        } else {
-          navigate('/login');
-        }
+        navigate('/login');
         
         setUser(null);
         setIsLoading(false);
@@ -110,11 +116,7 @@ export function useAuthProvider() {
             variant: userData.status === 'rejected' ? 'destructive' : 'default'
           });
           
-          if (userData.status === 'pending') {
-            navigate('/faculty-confirmation');
-          } else {
-            navigate('/login');
-          }
+          navigate('/login');
           
           setUser(null);
           setIsLoading(false);
@@ -198,6 +200,7 @@ export function useAuthProvider() {
         }
       } catch (error) {
         console.error('Error during initial auth check:', error);
+        setUser(null);
       } finally {
         if (mounted) {
           setIsLoading(false);

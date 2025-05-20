@@ -29,7 +29,7 @@ export const handleStudentRegistration = async (
         user_id: data.user.id,
         name,
         email,
-        department: email.endsWith('@neu.edu.ph') ? 'NEU Domain' : 'External User',
+        department: 'Student',
         status: 'pending'
       });
 
@@ -77,7 +77,7 @@ export const handleFacultyRegistration = async (
 };
 
 export const handleGoogleSignIn = async () => {
-  // Google auth continues to allow NEU domain
+  // Google auth requires the same approval process
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
