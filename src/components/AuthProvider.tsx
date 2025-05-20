@@ -24,6 +24,46 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return null;
       }
       
+      // Check if this is a Google auth user with an NEU email
+      const isGoogleAuth = authUser.user.app_metadata?.provider === 'google';
+      const isNeuEmail = authUser.user.email?.endsWith('@neu.edu.ph');
+      
+      // If this is a Google auth user with NEU email, ensure they have a profile
+      if (isGoogleAuth && isNeuEmail) {
+        console.log('Google auth user with NEU email detected');
+        
+        // Check if profile exists
+        const { data: existingProfile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .maybeSingle();
+          
+        if (profileError) {
+          console.error('Error checking profile:', profileError);
+        }
+        
+        // If no profile exists, create one with student role
+        if (!existingProfile) {
+          console.log('Creating profile for Google auth NEU user');
+          const { error: insertError } = await supabase
+            .from('profiles')
+            .insert({
+              id: userId,
+              name: authUser.user.user_metadata.full_name || 'NEU Student',
+              email: authUser.user.email,
+              role: 'student' // Default role for NEU email users
+            });
+            
+          if (insertError) {
+            console.error('Error creating profile:', insertError);
+            throw insertError;
+          }
+          
+          console.log('Profile created successfully for NEU user');
+        }
+      }
+      
       // Check for rejected status - CRITICAL CHECK MOVED TO THE TOP
       // Always check this first to ensure rejected users can't access the app
       const { data: facultyRequest, error: facultyError } = await supabase
@@ -52,7 +92,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
       
       // Block users with pending requests from accessing the app
-      if (facultyRequest && facultyRequest.status === 'pending') {
+      // But make an exception for NEU Google auth users
+      if (facultyRequest && facultyRequest.status === 'pending' && !(isGoogleAuth && isNeuEmail)) {
         console.log('Faculty request pending, signing out user');
         await supabase.auth.signOut();
         toast({
@@ -138,6 +179,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (sessionData.session?.user && mounted) {
           console.log('Found existing session, auth provider:', sessionData.session.user.app_metadata?.provider);
           console.log('User ID from session:', sessionData.session.user.id);
+          console.log('User email:', sessionData.session.user.email);
           
           // Initial fetch of user profile
           await fetchUserProfile(sessionData.session.user.id);
@@ -167,6 +209,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             if (mounted) {
               console.log('Auth state changed to logged in, fetching profile');
               console.log('User ID from auth state change:', session.user.id);
+              console.log('User email:', session.user.email);
+              console.log('Auth provider:', session.user.app_metadata?.provider);
               
               await fetchUserProfile(session.user.id);
               setIsLoading(false);

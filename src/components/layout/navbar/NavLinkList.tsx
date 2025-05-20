@@ -17,6 +17,7 @@ interface NavLinkListProps {
 
 const NavLinkList: React.FC<NavLinkListProps> = ({ links, userRole }) => {
   // Filter links based on user role if provided
+  // For NEU domain users, they automatically get access to student role links
   const filteredLinks = userRole 
     ? links.filter(link => link.roles.includes(userRole))
     : links;
