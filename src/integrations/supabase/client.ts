@@ -48,7 +48,77 @@ export function safeDataAccess<T>(data: any, defaultValue: T): T {
 
 /**
  * Helper function to safely type cast Supabase query parameters
+ * This function helps resolve TypeScript errors when using parameter values
  */
 export function asSupabaseParam<T>(value: any): T {
   return value as unknown as T;
 }
+
+/**
+ * Improved helper function to check if a result is a valid object or a Supabase error
+ * This function is useful for conditional property access to avoid TypeScript errors
+ */
+export function isValidSupabaseResponse(response: any): boolean {
+  // Check if it's null/undefined
+  if (!response) return false;
+  
+  // Check for error format
+  if (typeof response === 'object' && 'error' in response) return false;
+  
+  // Check for Supabase error formats
+  if (typeof response === 'object' && ('code' in response || 'message' in response)) {
+    const hasErrorCode = 'code' in response && 
+      (typeof response.code === 'string' && response.code.startsWith('PGRST') || 
+       typeof response.code === 'number');
+    const hasErrorMsg = 'message' in response && typeof response.message === 'string';
+    
+    if (hasErrorCode || hasErrorMsg) return false;
+  }
+  
+  return true;
+}
+
+/**
+ * A more robust retry mechanism for Supabase queries
+ * with exponential backoff and error handling
+ */
+export async function withSupabaseRetry<T>(
+  queryFn: () => Promise<{ data: T | null, error: any }>,
+  retries = 3,
+  initialDelay = 500
+): Promise<{ data: T | null, error: any }> {
+  let attempt = 0;
+  let delay = initialDelay;
+  
+  while (attempt < retries) {
+    const result = await queryFn();
+    
+    if (!result.error) {
+      return result;
+    }
+    
+    // If we have network errors or specific retriable errors, try again
+    const isNetworkError = result.error.message?.includes('Failed to fetch') || 
+                          result.error.code === 'NETWORK_ERROR';
+                          
+    if (!isNetworkError) {
+      // Not a retriable error
+      return result;
+    }
+    
+    // Exponential backoff
+    attempt++;
+    if (attempt >= retries) {
+      // We've exhausted our retries
+      return result;
+    }
+    
+    // Wait before retry with exponential backoff
+    await new Promise(resolve => setTimeout(resolve, delay));
+    delay *= 2; // Double the delay for next attempt
+  }
+  
+  // This should never happen as the loop will exit when attempts are exhausted
+  return { data: null, error: new Error('Retry mechanism failed') };
+}
+
