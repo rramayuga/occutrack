@@ -1,18 +1,14 @@
+
 import React, { useState, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { CalendarIcon } from "lucide-react";
-import { supabase, isError } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 import RoomAnalyticsFilters from './analytics/RoomAnalyticsFilters';
 import RoomAnalyticsLayout from './analytics/RoomAnalyticsLayout';
 import { useRoomUsageData } from '@/hooks/useRoomUsageData';
-
-interface Building {
-  id: string;
-  name: string;
-}
 
 const RoomUsageStats = () => {
   const [startDate, setStartDate] = useState<Date>(startOfMonth(new Date()));
@@ -20,7 +16,7 @@ const RoomUsageStats = () => {
   const [selectedBuilding, setSelectedBuilding] = useState<string>("all");
   const [selectedFloor, setSelectedFloor] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [buildings, setBuildings] = useState<Building[]>([]);
+  const [buildings, setBuildings] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
     const fetchBuildings = async () => {
@@ -28,17 +24,8 @@ const RoomUsageStats = () => {
         .from('buildings')
         .select('id, name');
       
-      if (error) {
-        console.error('Error fetching buildings:', error);
-        return;
-      }
-      
-      if (data && Array.isArray(data) && !isError(data)) {
-        const typedBuildings: Building[] = data.map(building => ({
-          id: building.id?.toString() || '',
-          name: building.name?.toString() || ''
-        }));
-        setBuildings(typedBuildings);
+      if (!error && data) {
+        setBuildings(data);
       }
     };
     
@@ -60,7 +47,7 @@ const RoomUsageStats = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex flex-wrap gap-4">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">From:</span>

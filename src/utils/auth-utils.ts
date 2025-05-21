@@ -104,10 +104,10 @@ export const handleLogin = async (email: string, password: string) => {
       .from('faculty_requests')
       .select('status')
       .eq('email', email)
-      .eq('status', 'rejected' as any)
-      .maybeSingle();
+      .eq('status', 'rejected')
+      .single();
 
-    if (facultyRequest && 'status' in facultyRequest && facultyRequest.status === 'rejected') {
+    if (facultyRequest?.status === 'rejected') {
       throw new Error('Your faculty account request has been rejected. Please contact administration.');
     }
 
@@ -116,10 +116,10 @@ export const handleLogin = async (email: string, password: string) => {
       .from('faculty_requests')
       .select('status')
       .eq('email', email)
-      .eq('status', 'pending' as any)
-      .maybeSingle();
+      .eq('status', 'pending')
+      .single();
 
-    if (pendingRequest && 'status' in pendingRequest && pendingRequest.status === 'pending') {
+    if (pendingRequest?.status === 'pending') {
       throw new Error('Your account registration is pending approval. Please wait for administrator review.');
     }
 

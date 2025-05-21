@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import { supabase, isError } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface FacultyMember {
   id: string;
@@ -40,34 +40,32 @@ export const useFacultyManagement = () => {
       const facultyIds = new Set();
       const combinedFaculty: FacultyMember[] = [];
       
-      if (facultyRequestsData && Array.isArray(facultyRequestsData) && !isError(facultyRequestsData)) {
+      if (facultyRequestsData) {
         facultyRequestsData.forEach(item => {
-          if (item.user_id) {
-            facultyIds.add(item.user_id);
-            combinedFaculty.push({
-              id: item.id?.toString() || '',
-              name: item.name?.toString() || '',
-              email: item.email?.toString() || '',
-              department: item.department?.toString() || '',
-              status: (item.status as 'pending' | 'approved' | 'rejected') || 'approved',
-              createdAt: item.created_at?.toString() || '',
-              user_id: item.user_id?.toString() || ''
-            });
-          }
+          facultyIds.add(item.user_id);
+          combinedFaculty.push({
+            id: item.id,
+            name: item.name,
+            email: item.email,
+            department: item.department,
+            status: item.status as 'pending' | 'approved' | 'rejected',
+            createdAt: item.created_at,
+            user_id: item.user_id
+          });
         });
       }
       
-      if (profilesData && Array.isArray(profilesData) && !isError(profilesData)) {
+      if (profilesData) {
         profilesData.forEach(profile => {
-          if (profile.id && !facultyIds.has(profile.id)) {
+          if (!facultyIds.has(profile.id)) {
             combinedFaculty.push({
-              id: profile.id?.toString() || '',
-              name: profile.name?.toString() || '',
-              email: profile.email?.toString() || '',
+              id: profile.id,
+              name: profile.name,
+              email: profile.email,
               department: 'N/A',
-              status: 'approved',
-              createdAt: profile.created_at?.toString() || '',
-              user_id: profile.id?.toString() || ''
+              status: 'approved' as const,
+              createdAt: profile.created_at,
+              user_id: profile.id
             });
           }
         });

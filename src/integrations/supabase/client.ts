@@ -16,9 +16,6 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     detectSessionInUrl: false
   },
   global: {
-    headers: {
-      'x-client-info': 'roomreservation@1.0.0'
-    },
     fetch: fetch.bind(globalThis)
   },
   realtime: {
@@ -28,27 +25,5 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   },
   db: {
     schema: 'public'
-  },
-  // Add retryable configurations to avoid temporary network issues
-  maxRetryCount: 3,
-  retryInterval: 2000 // 2 seconds between retries
-});
-
-// Helper functions to safely handle Supabase type issues
-export function isError(data: any): boolean {
-  return typeof data === 'object' && data !== null && 'error' in data;
-}
-
-// Enhanced type-safe helpers for Supabase data
-export function extractData<T>(result: { data: T | null, error: Error | null }): T | null {
-  if (result.error) {
-    console.error("Supabase error:", result.error);
-    return null;
   }
-  return result.data;
-}
-
-// Safe helper for checking if data is valid before using it
-export function isValidData<T>(data: any): data is T {
-  return data !== null && typeof data === 'object' && !isError(data);
-}
+});

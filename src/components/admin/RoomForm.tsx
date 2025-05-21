@@ -23,7 +23,7 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { Save } from 'lucide-react';
-import { supabase, isError } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 
 // Define schema for the room form
 const roomFormSchema = z.object({
@@ -88,27 +88,20 @@ const RoomForm: React.FC<RoomFormProps> = ({
         
         if (error) throw error;
         
-        if (data && Array.isArray(data) && !isError(data)) {
-          // Transform the Supabase data to match our Building interface
-          const typedBuildings: Building[] = data.map(item => ({
-            id: item.id?.toString() || '',
-            name: item.name?.toString() || '',
-            floors: typeof item.floors === 'number' ? item.floors : 1
-          }));
-          
-          setBuildings(typedBuildings);
+        if (data) {
+          setBuildings(data);
           
           // If there's a default building but it doesn't exist in our list, select the first building
-          if (defaultValues?.buildingId && !typedBuildings.find(b => b.id === defaultValues.buildingId) && typedBuildings.length > 0) {
-            form.setValue('buildingId', typedBuildings[0].id);
+          if (defaultValues?.buildingId && !data.find(b => b.id === defaultValues.buildingId) && data.length > 0) {
+            form.setValue('buildingId', data[0].id);
           }
           // If no default value but defaultBuildingId is provided, use that
-          else if (defaultBuildingId && !typedBuildings.find(b => b.id === defaultBuildingId) && typedBuildings.length > 0) {
-            form.setValue('buildingId', typedBuildings[0].id);
+          else if (defaultBuildingId && !data.find(b => b.id === defaultBuildingId) && data.length > 0) {
+            form.setValue('buildingId', data[0].id);
           }
           // If no default value and we have buildings, select the first one
-          else if (!defaultValues?.buildingId && !defaultBuildingId && typedBuildings.length > 0) {
-            form.setValue('buildingId', typedBuildings[0].id);
+          else if (!defaultValues?.buildingId && !defaultBuildingId && data.length > 0) {
+            form.setValue('buildingId', data[0].id);
           }
         }
       } catch (error) {
@@ -119,7 +112,7 @@ const RoomForm: React.FC<RoomFormProps> = ({
     };
     
     fetchBuildings();
-  }, [defaultBuildingId, defaultValues?.buildingId, form]);
+  }, []);
   
   return (
     <Form {...form}>

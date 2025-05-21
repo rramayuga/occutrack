@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useToast } from "@/components/ui/use-toast";
 import { useLocation } from 'react-router-dom';
-import { supabase, isError } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client';
 import { FacultyMember } from '@/lib/types';
 
 export const useFacultyManagement = () => {
@@ -27,15 +27,15 @@ export const useFacultyManagement = () => {
 
       if (error) throw error;
 
-      if (data && Array.isArray(data) && !isError(data)) {
+      if (data) {
         const transformedData: FacultyMember[] = data.map(item => ({
-          id: item.id?.toString() || '',
-          name: item.name?.toString() || '',
-          email: item.email?.toString() || '',
-          department: item.department?.toString() || '',
-          status: (item.status as 'pending' | 'approved' | 'rejected') || 'pending',
-          createdAt: item.created_at?.toString() || '',
-          user_id: item.user_id?.toString() || '',
+          id: item.id,
+          name: item.name,
+          email: item.email,
+          department: item.department,
+          status: item.status as 'pending' | 'approved' | 'rejected',
+          createdAt: item.created_at,
+          user_id: item.user_id,
         }));
         
         setFacultyMembers(transformedData);
@@ -116,27 +116,27 @@ export const useFacultyManagement = () => {
         .update({ 
           status: newStatus,
           notes: notes || null
-        } as any)
-        .eq('id', faculty.id as any);
+        })
+        .eq('id', faculty.id);
 
       if (error) throw error;
 
-      if (newStatus === 'approved' && faculty.user_id) {
+      if (newStatus === 'approved') {
         const { error: profileError } = await supabase
           .from('profiles')
-          .update({ role: 'faculty' } as any)
-          .eq('id', faculty.user_id as any);
+          .update({ role: 'faculty' })
+          .eq('id', faculty.user_id);
           
         if (profileError) {
           console.error('Error updating user role:', profileError);
         }
       }
 
-      if (newStatus === 'rejected' && faculty.user_id) {
+      if (newStatus === 'rejected') {
         const { error: profileError } = await supabase
           .from('profiles')
-          .update({ role: 'student' } as any)
-          .eq('id', faculty.user_id as any);
+          .update({ role: 'student' })
+          .eq('id', faculty.user_id);
           
         if (profileError) {
           console.error('Error updating user role:', profileError);
