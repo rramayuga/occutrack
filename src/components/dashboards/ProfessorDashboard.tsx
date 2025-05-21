@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { User } from '@/lib/types';
 import { useRooms } from '@/hooks/useRooms';
+import { useReservations } from '@/hooks/useReservations';
 import { ProfessorOverviewCards } from './professor/ProfessorOverviewCards';
+import { TeachingSchedule } from './professor/TeachingSchedule';
 import { AvailableRooms } from './professor/AvailableRooms';
 import { useBuildings } from '@/hooks/useBuildings';
 import { useToast } from "@/hooks/use-toast";
@@ -16,6 +18,7 @@ interface ProfessorDashboardProps {
 export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) => {
   const { simplifiedBuildings } = useBuildings();
   const { rooms, refreshRooms, connectionError } = useRooms();
+  const { reservations, fetchReservations } = useReservations();
   const { toast } = useToast();
   const [isRetrying, setIsRetrying] = useState(false);
   
@@ -26,6 +29,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
   useEffect(() => {
     console.log("ProfessorDashboard - Initial data fetch");
     refreshRooms();
+    fetchReservations();
     
     // Set initial refresh time
     setLastRefreshTime(Date.now());
@@ -40,19 +44,23 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
       if (now - lastRefreshTime > 600000) { // 10 minutes minimum between refreshes
         console.log("ProfessorDashboard - Scheduled refresh");
         refreshRooms();
+        fetchReservations();
         setLastRefreshTime(now);
       }
     }, 600000); // Every 10 minutes
     
     return () => clearInterval(intervalId);
-  }, [refreshRooms, lastRefreshTime]);
+  }, [refreshRooms, fetchReservations, lastRefreshTime]);
   
   // Handle retry connection click
   const handleRetryConnection = () => {
     setIsRetrying(true);
     
-    // Attempt to refresh rooms data
-    refreshRooms().finally(() => {
+    // Attempt to refresh all data
+    Promise.all([
+      refreshRooms(),
+      fetchReservations()
+    ]).finally(() => {
       setIsRetrying(false);
       setLastRefreshTime(Date.now());
       
@@ -67,14 +75,52 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
     });
   };
   
-  // Simplified data for overview cards
-  const overviewData = useMemo(() => {
-    return {
-      todayClasses: 0,
-      totalRooms: rooms.length,
-      availableRooms: rooms.filter(r => r.isAvailable && r.status === 'available').length
-    };
-  }, [rooms]);
+  // Memoize today's schedule
+  const todaySchedule = useMemo(() => {
+    const today = new Date();
+    const todayString = today.toISOString().split('T')[0];
+    const currentTime = today.toTimeString().substring(0, 5);
+    
+    return reservations.filter(booking => {
+      if (booking.status === 'completed') return false;
+      if (booking.date > todayString) return true;
+      if (booking.date === todayString) {
+        const [endHour, endMinute] = booking.endTime.split(':').map(Number);
+        const [currentHour, currentMinute] = currentTime.split(':').map(Number);
+        const endMinutes = endHour * 60 + endMinute;
+        const currentMinutes = currentHour * 60 + currentMinute;
+        return endMinutes > currentMinutes;
+      }
+      return false;
+    });
+  }, [reservations]);
+  
+  // Filter out completed reservations for display
+  const activeReservationsForDisplay = useMemo(() => 
+    reservations.filter(r => {
+      if (r.status === 'completed') return false;
+      
+      const now = new Date();
+      const today = now.toISOString().split('T')[0];
+      const currentTime = now.toTimeString().substring(0, 5);
+      
+      if (r.date < today) return false;
+      
+      if (r.date === today) {
+        const [endHour, endMinute] = r.endTime.split(':').map(Number);
+        const [currentHour, currentMinute] = currentTime.split(':').map(Number);
+        const endMinutes = endHour * 60 + endMinute;
+        const currentMinutes = currentHour * 60 + currentMinute;
+        
+        if (endMinutes <= currentMinutes) {
+          return false;
+        }
+      }
+      
+      return true;
+    }),
+    [reservations]
+  );
   
   return (
     <div className="container mx-auto px-4 py-8">
@@ -128,12 +174,19 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
 
       {/* Overview Cards */}
       <ProfessorOverviewCards 
-        availableRooms={overviewData.availableRooms}
-        totalRooms={overviewData.totalRooms} 
+        todaySchedule={todaySchedule} 
+        reservations={activeReservationsForDisplay} 
       />
 
-      {/* Available Rooms */}
-      <div className="grid grid-cols-1 gap-6">
+      {/* Teaching Schedule & Room Management */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <TeachingSchedule 
+          reservations={reservations} 
+          onReservationChange={() => {
+            fetchReservations();
+            refreshRooms();
+          }}
+        />
         <AvailableRooms 
           rooms={rooms} 
           buildings={simplifiedBuildings} 

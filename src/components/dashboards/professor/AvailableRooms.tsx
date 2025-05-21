@@ -60,8 +60,8 @@ export const AvailableRooms: React.FC<AvailableRoomsProps> = ({
   const defaultBuildingId = buildingsWithRooms[0]?.id || '';
 
   return (
-    <Card className="col-span-1">
-      <CardHeader>
+    <Card className="col-span-1 lg:col-span-2">
+      <CardHeader className="pb-3">
         <CardTitle className="text-lg font-medium">
           Available Rooms
           <Badge variant="secondary" className="ml-2">
