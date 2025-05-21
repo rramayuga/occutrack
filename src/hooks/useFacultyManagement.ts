@@ -80,48 +80,6 @@ export const useFacultyManagement = () => {
     }
   };
 
-  // New function to delete faculty member
-  const deleteFacultyMember = async (faculty: FacultyMember) => {
-    try {
-      // 1. First update profiles table to change role back to 'student'
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ role: 'student' })
-        .eq('id', faculty.user_id);
-        
-      if (profileError) {
-        console.error("Error updating profile role:", profileError);
-        throw profileError;
-      }
-      
-      console.log(`Successfully updated user ${faculty.user_id} role to student`);
-      
-      // 2. Then delete from faculty_requests table if it exists there
-      // This second step only applies to users who went through the faculty request process
-      if (faculty.id !== faculty.user_id) { // This check helps identify if it's from faculty_requests
-        const { error: facultyRequestError } = await supabase
-          .from('faculty_requests')
-          .delete()
-          .eq('id', faculty.id);
-          
-        if (facultyRequestError) {
-          console.error("Error deleting from faculty_requests:", facultyRequestError);
-          throw facultyRequestError;
-        }
-        
-        console.log(`Successfully deleted faculty request ${faculty.id}`);
-      }
-      
-      // Refresh the faculty data after deletion
-      await fetchFacultyData();
-      
-      return true;
-    } catch (error) {
-      console.error('Error deleting faculty:', error);
-      throw error;
-    }
-  };
-
   useEffect(() => {
     fetchFacultyData();
   }, []);
@@ -130,7 +88,6 @@ export const useFacultyManagement = () => {
     facultyCount,
     facultyMembers,
     isLoadingFaculty,
-    fetchFacultyData,
-    deleteFacultyMember
+    fetchFacultyData
   };
 };

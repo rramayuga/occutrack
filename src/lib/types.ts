@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   name: string;
@@ -81,7 +80,7 @@ export interface FacultyMember {
   department: string;
   status: 'pending' | 'approved' | 'rejected';
   createdAt: string;
-  user_id: string; // Changed to required
+  user_id?: string;
 }
 
 export interface Announcement {

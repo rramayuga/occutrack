@@ -26,7 +26,6 @@ export function useReservationStatusManager() {
       
       console.log(`Fetching active reservations for date: ${today}`);
       
-      // Get reservations for today and future dates that aren't completed
       const { data, error } = await supabase
         .from('room_reservations')
         .select(`
@@ -41,10 +40,8 @@ export function useReservationStatusManager() {
           rooms:room_id(name, building_id),
           profiles:faculty_id(name)
         `)
-        .gte('date', today)  // Get today and future dates
-        .neq('status', 'completed')
-        .order('date', { ascending: true })
-        .order('start_time', { ascending: true });
+        .eq('date', today)
+        .neq('status', 'completed');
       
       if (error) {
         console.error("Error fetching active reservations:", error);
@@ -52,7 +49,7 @@ export function useReservationStatusManager() {
       }
       
       if (!data || data.length === 0) {
-        console.log("No active reservations found");
+        console.log("No active reservations found for today");
         setActiveReservations([]);
         return [];
       }
@@ -89,7 +86,7 @@ export function useReservationStatusManager() {
         faculty: item.profiles?.name || 'Unknown Faculty'
       }));
       
-      console.log(`Found ${reservations.length} active reservations`);
+      console.log(`Found ${reservations.length} active reservations for today`);
       setActiveReservations(reservations);
       return reservations;
     } catch (error) {
@@ -132,14 +129,11 @@ export function useReservationStatusManager() {
         return false;
       }
       
-      // Update the room status and availability in the database
+      // Update the room status in the database
       const status = isOccupied ? 'occupied' : 'available';
       const { error } = await supabase
         .from('rooms')
-        .update({ 
-          status, 
-          is_available: !isOccupied 
-        })
+        .update({ status, is_available: !isOccupied })
         .eq('id', roomId);
       
       if (error) {
@@ -204,7 +198,7 @@ export function useReservationStatusManager() {
     const now = new Date();
     
     // Force refresh if it's been a while
-    if (now.getTime() - lastCheck.getTime() > 10000) { // 10 seconds for more frequent checks
+    if (now.getTime() - lastCheck.getTime() > 30000) { // 30 seconds
       console.log("Force refreshing reservations due to time elapsed");
       reservationsToProcess = await fetchActiveReservations();
       setLastCheck(now);
@@ -227,26 +221,28 @@ export function useReservationStatusManager() {
         continue;
       }
       
-      // Check if it's a reservation for today
-      if (reservation.date === today) {
-        // Check if start time has been reached - MARK AS OCCUPIED
-        if (compareTimeStrings(currentTime, reservation.startTime) >= 0 && 
-            compareTimeStrings(currentTime, reservation.endTime) < 0) {
-          console.log(`START TIME REACHED for reservation ${reservation.id} - marking room ${reservation.roomId} as OCCUPIED`);
-          await updateRoomStatus(reservation.roomId, true);
-          updated = true;
-        }
+      // Skip if not for today
+      if (reservation.date !== today) {
+        continue;
+      }
+      
+      // Check if start time has been reached - MARK AS OCCUPIED
+      if (compareTimeStrings(currentTime, reservation.startTime) >= 0 && 
+          compareTimeStrings(currentTime, reservation.endTime) < 0) {
+        console.log(`START TIME REACHED for reservation ${reservation.id} - marking room ${reservation.roomId} as OCCUPIED`);
+        await updateRoomStatus(reservation.roomId, true);
+        updated = true;
+      }
+      
+      // Check if end time has been reached - MARK AS AVAILABLE and COMPLETE reservation
+      if (compareTimeStrings(currentTime, reservation.endTime) >= 0) {
+        console.log(`END TIME REACHED for reservation ${reservation.id} - completing reservation and marking room available`);
+        await updateRoomStatus(reservation.roomId, false);
+        await markReservationAsCompleted(reservation.id);
         
-        // Check if end time has been reached - MARK AS AVAILABLE and COMPLETE reservation
-        if (compareTimeStrings(currentTime, reservation.endTime) >= 0) {
-          console.log(`END TIME REACHED for reservation ${reservation.id} - completing reservation and marking room available`);
-          await updateRoomStatus(reservation.roomId, false);
-          await markReservationAsCompleted(reservation.id);
-          
-          // Remove from active reservations
-          setActiveReservations(prev => prev.filter(r => r.id !== reservation.id));
-          updated = true;
-        }
+        // Remove from active reservations
+        setActiveReservations(prev => prev.filter(r => r.id !== reservation.id));
+        updated = true;
       }
     }
     
@@ -268,11 +264,11 @@ export function useReservationStatusManager() {
     // Process reservations immediately
     processReservations();
     
-    // Set up interval to check more frequently (every 10 seconds)
+    // Set up interval to check more frequently
     const intervalId = setInterval(() => {
       console.log("Checking reservation statuses");
       processReservations();
-    }, 10000); // Check every 10 seconds for more responsive status updates
+    }, 5000); // Check every 5 seconds
     
     // Set up realtime subscription to reservation changes
     try {

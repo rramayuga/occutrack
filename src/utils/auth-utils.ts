@@ -99,28 +99,31 @@ export const handleLogin = async (email: string, password: string) => {
   try {
     console.log('Attempting login for:', email);
     
-    // First check if the user has a rejected faculty request
-    // This critical check must be done BEFORE attempting to log in
+    // First check if the user has been rejected
     const { data: facultyRequest } = await supabase
       .from('faculty_requests')
       .select('status')
       .eq('email', email)
-      .maybeSingle();
+      .eq('status', 'rejected')
+      .single();
 
-    console.log('Faculty request status check result:', facultyRequest);
-    
-    // Block login for rejected users (regardless of email domain)
-    if (facultyRequest && facultyRequest.status === 'rejected') {
-      console.error('Login blocked: Account has been rejected');
-      throw new Error('Your account has been rejected. Please contact administration for more information.');
+    if (facultyRequest?.status === 'rejected') {
+      throw new Error('Your faculty account request has been rejected. Please contact administration.');
     }
 
-    if (facultyRequest && facultyRequest.status === 'pending') {
-      console.error('Login blocked: Account pending approval');
+    // Check if the user has a pending request
+    const { data: pendingRequest } = await supabase
+      .from('faculty_requests')
+      .select('status')
+      .eq('email', email)
+      .eq('status', 'pending')
+      .single();
+
+    if (pendingRequest?.status === 'pending') {
       throw new Error('Your account registration is pending approval. Please wait for administrator review.');
     }
 
-    // Only attempt login if the account is not rejected or pending
+    // Proceed with login if not rejected or pending
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
@@ -149,19 +152,21 @@ export const handleLogin = async (email: string, password: string) => {
 
 export const deleteUser = async (userId: string) => {
   try {
-    console.log('Deleting user with ID:', userId);
+    // First delete any faculty request
+    const { error: facultyError } = await supabase
+      .from('faculty_requests')
+      .delete()
+      .eq('user_id', userId);
     
-    // Call the delete-user function to handle complete user deletion
-    const { error } = await supabase.functions.invoke('delete-user', {
-      body: { userId }
-    });
-    
-    if (error) {
-      console.error('Error from delete-user function:', error);
-      throw error;
+    if (facultyError) {
+      console.error('Error deleting faculty request:', facultyError);
     }
     
-    console.log('User successfully deleted');
+    // Then delete user
+    const { error } = await supabase.auth.admin.deleteUser(userId);
+    
+    if (error) throw error;
+    
     return true;
   } catch (error) {
     console.error('Error deleting user:', error);

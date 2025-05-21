@@ -15,15 +15,9 @@ import FacultyFilters from '@/components/admin/faculty/FacultyFilters';
 import FacultyList from '@/components/admin/faculty/FacultyList';
 import FacultyRejectionDialog from '@/components/admin/faculty/FacultyRejectionDialog';
 import { useFacultyManagement } from '@/components/admin/faculty/useFacultyManagement';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { useToast } from '@/components/ui/use-toast';
-import { deleteUser } from '@/utils/auth-utils';
 
 const FacultyManagement = () => {
   const [isRightsManagementOpen, setIsRightsManagementOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const { toast } = useToast();
   
   const {
     isLoading,
@@ -40,55 +34,12 @@ const FacultyManagement = () => {
     setNotes,
     handleUpdateStatus,
     handleConfirmReject,
-    formatDate,
-    fetchFacultyMembers // Make sure to use this to refresh the list after deletion
+    formatDate
   } = useFacultyManagement();
 
   const onRejectClick = (faculty: React.SetStateAction<import("@/lib/types").FacultyMember | null>) => {
     setSelectedFaculty(faculty);
     setIsDialogOpen(true);
-  };
-
-  const onDeleteClick = (faculty: React.SetStateAction<import("@/lib/types").FacultyMember | null>) => {
-    setSelectedFaculty(faculty);
-    setIsDeleteDialogOpen(true);
-  };
-
-  const handleDeleteFaculty = async () => {
-    if (!selectedFaculty) return;
-
-    try {
-      setIsDeleting(true);
-      console.log("Deleting user:", selectedFaculty);
-      
-      // Ensure user_id is available before attempting deletion
-      if (!selectedFaculty.user_id) {
-        throw new Error("Cannot delete user: Missing user ID");
-      }
-      
-      // Call the deleteUser function
-      await deleteUser(selectedFaculty.user_id);
-      
-      toast({
-        title: "User deleted",
-        description: `${selectedFaculty.name} has been permanently deleted from the system.`,
-      });
-      
-      setIsDeleteDialogOpen(false);
-      
-      // Refresh the faculty list after deletion
-      fetchFacultyMembers();
-      
-    } catch (error: any) {
-      console.error("Error deleting user:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete user",
-        variant: "destructive"
-      });
-    } finally {
-      setIsDeleting(false);
-    }
   };
 
   return (
@@ -127,7 +78,6 @@ const FacultyManagement = () => {
               filteredMembers={filteredMembers}
               handleUpdateStatus={handleUpdateStatus}
               onRejectClick={onRejectClick}
-              onDeleteClick={onDeleteClick}
               formatDate={formatDate}
             />
           </CardContent>
@@ -141,27 +91,6 @@ const FacultyManagement = () => {
           setNotes={setNotes}
           onConfirmReject={handleConfirmReject}
         />
-        
-        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This will permanently delete {selectedFaculty?.name}'s account. This action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleDeleteFaculty}
-                disabled={isDeleting}
-                className="bg-red-500 hover:bg-red-600"
-              >
-                {isDeleting ? "Deleting..." : "Delete User"}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
         
         <UserRightsManagement 
           open={isRightsManagementOpen} 

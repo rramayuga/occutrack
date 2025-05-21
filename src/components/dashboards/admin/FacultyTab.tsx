@@ -23,9 +23,17 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Trash } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
-import { FacultyMember } from '@/hooks/useFacultyManagement';
-import { useFacultyManagement } from '@/hooks/useFacultyManagement';
-import { deleteUser } from '@/utils/auth-utils';
+import { supabase } from "@/integrations/supabase/client";
+
+interface FacultyMember {
+  id: string;
+  name: string;
+  email: string;
+  department: string;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: string;
+  user_id: string;
+}
 
 interface FacultyTabProps {
   isLoadingFaculty: boolean;
@@ -56,14 +64,44 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
     try {
       setIsDeleting(true);
       
-      console.log("Permanently deleting user:", selectedFaculty);
+      console.log("Deleting faculty member:", selectedFaculty);
       
-      // Call the deleteUser function to permanently delete the user
-      await deleteUser(selectedFaculty.user_id);
+      // 1. First update profiles table to change role back to 'student' before deleting the request
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ role: 'student' })
+        .eq('id', selectedFaculty.user_id);
+        
+      if (profileError) {
+        console.error("Error updating profile role:", profileError);
+        throw profileError;
+      }
+      
+      console.log(`Successfully updated user ${selectedFaculty.user_id} role to student`);
+      
+      // 2. Then delete from faculty_requests table - do this second to avoid RLS issues
+      const { error: facultyRequestError } = await supabase
+        .from('faculty_requests')
+        .delete()
+        .eq('id', selectedFaculty.id);
+        
+      if (facultyRequestError) {
+        console.error("Error deleting from faculty_requests:", facultyRequestError);
+        
+        // If delete fails, try to revert the role change
+        await supabase
+          .from('profiles')
+          .update({ role: 'faculty' })
+          .eq('id', selectedFaculty.user_id);
+          
+        throw facultyRequestError;
+      }
+      
+      console.log(`Successfully deleted faculty request ${selectedFaculty.id}`);
       
       toast({
-        title: "User deleted",
-        description: `${selectedFaculty.name} has been permanently removed from the system.`,
+        title: "Faculty removed",
+        description: `${selectedFaculty.name} has been removed from faculty.`,
       });
       
       // Close dialog and refresh data
@@ -73,10 +111,10 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
       }
       
     } catch (error) {
-      console.error('Error deleting user:', error);
+      console.error('Error deleting faculty:', error);
       toast({
         title: "Deletion failed",
-        description: "There was a problem deleting this user.",
+        description: "There was a problem removing this faculty member.",
         variant: "destructive",
       });
     } finally {
@@ -157,8 +195,8 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete {selectedFaculty?.name}'s account. 
-              This action cannot be undone.
+              This will remove {selectedFaculty?.name} from faculty status. 
+              Their account will be changed to student status but not deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -168,7 +206,7 @@ const FacultyTab: React.FC<FacultyTabProps> = ({
               disabled={isDeleting}
               className="bg-red-500 hover:bg-red-600"
             >
-              {isDeleting ? "Deleting..." : "Delete User"}
+              {isDeleting ? "Processing..." : "Remove Faculty Status"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

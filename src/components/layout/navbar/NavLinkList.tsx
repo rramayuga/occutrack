@@ -1,3 +1,4 @@
+
 import React from 'react';
 import NavLink from './NavLink';
 import { UserRole } from '@/lib/types';
@@ -16,17 +17,8 @@ interface NavLinkListProps {
 
 const NavLinkList: React.FC<NavLinkListProps> = ({ links, userRole }) => {
   // Filter links based on user role if provided
-  // For NEU domain users, they automatically get access to student role links
-  // If user has faculty role, they should see all faculty links
   const filteredLinks = userRole 
-    ? links.filter(link => {
-        // Faculty users should see all faculty links
-        if (userRole === 'faculty' && link.roles.includes('faculty')) {
-          return true;
-        }
-        // Other roles see their specific links
-        return link.roles.includes(userRole);
-      })
+    ? links.filter(link => link.roles.includes(userRole))
     : links;
   
   return (
