@@ -1,7 +1,6 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { Reservation } from '@/lib/types';
-import { supabase, asSupabaseParam, safeDataAccess, withSupabaseRetry } from "@/integrations/supabase/client";
+import { supabase, asSupabaseParam, safeDataAccess } from "@/integrations/supabase/client";
 import { useAuth } from '@/lib/auth';
 import { useToast } from "@/hooks/use-toast";
 
@@ -27,25 +26,23 @@ export function useReservationStatusManager() {
       
       console.log(`Fetching active reservations for date: ${today}`);
       
-      // Use withSupabaseRetry for better error handling and retry mechanism
-      const { data, error } = await withSupabaseRetry(() => 
-        supabase
-          .from('room_reservations')
-          .select(`
-            id,
-            room_id,
-            date,
-            start_time,
-            end_time,
-            purpose,
-            status,
-            faculty_id,
-            rooms:room_id(name, building_id),
-            profiles:faculty_id(name)
-          `)
-          .eq('date', asSupabaseParam(today))
-          .neq('status', asSupabaseParam('completed'))
-      );
+      // Use await to properly resolve the Promise
+      const { data, error } = await supabase
+        .from('room_reservations')
+        .select(`
+          id,
+          room_id,
+          date,
+          start_time,
+          end_time,
+          purpose,
+          status,
+          faculty_id,
+          rooms:room_id(name, building_id),
+          profiles:faculty_id(name)
+        `)
+        .eq('date', today)
+        .neq('status', 'completed');
       
       if (error) {
         console.error("Error fetching active reservations:", error);
@@ -61,49 +58,51 @@ export function useReservationStatusManager() {
       }
       
       // Get building information for the reservations
-      const buildingIds = data
-        .filter(res => res.rooms?.building_id)
-        .map(res => res.rooms?.building_id)
-        .filter(Boolean);
+      const buildingIds = Array.isArray(data) 
+        ? data
+          .filter(res => res.rooms?.building_id)
+          .map(res => res.rooms?.building_id)
+          .filter(Boolean)
+        : [];
       
       let buildingMap: Record<string, string> = {};
       if (buildingIds.length > 0) {
-        const { data: buildingsData, error: buildingsError } = await withSupabaseRetry(() =>
-          supabase
-            .from('buildings')
-            .select('id, name')
-            .in('id', buildingIds)
-        );
+        const { data: buildingsData, error: buildingsError } = await supabase
+          .from('buildings')
+          .select('id, name')
+          .in('id', buildingIds);
           
         if (buildingsError) {
           console.error("Error fetching buildings for reservations:", buildingsError);
           setHasConnectionError(true);
         } else if (buildingsData) {
-          buildingMap = buildingsData.reduce((acc, building) => {
+          buildingMap = Array.isArray(buildingsData) ? buildingsData.reduce((acc, building) => {
             if (building && building.id) {
               acc[building.id] = building.name;
             }
             return acc;
-          }, {} as Record<string, string>);
+          }, {} as Record<string, string>) : {};
         }
       }
       
       // Transform the data to match our Reservation type
-      const reservations: Reservation[] = data
-        .filter(item => item && typeof item === 'object')
-        .map(item => ({
-          id: safeDataAccess(item.id, ''),
-          roomId: safeDataAccess(item.room_id, ''),
-          roomNumber: safeDataAccess(item.rooms?.name, 'Unknown Room'),
-          building: item.rooms?.building_id ? safeDataAccess(buildingMap[item.rooms.building_id], 'Unknown Building') : 'Unknown Building',
-          date: safeDataAccess(item.date, ''),
-          startTime: safeDataAccess(item.start_time, ''),
-          endTime: safeDataAccess(item.end_time, ''),
-          purpose: safeDataAccess(item.purpose, '') || '',
-          status: safeDataAccess(item.status, 'approved'),
-          faculty: safeDataAccess(item.profiles?.name, 'Unknown Faculty')
-        }))
-        .filter(res => res.id && res.roomId);
+      const reservations: Reservation[] = Array.isArray(data) 
+        ? data
+          .filter(item => item && typeof item === 'object')
+          .map(item => ({
+            id: item.id || '',
+            roomId: item.room_id || '',
+            roomNumber: item.rooms?.name || 'Unknown Room',
+            building: item.rooms?.building_id ? buildingMap[item.rooms.building_id] || 'Unknown Building' : 'Unknown Building',
+            date: item.date || '',
+            startTime: item.start_time || '',
+            endTime: item.end_time || '',
+            purpose: item.purpose || '',
+            status: item.status || 'approved',
+            faculty: item.profiles?.name || 'Unknown Faculty'
+          }))
+          .filter(res => res.id && res.roomId)
+        : [];
       
       console.log(`Found ${reservations.length} active reservations for today`);
       setActiveReservations(reservations);
@@ -134,13 +133,11 @@ export function useReservationStatusManager() {
       console.log(`Updating room ${roomId} status to ${isOccupied ? 'occupied' : 'available'}`);
       
       // First check if the room is in maintenance - don't change status if it is
-      const { data: roomData, error: roomError } = await withSupabaseRetry(() =>
-        supabase
-          .from('rooms')
-          .select('status, name')
-          .eq('id', asSupabaseParam(roomId))
-          .single()
-      );
+      const { data: roomData, error: roomError } = await supabase
+        .from('rooms')
+        .select('status, name')
+        .eq('id', roomId)
+        .single();
       
       if (roomError) {
         console.error("Error fetching room status:", roomError);
@@ -148,22 +145,20 @@ export function useReservationStatusManager() {
         return false;
       }
       
-      if (roomData?.status === 'maintenance') {
+      if (roomData && roomData.status === 'maintenance') {
         console.log(`Room ${roomData.name} is under maintenance, skipping status update`);
         return false;
       }
       
       // Update the room status in the database
       const status = isOccupied ? 'occupied' : 'available';
-      const { error } = await withSupabaseRetry(() =>
-        supabase
-          .from('rooms')
-          .update({ 
-            status: asSupabaseParam(status), 
-            is_available: asSupabaseParam(!isOccupied) 
-          })
-          .eq('id', asSupabaseParam(roomId))
-      );
+      const { error } = await supabase
+        .from('rooms')
+        .update({ 
+          status: status, 
+          is_available: !isOccupied 
+        })
+        .eq('id', roomId);
       
       if (error) {
         console.error("Error updating room status:", error);
@@ -187,12 +182,10 @@ export function useReservationStatusManager() {
     try {
       console.log(`Marking reservation ${reservationId} as completed`);
       
-      const { error } = await withSupabaseRetry(() =>
-        supabase
-          .from('room_reservations')
-          .update({ status: asSupabaseParam('completed') })
-          .eq('id', asSupabaseParam(reservationId))
-      );
+      const { error } = await supabase
+        .from('room_reservations')
+        .update({ status: 'completed' })
+        .eq('id', reservationId);
       
       if (error) {
         console.error("Error marking reservation as completed:", error);
