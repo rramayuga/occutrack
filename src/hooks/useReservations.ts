@@ -12,8 +12,9 @@ export function useReservations() {
   const { user } = useAuth();
   const { toast } = useToast();
   
-  // Add cooldown for error toasts to prevent spam
   const ERROR_COOLDOWN_MS = 10000; // 10 seconds between error messages
+  const retryCount = useRef(0);
+  const MAX_RETRIES = 3;
 
   // Fetch user's reservations
   const fetchReservations = useCallback(async () => {
@@ -40,7 +41,10 @@ export function useReservations() {
         .order('date', { ascending: true })
         .order('start_time', { ascending: true });
       
-      if (reservationError) throw reservationError;
+      if (reservationError) {
+        console.error("Error fetching reservations:", reservationError);
+        throw reservationError;
+      }
       
       if (reservationData && reservationData.length > 0) {
         // Get room information for all reservations
@@ -50,7 +54,10 @@ export function useReservations() {
           .select('id, name, building_id')
           .in('id', roomIds);
           
-        if (roomsError) throw roomsError;
+        if (roomsError) {
+          console.error("Error fetching room data for reservations:", roomsError);
+          throw roomsError;
+        }
         
         // Get building information for all rooms
         const buildingIds = roomsData.map(room => room.building_id);
@@ -59,7 +66,10 @@ export function useReservations() {
           .select('id, name')
           .in('id', buildingIds);
           
-        if (buildingsError) throw buildingsError;
+        if (buildingsError) {
+          console.error("Error fetching building data for reservations:", buildingsError);
+          throw buildingsError;
+        }
         
         // Create a mapping of room ids to room data
         const roomMap = roomsData.reduce((acc, room) => {
@@ -93,22 +103,39 @@ export function useReservations() {
         });
         
         setReservations(transformedReservations);
+        retryCount.current = 0; // Reset retry count on success
         console.log("Fetched reservations:", transformedReservations);
       } else {
         setReservations([]);
+        retryCount.current = 0; // Reset retry count on success
       }
     } catch (error) {
       console.error("Error fetching reservations:", error);
       
-      // Only show error toast if we haven't shown one recently
-      const now = new Date();
-      if (!lastError || now.getTime() - lastError.getTime() > ERROR_COOLDOWN_MS) {
-        toast({
-          title: "Error loading reservations",
-          description: "Could not load your reservation data. Will retry automatically.",
-          variant: "destructive"
-        });
-        setLastError(now);
+      // Implement retry logic with exponential backoff
+      if (retryCount.current < MAX_RETRIES) {
+        retryCount.current++;
+        const delay = 1000 * Math.pow(2, retryCount.current);
+        
+        console.log(`Retrying reservation fetch (${retryCount.current}/${MAX_RETRIES}) after ${delay}ms`);
+        
+        setTimeout(() => {
+          fetchReservations();
+        }, delay);
+        
+        // Only show error toast if we've reached max retries
+        if (retryCount.current === MAX_RETRIES) {
+          // Only show error toast if we haven't shown one recently
+          const now = new Date();
+          if (!lastError || now.getTime() - lastError.getTime() > ERROR_COOLDOWN_MS) {
+            toast({
+              title: "Error loading reservations",
+              description: "Could not load your reservation data. Will retry automatically.",
+              variant: "destructive"
+            });
+            setLastError(now);
+          }
+        }
       }
     } finally {
       setLoading(false);

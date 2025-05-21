@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useRef } from 'react';
 import { Room, RoomStatus } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
@@ -12,6 +13,8 @@ export function useRoomFetching() {
   const { toast } = useToast();
   const fetchInProgress = useRef(false);
   const fetchTimeoutId = useRef<number | null>(null);
+  const retryCount = useRef(0);
+  const MAX_RETRIES = 3;
   
   const fetchRooms = useCallback(async () => {
     // Prevent multiple concurrent fetches
@@ -37,6 +40,7 @@ export function useRoomFetching() {
         .select('*');
       
       if (roomsError) {
+        console.error("Error fetching rooms:", roomsError);
         throw roomsError;
       }
       
@@ -56,6 +60,7 @@ export function useRoomFetching() {
       
       if (availabilityError) {
         console.error("Error fetching room availability:", availabilityError);
+        // Continue without availability data instead of failing completely
       }
       
       // Create a map for quick lookup of the most recent availability record for each room
@@ -64,7 +69,6 @@ export function useRoomFetching() {
         for (const record of availabilityData) {
           if (!availabilityMap.has(record.room_id)) {
             // Handle case where status might not exist in older records
-            // Type assertion is now safer by checking if property exists first
             let status: RoomStatus = 'available';
             
             if ('status' in record && record.status) {
@@ -114,7 +118,7 @@ export function useRoomFetching() {
           id: room.id,
           name: room.name,
           type: room.type,
-          capacity: room.capacity,
+          capacity: room.capacity || 30,
           isAvailable: isAvailable,
           floor: room.floor,
           buildingId: room.building_id,
@@ -126,13 +130,27 @@ export function useRoomFetching() {
       console.log("Room statuses:", roomsWithAvailability.map(r => `${r.name}: ${r.status}`).join(', '));
       
       setRooms(roomsWithAvailability);
+      retryCount.current = 0; // Reset retry count on success
     } catch (error) {
       console.error("Error fetching rooms:", error);
-      toast({
-        title: "Error loading rooms",
-        description: "Could not load rooms data from server.",
-        variant: "destructive"
-      });
+      
+      // Implement retry logic
+      if (retryCount.current < MAX_RETRIES) {
+        retryCount.current++;
+        const delay = 1000 * Math.pow(2, retryCount.current); // Exponential backoff
+        
+        console.log(`Retrying room fetch (${retryCount.current}/${MAX_RETRIES}) after ${delay}ms`);
+        
+        fetchTimeoutId.current = window.setTimeout(() => {
+          fetchRooms();
+        }, delay) as unknown as number;
+      } else {
+        toast({
+          title: "Error loading rooms",
+          description: "Could not load rooms data from server. Please try refreshing.",
+          variant: "destructive"
+        });
+      }
     } finally {
       setLoading(false);
       fetchInProgress.current = false;
@@ -147,6 +165,9 @@ export function useRoomFetching() {
     if (fetchTimeoutId.current !== null) {
       window.clearTimeout(fetchTimeoutId.current);
     }
+    
+    // Reset retry count for manual refreshes
+    retryCount.current = 0;
     
     // Set a timeout to debounce multiple rapid calls
     fetchTimeoutId.current = window.setTimeout(() => {
