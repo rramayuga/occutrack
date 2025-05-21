@@ -10,12 +10,17 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 
 interface TeachingScheduleProps {
   reservations: Reservation[];
+  onReservationChange?: () => void;
 }
 
-export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ reservations }) => {
+export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ 
+  reservations,
+  onReservationChange = () => {}
+}) => {
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [lastError, setLastError] = useState<Date | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   
   // Add cooldown for error toasts to prevent spam
@@ -65,6 +70,7 @@ export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ reservations
 
   const handleCancelReservation = async () => {
     if (!selectedReservation) return;
+    setIsLoading(true);
     
     try {
       const { error } = await supabase
@@ -80,6 +86,9 @@ export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ reservations
         title: "Reservation Cancelled",
         description: "Your room reservation has been cancelled successfully.",
       });
+      
+      // Notify parent of the change
+      onReservationChange();
       
       // Close dialog
       setIsCancelDialogOpen(false);
@@ -97,6 +106,8 @@ export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ reservations
         });
         setLastError(now);
       }
+    } finally {
+      setIsLoading(false);
     }
   };
   
@@ -111,6 +122,8 @@ export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ reservations
           table: 'room_reservations'
         }, (payload) => {
           console.log("Reservation change detected in TeachingSchedule:", payload);
+          // Notify parent component to update
+          onReservationChange();
         })
         .subscribe((status) => {
           console.log("TeachingSchedule subscription status:", status);
@@ -122,7 +135,7 @@ export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ reservations
     } catch (error) {
       console.error("Error setting up teaching schedule subscription:", error);
     }
-  }, []);
+  }, [onReservationChange]);
 
   return (
     <>
@@ -175,6 +188,7 @@ export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ reservations
                         size="sm" 
                         className="h-8 w-8 p-0"
                         onClick={() => handleCancelClick(booking)}
+                        disabled={isLoading}
                       >
                         <X className="h-4 w-4 text-red-500" />
                       </Button>
@@ -198,9 +212,13 @@ export const TeachingSchedule: React.FC<TeachingScheduleProps> = ({ reservations
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>No, Keep It</AlertDialogCancel>
-            <AlertDialogAction onClick={handleCancelReservation} className="bg-red-500 hover:bg-red-600">
-              Yes, Cancel Reservation
+            <AlertDialogCancel disabled={isLoading}>No, Keep It</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleCancelReservation} 
+              className="bg-red-500 hover:bg-red-600"
+              disabled={isLoading}
+            >
+              {isLoading ? "Cancelling..." : "Yes, Cancel Reservation"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

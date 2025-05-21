@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { User } from '@/lib/types';
 import { useRooms } from '@/hooks/useRooms';

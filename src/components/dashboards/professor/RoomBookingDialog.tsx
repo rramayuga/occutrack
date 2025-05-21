@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Building, Room, ReservationFormValues } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -29,6 +30,7 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
   const [endTime, setEndTime] = useState<string>('');
   const [purpose, setPurpose] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const { toast } = useToast();
   
   // Reset form when dialog opens or closes
@@ -42,6 +44,7 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
         setStartTime('');
         setEndTime('');
         setPurpose('');
+        setFormErrors({});
       }, 200);
     }
   }, [isOpen]);
@@ -75,34 +78,67 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
   const selectedBuildingName = buildings.find(b => b.id === selectedBuilding)?.name || '';
   const selectedRoomName = rooms.find(r => r.id === selectedRoom)?.name || '';
   
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Validate form fields
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
     
-    if (!selectedBuilding || !selectedRoom || !date || !startTime || !endTime) {
-      toast({
-        title: "Validation Error",
-        description: "Please fill in all required fields.",
-        variant: "destructive"
-      });
-      return;
+    if (!selectedBuilding) {
+      errors.building = "Building is required";
+    }
+    
+    if (!selectedRoom) {
+      errors.room = "Room is required";
+    }
+    
+    if (!date) {
+      errors.date = "Date is required";
+    } else {
+      const selectedDate = new Date(date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      if (selectedDate < today) {
+        errors.date = "Date cannot be in the past";
+      }
     }
     
     // Simple validation for time format
     const timePattern = /^([01][0-9]|2[0-3]):[0-5][0-9]$/; // HH:MM format
-    if (!timePattern.test(startTime) || !timePattern.test(endTime)) {
-      toast({
-        title: "Time Format Error",
-        description: "Please use HH:MM format for times, e.g. 09:30",
-        variant: "destructive"
-      });
-      return;
+    
+    if (!startTime) {
+      errors.startTime = "Start time is required";
+    } else if (!timePattern.test(startTime)) {
+      errors.startTime = "Use HH:MM format";
+    }
+    
+    if (!endTime) {
+      errors.endTime = "End time is required";
+    } else if (!timePattern.test(endTime)) {
+      errors.endTime = "Use HH:MM format";
     }
     
     // Ensure start time is before end time
-    if (startTime >= endTime) {
+    if (startTime && endTime && timePattern.test(startTime) && timePattern.test(endTime)) {
+      if (startTime >= endTime) {
+        errors.endTime = "End time must be after start time";
+      }
+    }
+    
+    if (!purpose) {
+      errors.purpose = "Purpose is required";
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
       toast({
-        title: "Time Error",
-        description: "End time must be after start time",
+        title: "Validation Error",
+        description: "Please fix the errors in the form.",
         variant: "destructive"
       });
       return;
@@ -151,7 +187,7 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
               value={selectedBuilding}
               onValueChange={setSelectedBuilding}
             >
-              <SelectTrigger id="building">
+              <SelectTrigger id="building" className={formErrors.building ? "border-red-500" : ""}>
                 <SelectValue placeholder="Select building" />
               </SelectTrigger>
               <SelectContent>
@@ -162,6 +198,7 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
                 ))}
               </SelectContent>
             </Select>
+            {formErrors.building && <p className="text-xs text-red-500">{formErrors.building}</p>}
           </div>
           
           <div className="space-y-2">
@@ -171,7 +208,7 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
               onValueChange={setSelectedRoom}
               disabled={!selectedBuilding}
             >
-              <SelectTrigger id="room">
+              <SelectTrigger id="room" className={formErrors.room ? "border-red-500" : ""}>
                 <SelectValue placeholder="Select room" />
               </SelectTrigger>
               <SelectContent>
@@ -182,6 +219,7 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
                 ))}
               </SelectContent>
             </Select>
+            {formErrors.room && <p className="text-xs text-red-500">{formErrors.room}</p>}
           </div>
           
           <div className="space-y-2">
@@ -192,7 +230,9 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
               value={date}
               onChange={(e) => setDate(e.target.value)}
               min={new Date().toISOString().split('T')[0]}
+              className={formErrors.date ? "border-red-500" : ""}
             />
+            {formErrors.date && <p className="text-xs text-red-500">{formErrors.date}</p>}
           </div>
           
           <div className="grid grid-cols-2 gap-4">
@@ -203,7 +243,9 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
                 type="time"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
+                className={formErrors.startTime ? "border-red-500" : ""}
               />
+              {formErrors.startTime && <p className="text-xs text-red-500">{formErrors.startTime}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="endTime">End Time</Label>
@@ -212,7 +254,9 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
                 type="time"
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
+                className={formErrors.endTime ? "border-red-500" : ""}
               />
+              {formErrors.endTime && <p className="text-xs text-red-500">{formErrors.endTime}</p>}
             </div>
           </div>
           
@@ -223,7 +267,9 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
               placeholder="e.g. Lecture, Meeting, Study Group"
               value={purpose}
               onChange={(e) => setPurpose(e.target.value)}
+              className={formErrors.purpose ? "border-red-500" : ""}
             />
+            {formErrors.purpose && <p className="text-xs text-red-500">{formErrors.purpose}</p>}
           </div>
           
           <Button type="submit" className="w-full" disabled={isLoading}>

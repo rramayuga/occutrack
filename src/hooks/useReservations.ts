@@ -212,7 +212,8 @@ export function useReservations() {
         return null;
       }
       
-      // Create the reservation
+      // Create the reservation - Make sure we use only allowed status values
+      // The database has a constraint that only allows specific status values
       const newReservation = {
         room_id: roomId,
         faculty_id: user.id,
@@ -220,7 +221,7 @@ export function useReservations() {
         start_time: values.startTime,
         end_time: values.endTime,
         purpose: values.purpose,
-        status: 'approved' // Auto-approve for now
+        status: 'approved' // Use an explicitly allowed status value
       };
       
       const { data, error } = await supabase
@@ -228,7 +229,10 @@ export function useReservations() {
         .insert(newReservation)
         .select();
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error creating reservation:", error);
+        throw error;
+      }
       
       if (data && data.length > 0) {
         toast({
@@ -241,11 +245,11 @@ export function useReservations() {
         return data[0];
       }
       return null;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating reservation:", error);
       toast({
         title: "Error",
-        description: "Failed to book the room. Please try again.",
+        description: error.message || "Failed to book the room. Please try again.",
         variant: "destructive"
       });
       return null;
