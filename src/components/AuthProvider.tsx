@@ -76,36 +76,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (error) {
         console.error('Error fetching profile:', error);
-        // Handle case where the profile might not exist yet (for Google sign-in users)
-        if (error.code === 'PGRST116') {
-          console.log('Profile not found, likely a new Google auth user. Waiting for profile to be created.');
-          // Wait a moment and retry once for new Google users
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          const { data: retryProfile, error: retryError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', userId)
-            .single();
-            
-          if (retryError) {
-            console.error('Error on retry fetch profile:', retryError);
-            return null;
-          }
-          
-          if (retryProfile) {
-            console.log('Profile fetched on retry:', retryProfile);
-            const userData = {
-              id: retryProfile.id,
-              name: retryProfile.name,
-              email: retryProfile.email,
-              role: retryProfile.role as UserRole,
-              avatarUrl: retryProfile.avatar
-            };
-            
-            setUser(userData);
-            return userData;
-          }
-        }
         return null;
       }
 
@@ -199,11 +169,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               
               await fetchUserProfile(session.user.id);
               setIsLoading(false);
-              
-              // Redirect to dashboard if the user has just signed in
-              if (event === 'SIGNED_IN') {
-                navigate('/dashboard');
-              }
             }
           }, 0);
         } else if (mounted) {
@@ -219,7 +184,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [fetchUserProfile, navigate]);
+  }, [fetchUserProfile]);
 
   const signOut = async () => {
     try {

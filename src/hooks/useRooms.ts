@@ -45,11 +45,17 @@ export function useRooms() {
     setupRoomSubscription,
     setupRoomAvailabilitySubscription
   } = useRoomSubscriptions(fetchRooms, setRooms);
+  
+  // Get active reservations to check and update room status
+  const { activeReservations, processReservations, hasConnectionError } = useReservationStatusManager();
+  
+  // Check and update rooms based on reservations - this helps catch any misalignment
+  useRoomReservationCheck(rooms, updateRoomAvailability);
 
-  // Update connection error state 
+  // Update connection error state when any dependent system has an error
   useEffect(() => {
-    setConnectionError(hasError);
-  }, [hasError]);
+    setConnectionError(hasError || hasConnectionError);
+  }, [hasError, hasConnectionError]);
 
   // Set up subscriptions on component mount - only once
   useEffect(() => {
@@ -91,6 +97,17 @@ export function useRooms() {
     const unsubscribeRooms = setupRoomSubscription();
     const unsubscribeAvailability = setupRoomAvailabilitySubscription();
     
+    // Increase the delay for initial processing to allow other systems to initialize
+    const timeoutId = setTimeout(() => {
+      // Only process if we haven't processed recently
+      const now = Date.now();
+      if (now - lastProcessTime.current > 20000) {
+        console.log("Initial processing of reservations in useRooms");
+        processReservations();
+        lastProcessTime.current = now;
+      }
+    }, 5000); // Longer initial delay
+    
     isInitialized.current = true;
     
     // Clean up subscriptions and timeouts on unmount
@@ -98,12 +115,13 @@ export function useRooms() {
       console.log("Cleaning up room subscriptions");
       unsubscribeRooms();
       unsubscribeAvailability();
+      clearTimeout(timeoutId);
       
       if (retryTimeoutId.current) {
         window.clearTimeout(retryTimeoutId.current);
       }
     };
-  }, [fetchRooms, setupRoomSubscription, setupRoomAvailabilitySubscription]);
+  }, [fetchRooms, setupRoomSubscription, setupRoomAvailabilitySubscription, processReservations]);
 
   return {
     buildings,
