@@ -4,7 +4,6 @@ import { useBuildings } from './useBuildings';
 import { useRoomFetching } from './rooms/useRoomFetching';
 import { useRoomUpdater } from './rooms/useRoomUpdater';
 import { useRoomSubscriptions } from './rooms/useRoomSubscriptions';
-import { useRoomReservationCheck } from './useRoomReservationCheck';
 
 /**
  * Main hook for managing room data and operations
