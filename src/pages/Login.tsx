@@ -61,15 +61,20 @@ const Login = () => {
 
   const handleGoogleAuth = async () => {
     setIsLoading(true);
+    setError('');
     
     try {
+      console.log('Starting Google authentication process');
       await handleGoogleSignIn();
+      
       toast({
         title: "Google Authentication",
         description: "Redirecting to Google sign-in...",
       });
+      // Redirection will be handled by the OAuth flow
     } catch (error: any) {
       console.error('Google sign-in error:', error);
+      setError(error.message || "Failed to sign in with Google. Please try again.");
       toast({
         title: "Authentication Error",
         description: error.message || "Failed to sign in with Google",

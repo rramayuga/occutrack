@@ -90,13 +90,15 @@ const Register = () => {
   const handleGoogleAuth = async () => {
     setIsLoading(true);
     try {
+      console.log('Starting Google authentication for registration');
       await handleGoogleSignIn();
+      
       toast({
         title: "Google Authentication",
         description: "Redirecting to Google sign-in...",
       });
     } catch (error: any) {
-      console.error('Google sign-in error:', error);
+      console.error('Google sign-in error during registration:', error);
       toast({
         title: "Authentication Error",
         description: error.message || "Failed to sign in with Google",
