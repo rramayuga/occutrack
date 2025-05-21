@@ -5,7 +5,6 @@ import { useReservations } from '@/hooks/useReservations';
 import { ProfessorOverviewCards } from './professor/ProfessorOverviewCards';
 import { TeachingSchedule } from './professor/TeachingSchedule';
 import { AvailableRooms } from './professor/AvailableRooms';
-import { useReservationStatusManager } from '@/hooks/reservation/useReservationStatusManager';
 import { useBuildings } from '@/hooks/useBuildings';
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -17,34 +16,23 @@ interface ProfessorDashboardProps {
 }
 
 export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) => {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedRoomId, setSelectedRoomId] = useState<string>('');
   const { simplifiedBuildings } = useBuildings();
   const { rooms, refreshRooms, connectionError } = useRooms();
-  const { reservations, createReservation, fetchReservations } = useReservations();
+  const { reservations, fetchReservations } = useReservations();
   const { toast } = useToast();
   const [isRetrying, setIsRetrying] = useState(false);
   
-  // Use centralized reservation status manager
-  const { activeReservations, fetchActiveReservations, processReservations, hasConnectionError } = useReservationStatusManager();
-  
   // Track last refresh time to limit frequency
   const [lastRefreshTime, setLastRefreshTime] = useState<number>(Date.now());
-  
-  // Combine connection errors from different sources
-  const showConnectionError = connectionError || hasConnectionError;
   
   // Initial data fetch on mount - once only
   useEffect(() => {
     console.log("ProfessorDashboard - Initial data fetch");
     refreshRooms();
     fetchReservations();
-    fetchActiveReservations();
     
-    // Process reservations only once initially with a delay
-    const timeoutId = setTimeout(() => processReservations(), 4000);
-    
-    return () => clearTimeout(timeoutId);
+    // Set initial refresh time
+    setLastRefreshTime(Date.now());
   }, []); // Empty deps array - run only on mount
   
   // Set up auto-refresh to keep the data current - with greatly reduced frequency
@@ -53,17 +41,16 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
     const intervalId = setInterval(() => {
       // Only refresh if it's been at least 10 minutes since the last refresh
       const now = Date.now();
-      if (now - lastRefreshTime > 600000) { // 10 minutes minimum between refreshes (increased from 5 minutes)
+      if (now - lastRefreshTime > 600000) { // 10 minutes minimum between refreshes
         console.log("ProfessorDashboard - Scheduled refresh");
         refreshRooms();
         fetchReservations();
-        fetchActiveReservations();
         setLastRefreshTime(now);
       }
-    }, 600000); // Every 10 minutes (increased from 5 minutes)
+    }, 600000); // Every 10 minutes
     
     return () => clearInterval(intervalId);
-  }, [refreshRooms, fetchReservations, fetchActiveReservations, lastRefreshTime]);
+  }, [refreshRooms, fetchReservations, lastRefreshTime]);
   
   // Handle retry connection click
   const handleRetryConnection = () => {
@@ -72,18 +59,16 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
     // Attempt to refresh all data
     Promise.all([
       refreshRooms(),
-      fetchReservations(),
-      fetchActiveReservations(),
-      processReservations()
+      fetchReservations()
     ]).finally(() => {
       setIsRetrying(false);
       setLastRefreshTime(Date.now());
       
       // Show toast if connection is restored
-      if (!connectionError && !hasConnectionError) {
+      if (!connectionError) {
         toast({
           title: "Connection Restored",
-          description: "Successfully reconnected to the reservation system.",
+          description: "Successfully reconnected to the system.",
           duration: 3000
         });
       }
@@ -109,12 +94,6 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
       return false;
     });
   }, [reservations]);
-
-  // Handler for room reservation with proper parameters
-  const handleReserveClick = (buildingId: string, roomId: string, buildingName: string, roomName: string) => {
-    setSelectedRoomId(roomId); // Store the selected room ID
-    setIsDialogOpen(true);
-  };
   
   // Filter out completed reservations for display
   const activeReservationsForDisplay = useMemo(() => 
@@ -145,7 +124,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
   
   return (
     <div className="container mx-auto px-4 py-8">
-      {showConnectionError && (
+      {connectionError && (
         <Alert variant="destructive" className="mb-6 flex items-center justify-between bg-red-50 border border-red-200">
           <div className="flex items-center">
             <svg 
@@ -161,7 +140,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
               />
             </svg>
             <AlertDescription>
-              Unable to connect to the reservation system. Some features may not work correctly.
+              Unable to connect to the system. Some features may not work correctly.
             </AlertDescription>
           </div>
           <Button 
@@ -211,7 +190,6 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
         <AvailableRooms 
           rooms={rooms} 
           buildings={simplifiedBuildings} 
-          onReserveClick={() => {}} // Empty function since we're removing Book Room feature
         />
       </div>
     </div>

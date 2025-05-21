@@ -8,13 +8,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 interface AvailableRoomsProps {
   rooms: Room[];
   buildings: Building[];
-  onReserveClick: (buildingId: string, roomId: string, buildingName: string, roomName: string) => void;
 }
 
 export const AvailableRooms: React.FC<AvailableRoomsProps> = ({ 
   rooms, 
-  buildings,
-  onReserveClick 
+  buildings
 }) => {
   // Filter to only available rooms
   const availableRooms = useMemo(() => 
