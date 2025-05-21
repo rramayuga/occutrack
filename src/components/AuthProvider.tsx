@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -21,8 +20,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { data: facultyRequest, error: facultyError } = await supabase
         .from('faculty_requests')
         .select('status')
-        .eq('user_id', userId)
-        .eq('status', 'rejected')
+        .eq('user_id', userId as string)
+        .eq('status', 'rejected' as string)
         .maybeSingle();
 
       if (facultyError) {
@@ -48,8 +47,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { data: pendingRequest } = await supabase
         .from('faculty_requests')
         .select('status')
-        .eq('user_id', userId)
-        .eq('status', 'pending')
+        .eq('user_id', userId as string)
+        .eq('status', 'pending' as string)
         .maybeSingle();
 
       if (pendingRequest && pendingRequest.status === 'pending') {
@@ -71,7 +70,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', userId)
+        .eq('id', userId as string)
         .single();
 
       if (error) {

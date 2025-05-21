@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -89,19 +88,26 @@ const RoomForm: React.FC<RoomFormProps> = ({
         if (error) throw error;
         
         if (data) {
-          setBuildings(data);
+          // Transform the Supabase data to match our Building interface
+          const typedBuildings: Building[] = data.map(b => ({
+            id: b.id,
+            name: b.name,
+            floors: b.floors
+          }));
+          
+          setBuildings(typedBuildings);
           
           // If there's a default building but it doesn't exist in our list, select the first building
-          if (defaultValues?.buildingId && !data.find(b => b.id === defaultValues.buildingId) && data.length > 0) {
-            form.setValue('buildingId', data[0].id);
+          if (defaultValues?.buildingId && !typedBuildings.find(b => b.id === defaultValues.buildingId) && typedBuildings.length > 0) {
+            form.setValue('buildingId', typedBuildings[0].id);
           }
           // If no default value but defaultBuildingId is provided, use that
-          else if (defaultBuildingId && !data.find(b => b.id === defaultBuildingId) && data.length > 0) {
-            form.setValue('buildingId', data[0].id);
+          else if (defaultBuildingId && !typedBuildings.find(b => b.id === defaultBuildingId) && typedBuildings.length > 0) {
+            form.setValue('buildingId', typedBuildings[0].id);
           }
           // If no default value and we have buildings, select the first one
-          else if (!defaultValues?.buildingId && !defaultBuildingId && data.length > 0) {
-            form.setValue('buildingId', data[0].id);
+          else if (!defaultValues?.buildingId && !defaultBuildingId && typedBuildings.length > 0) {
+            form.setValue('buildingId', typedBuildings[0].id);
           }
         }
       } catch (error) {
