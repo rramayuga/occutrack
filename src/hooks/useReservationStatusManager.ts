@@ -252,7 +252,7 @@ export function useReservationStatusManager() {
     }
   }, [activeReservations, completedReservationIds, updateRoomStatus, markReservationAsCompleted, fetchActiveReservations, lastCheck, compareTimeStrings, user]);
 
-  // Setup frequent checks for reservation status changes
+  // Setup checks for reservation status changes
   useEffect(() => {
     if (!user) return;
     

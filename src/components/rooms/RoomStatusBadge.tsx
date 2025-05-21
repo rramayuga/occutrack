@@ -7,7 +7,7 @@ interface RoomStatusBadgeProps {
   status: RoomStatus;
 }
 
-const RoomStatusBadge: React.FC<RoomStatusBadgeProps> = ({ status }) => {
+export default function RoomStatusBadge({ status }: RoomStatusBadgeProps) {
   switch (status) {
     case 'maintenance':
       return (
@@ -29,6 +29,4 @@ const RoomStatusBadge: React.FC<RoomStatusBadgeProps> = ({ status }) => {
         </Badge>
       );
   }
-};
-
-export default RoomStatusBadge;
+}

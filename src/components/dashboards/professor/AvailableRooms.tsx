@@ -1,8 +1,10 @@
+
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Building, Room } from '@/lib/types';
+import RoomStatusBadge from '@/components/rooms/RoomStatusBadge';
 
 interface AvailableRoomsProps {
   buildings: Building[];
