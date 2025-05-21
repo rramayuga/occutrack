@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { startOfMonth, endOfMonth } from "date-fns";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, isError } from "@/integrations/supabase/client";
 import RoomAnalyticsFilters from './RoomAnalyticsFilters';
 import RoomAnalyticsHeader from './RoomAnalyticsHeader';
 import AnalyticsContent from './AnalyticsContent';
@@ -35,10 +35,15 @@ const RoomUsageStats: React.FC = () => {
         .from('buildings')
         .select('id, name');
       
-      if (!error && data) {
+      if (error) {
+        console.error('Error fetching buildings:', error);
+        return;
+      }
+      
+      if (data && Array.isArray(data) && !isError(data)) {
         const typedBuildings: Building[] = data.map(building => ({
-          id: building.id,
-          name: building.name
+          id: building.id?.toString() || '',
+          name: building.name?.toString() || ''
         }));
         setBuildings(typedBuildings);
       }

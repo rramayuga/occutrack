@@ -33,3 +33,8 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   maxRetryCount: 3,
   retryInterval: 2000 // 2 seconds between retries
 });
+
+// Helper function to safely handle Supabase type issues
+export function isError(data: any): boolean {
+  return typeof data === 'object' && data !== null && 'error' in data;
+}

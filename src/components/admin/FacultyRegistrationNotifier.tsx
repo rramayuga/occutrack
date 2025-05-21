@@ -11,7 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/lib/auth';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, isError } from '@/integrations/supabase/client';
 
 const FacultyRegistrationNotifier = () => {
   const [pendingCount, setPendingCount] = useState(0);
@@ -31,17 +31,18 @@ const FacultyRegistrationNotifier = () => {
         const { data, error } = await supabase
           .from('faculty_requests')
           .select('id')
-          .eq('status', 'pending');
+          .eq('status', 'pending' as any);
           
         if (error) throw error;
         
-        setPendingCount(data?.length || 0);
+        const validData = Array.isArray(data) && !isError(data) ? data : [];
+        setPendingCount(validData.length || 0);
 
         // Show a toast notification if there are pending requests
-        if (data && data.length > 0) {
+        if (validData.length > 0) {
           toast({
             title: "Faculty Requests Pending",
-            description: `${data.length} faculty registration requests await your approval.`,
+            description: `${validData.length} faculty registration requests await your approval.`,
             duration: 5000,
           });
         }
@@ -65,7 +66,7 @@ const FacultyRegistrationNotifier = () => {
     return () => {
       supabase.removeChannel(facultyChannel);
     };
-  }, [user]);
+  }, [user, toast]);
 
   // Don't render anything if user is not admin/superadmin or if there are no pending requests
   if (!user || (user.role !== 'admin' && user.role !== 'superadmin') || pendingCount === 0) {

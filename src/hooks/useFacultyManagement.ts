@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, isError } from "@/integrations/supabase/client";
 
 export interface FacultyMember {
   id: string;
@@ -26,46 +26,48 @@ export const useFacultyManagement = () => {
       const { data: facultyRequestsData, error: facultyRequestsError } = await supabase
         .from('faculty_requests')
         .select('*')
-        .eq('status', 'approved');
+        .eq('status', 'approved' as any);
         
       if (facultyRequestsError) throw facultyRequestsError;
       
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('role', 'faculty');
+        .eq('role', 'faculty' as any);
         
       if (profilesError) throw profilesError;
       
       const facultyIds = new Set();
       const combinedFaculty: FacultyMember[] = [];
       
-      if (facultyRequestsData) {
+      if (facultyRequestsData && Array.isArray(facultyRequestsData) && !isError(facultyRequestsData)) {
         facultyRequestsData.forEach(item => {
-          facultyIds.add(item.user_id);
-          combinedFaculty.push({
-            id: item.id,
-            name: item.name,
-            email: item.email,
-            department: item.department,
-            status: item.status as 'pending' | 'approved' | 'rejected',
-            createdAt: item.created_at,
-            user_id: item.user_id
-          });
+          if (item.user_id) {
+            facultyIds.add(item.user_id);
+            combinedFaculty.push({
+              id: item.id?.toString() || '',
+              name: item.name?.toString() || '',
+              email: item.email?.toString() || '',
+              department: item.department?.toString() || '',
+              status: (item.status as 'pending' | 'approved' | 'rejected') || 'approved',
+              createdAt: item.created_at?.toString() || '',
+              user_id: item.user_id?.toString() || ''
+            });
+          }
         });
       }
       
-      if (profilesData) {
+      if (profilesData && Array.isArray(profilesData) && !isError(profilesData)) {
         profilesData.forEach(profile => {
-          if (!facultyIds.has(profile.id)) {
+          if (profile.id && !facultyIds.has(profile.id)) {
             combinedFaculty.push({
-              id: profile.id,
-              name: profile.name,
-              email: profile.email,
+              id: profile.id?.toString() || '',
+              name: profile.name?.toString() || '',
+              email: profile.email?.toString() || '',
               department: 'N/A',
-              status: 'approved' as const,
-              createdAt: profile.created_at,
-              user_id: profile.id
+              status: 'approved',
+              createdAt: profile.created_at?.toString() || '',
+              user_id: profile.id?.toString() || ''
             });
           }
         });

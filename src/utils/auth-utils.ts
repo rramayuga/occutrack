@@ -104,7 +104,7 @@ export const handleLogin = async (email: string, password: string) => {
       .from('faculty_requests')
       .select('status')
       .eq('email', email)
-      .eq('status', 'rejected')
+      .eq('status', 'rejected' as any)
       .maybeSingle();
 
     if (facultyRequest && 'status' in facultyRequest && facultyRequest.status === 'rejected') {
@@ -116,7 +116,7 @@ export const handleLogin = async (email: string, password: string) => {
       .from('faculty_requests')
       .select('status')
       .eq('email', email)
-      .eq('status', 'pending')
+      .eq('status', 'pending' as any)
       .maybeSingle();
 
     if (pendingRequest && 'status' in pendingRequest && pendingRequest.status === 'pending') {

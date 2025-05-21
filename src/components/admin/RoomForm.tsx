@@ -23,7 +23,7 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { Save } from 'lucide-react';
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, isError } from "@/integrations/supabase/client";
 
 // Define schema for the room form
 const roomFormSchema = z.object({
@@ -88,12 +88,12 @@ const RoomForm: React.FC<RoomFormProps> = ({
         
         if (error) throw error;
         
-        if (data) {
+        if (data && Array.isArray(data) && !isError(data)) {
           // Transform the Supabase data to match our Building interface
-          const typedBuildings: Building[] = data.map(building => ({
-            id: building.id,
-            name: building.name,
-            floors: building.floors
+          const typedBuildings: Building[] = data.map(item => ({
+            id: item.id?.toString() || '',
+            name: item.name?.toString() || '',
+            floors: typeof item.floors === 'number' ? item.floors : 1
           }));
           
           setBuildings(typedBuildings);
@@ -119,7 +119,7 @@ const RoomForm: React.FC<RoomFormProps> = ({
     };
     
     fetchBuildings();
-  }, []);
+  }, [defaultBuildingId, defaultValues?.buildingId, form]);
   
   return (
     <Form {...form}>

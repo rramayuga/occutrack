@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, isError } from '@/integrations/supabase/client';
 import { AuthContext } from '@/lib/auth';
 import { User, UserRole } from '@/lib/types';
 import { useToast } from './ui/use-toast';
@@ -21,8 +21,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { data: facultyRequest, error: facultyError } = await supabase
         .from('faculty_requests')
         .select('status')
-        .eq('user_id', userId)
-        .eq('status', 'rejected')
+        .eq('user_id', userId as any) // Type assertion to avoid TypeScript error
+        .eq('status', 'rejected' as any) // Type assertion to avoid TypeScript error
         .maybeSingle();
 
       if (facultyError) {
@@ -30,7 +30,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
       
       // If the faculty request was rejected, sign the user out
-      if (facultyRequest && 'status' in facultyRequest && facultyRequest.status === 'rejected') {
+      if (facultyRequest && !isError(facultyRequest) && facultyRequest.status === 'rejected') {
         console.log('Faculty request rejected, signing out user');
         await supabase.auth.signOut();
         toast({
@@ -45,14 +45,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       // Check for pending faculty requests for new Google sign-in users
-      const { data: pendingRequest } = await supabase
+      const { data: pendingRequest, error: pendingError } = await supabase
         .from('faculty_requests')
         .select('status')
-        .eq('user_id', userId)
-        .eq('status', 'pending')
+        .eq('user_id', userId as any) // Type assertion
+        .eq('status', 'pending' as any) // Type assertion
         .maybeSingle();
 
-      if (pendingRequest && 'status' in pendingRequest && pendingRequest.status === 'pending') {
+      if (pendingError) {
+        console.error('Error checking pending faculty status:', pendingError);
+      }
+
+      if (pendingRequest && !isError(pendingRequest) && pendingRequest.status === 'pending') {
         console.log('Faculty request pending, redirecting to confirmation page');
         await supabase.auth.signOut();
         toast({
@@ -71,7 +75,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', userId)
+        .eq('id', userId as any) // Type assertion
         .single();
 
       if (error) {
@@ -79,10 +83,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return null;
       }
 
-      if (profile && 'id' in profile) {
+      if (profile && !isError(profile)) {
         console.log('Profile fetched successfully:', profile);
-        const userData = {
-          id: profile.id,
+        const userData: User = {
+          id: profile.id as string,
           name: profile.name,
           email: profile.email,
           role: profile.role as UserRole,
