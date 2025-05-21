@@ -1,10 +1,8 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { User } from '@/lib/types';
 import { useRooms } from '@/hooks/useRooms';
 import { useReservations } from '@/hooks/useReservations';
 import { ProfessorOverviewCards } from './professor/ProfessorOverviewCards';
-import { RoomBookingDialog } from './professor/RoomBookingDialog';
 import { TeachingSchedule } from './professor/TeachingSchedule';
 import { AvailableRooms } from './professor/AvailableRooms';
 import { useReservationStatusManager } from '@/hooks/reservation/useReservationStatusManager';
@@ -193,39 +191,6 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
           <h1 className="text-3xl font-bold mb-2">Professor Dashboard</h1>
           <p className="text-muted-foreground">Welcome back, {user.name}!</p>
         </div>
-        <RoomBookingDialog 
-          buildings={simplifiedBuildings}
-          rooms={rooms}
-          createReservation={async (data) => {
-            try {
-              // Use the stored selectedRoomId instead of accessing data.roomId
-              await createReservation(data, selectedRoomId);
-              toast({
-                title: "Room Reserved",
-                description: "Your room has been reserved successfully",
-                duration: 3000, // Ensure toast auto-dismisses after 3 seconds
-              });
-              // Manually refresh data after reservation with delay
-              setTimeout(() => {
-                refreshRooms();
-                fetchReservations();
-                fetchActiveReservations();
-                // Process after everything has updated
-                setTimeout(() => processReservations(), 2000);
-              }, 2000);
-            } catch (error) {
-              console.error("Error creating reservation:", error);
-              toast({
-                title: "Error",
-                description: "Failed to reserve room. Please try again.",
-                variant: "destructive",
-                duration: 3000, // Ensure error toast also auto-dismisses
-              });
-            }
-          }}
-          isOpen={isDialogOpen}
-          onOpenChange={setIsDialogOpen}
-        />
       </div>
 
       {/* Overview Cards */}
@@ -246,7 +211,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
         <AvailableRooms 
           rooms={rooms} 
           buildings={simplifiedBuildings} 
-          onReserveClick={handleReserveClick} 
+          onReserveClick={() => {}} // Empty function since we're removing Book Room feature
         />
       </div>
     </div>
