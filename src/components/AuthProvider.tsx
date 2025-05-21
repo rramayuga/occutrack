@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase, isError } from '@/integrations/supabase/client';
+import { supabase, isError, isValidData } from '@/integrations/supabase/client';
 import { AuthContext } from '@/lib/auth';
 import { User, UserRole } from '@/lib/types';
 import { useToast } from './ui/use-toast';
@@ -21,8 +21,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { data: facultyRequest, error: facultyError } = await supabase
         .from('faculty_requests')
         .select('status')
-        .eq('user_id', userId as any) // Type assertion to avoid TypeScript error
-        .eq('status', 'rejected' as any) // Type assertion to avoid TypeScript error
+        .eq('user_id', userId)
+        .eq('status', 'rejected')
         .maybeSingle();
 
       if (facultyError) {
@@ -48,8 +48,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { data: pendingRequest, error: pendingError } = await supabase
         .from('faculty_requests')
         .select('status')
-        .eq('user_id', userId as any) // Type assertion
-        .eq('status', 'pending' as any) // Type assertion
+        .eq('user_id', userId)
+        .eq('status', 'pending')
         .maybeSingle();
 
       if (pendingError) {
@@ -75,7 +75,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', userId as any) // Type assertion
+        .eq('id', userId)
         .single();
 
       if (error) {
@@ -87,10 +87,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.log('Profile fetched successfully:', profile);
         const userData: User = {
           id: profile.id as string,
-          name: profile.name,
-          email: profile.email,
+          name: profile.name as string,
+          email: profile.email as string,
           role: profile.role as UserRole,
-          avatarUrl: profile.avatar
+          avatarUrl: profile.avatar as string | null
         };
         
         setUser(userData);

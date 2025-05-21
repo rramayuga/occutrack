@@ -35,7 +35,7 @@ export const useFacultyManagement = () => {
           department: item.department?.toString() || '',
           status: (item.status as 'pending' | 'approved' | 'rejected') || 'pending',
           createdAt: item.created_at?.toString() || '',
-          user_id: item.user_id?.toString(),
+          user_id: item.user_id?.toString() || '',
         }));
         
         setFacultyMembers(transformedData);
@@ -116,27 +116,27 @@ export const useFacultyManagement = () => {
         .update({ 
           status: newStatus,
           notes: notes || null
-        })
-        .eq('id', faculty.id);
+        } as any)
+        .eq('id', faculty.id as any);
 
       if (error) throw error;
 
-      if (newStatus === 'approved') {
+      if (newStatus === 'approved' && faculty.user_id) {
         const { error: profileError } = await supabase
           .from('profiles')
-          .update({ role: 'faculty' })
-          .eq('id', faculty.user_id);
+          .update({ role: 'faculty' } as any)
+          .eq('id', faculty.user_id as any);
           
         if (profileError) {
           console.error('Error updating user role:', profileError);
         }
       }
 
-      if (newStatus === 'rejected') {
+      if (newStatus === 'rejected' && faculty.user_id) {
         const { error: profileError } = await supabase
           .from('profiles')
-          .update({ role: 'student' })
-          .eq('id', faculty.user_id);
+          .update({ role: 'student' } as any)
+          .eq('id', faculty.user_id as any);
           
         if (profileError) {
           console.error('Error updating user role:', profileError);

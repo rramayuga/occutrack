@@ -31,7 +31,7 @@ const FacultyRegistrationNotifier = () => {
         const { data, error } = await supabase
           .from('faculty_requests')
           .select('id')
-          .eq('status', 'pending' as any);
+          .eq('status', 'pending');
           
         if (error) throw error;
         

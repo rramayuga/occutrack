@@ -1,6 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { startOfMonth, endOfMonth } from "date-fns";
+import { format, startOfMonth, endOfMonth } from "date-fns";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Button } from "@/components/ui/button";
+import { CalendarIcon } from "lucide-react";
 import { supabase, isError } from "@/integrations/supabase/client";
 import RoomAnalyticsFilters from './RoomAnalyticsFilters';
 import RoomAnalyticsHeader from './RoomAnalyticsHeader';

@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { CalendarIcon } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, isError } from "@/integrations/supabase/client";
 import RoomAnalyticsFilters from './analytics/RoomAnalyticsFilters';
 import RoomAnalyticsLayout from './analytics/RoomAnalyticsLayout';
 import { useRoomUsageData } from '@/hooks/useRoomUsageData';
@@ -29,10 +28,15 @@ const RoomUsageStats = () => {
         .from('buildings')
         .select('id, name');
       
-      if (!error && data) {
+      if (error) {
+        console.error('Error fetching buildings:', error);
+        return;
+      }
+      
+      if (data && Array.isArray(data) && !isError(data)) {
         const typedBuildings: Building[] = data.map(building => ({
-          id: building.id,
-          name: building.name
+          id: building.id?.toString() || '',
+          name: building.name?.toString() || ''
         }));
         setBuildings(typedBuildings);
       }
@@ -56,7 +60,7 @@ const RoomUsageStats = () => {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex flex-wrap gap-4">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">From:</span>

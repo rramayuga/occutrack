@@ -26,14 +26,14 @@ export const useFacultyManagement = () => {
       const { data: facultyRequestsData, error: facultyRequestsError } = await supabase
         .from('faculty_requests')
         .select('*')
-        .eq('status', 'approved' as any);
+        .eq('status', 'approved');
         
       if (facultyRequestsError) throw facultyRequestsError;
       
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('role', 'faculty' as any);
+        .eq('role', 'faculty');
         
       if (profilesError) throw profilesError;
       
