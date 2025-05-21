@@ -144,9 +144,22 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
       return;
     }
     
+    // Additional validation specifically to prevent empty UUID errors
+    if (!selectedRoom || selectedRoom.trim() === '') {
+      setFormErrors(prev => ({ ...prev, room: "Please select a valid room" }));
+      toast({
+        title: "Room Selection Error",
+        description: "Please select a valid room before booking.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setIsLoading(true);
     
     try {
+      console.log("Submitting reservation with room ID:", selectedRoom);
+      
       const result = await createReservation({
         building: selectedBuildingName,
         roomNumber: selectedRoomName,
@@ -157,6 +170,10 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
       }, selectedRoom);
       
       if (result) {
+        toast({
+          title: "Room Reserved",
+          description: "Your room has been reserved successfully.",
+        });
         onOpenChange(false);
       }
     } catch (error) {
@@ -185,7 +202,10 @@ export const RoomBookingDialog: React.FC<RoomBookingDialogProps> = ({
             <Label htmlFor="building">Building</Label>
             <Select
               value={selectedBuilding}
-              onValueChange={setSelectedBuilding}
+              onValueChange={(value) => {
+                setSelectedBuilding(value);
+                setSelectedRoom(''); // Reset room selection when building changes
+              }}
             >
               <SelectTrigger id="building" className={formErrors.building ? "border-red-500" : ""}>
                 <SelectValue placeholder="Select building" />

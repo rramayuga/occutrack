@@ -16,6 +16,9 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     detectSessionInUrl: false
   },
   global: {
+    headers: {
+      'x-client-info': 'roomreservation@1.0.0'
+    },
     fetch: fetch.bind(globalThis)
   },
   realtime: {
@@ -25,5 +28,8 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   },
   db: {
     schema: 'public'
-  }
+  },
+  // Add retryable configurations to avoid temporary network issues
+  maxRetryCount: 3,
+  retryInterval: 2000 // 2 seconds between retries
 });

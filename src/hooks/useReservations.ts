@@ -86,7 +86,7 @@ export function useReservations() {
         // Transform the data
         const transformedReservations: Reservation[] = reservationData.map(item => {
           const room = roomMap[item.room_id] || { name: 'Unknown Room', building_id: null };
-          const buildingName = room.building_id ? buildingMap[room.building_id] : 'Unknown Building';
+          const buildingName = room.building_id ? buildingMap[room.building_id] || 'Unknown Building' : 'Unknown Building';
           
           return {
             id: item.id,
@@ -144,10 +144,21 @@ export function useReservations() {
 
   // Create a new reservation
   const createReservation = async (values: ReservationFormValues, roomId: string) => {
+    // Validate inputs before proceeding
     if (!user) {
       toast({
         title: "Authentication required",
         description: "You must be logged in to make a reservation.",
+        variant: "destructive"
+      });
+      return null;
+    }
+    
+    // Validate that we have a valid room ID
+    if (!roomId || roomId.trim() === '') {
+      toast({
+        title: "Invalid room selected",
+        description: "Please select a valid room to reserve.",
         variant: "destructive"
       });
       return null;
@@ -163,6 +174,9 @@ export function useReservations() {
     }
     
     try {
+      console.log("Creating reservation with roomId:", roomId);
+      console.log("User ID:", user.id);
+      
       // First, check if the room is under maintenance
       const { data: roomData, error: roomError } = await supabase
         .from('rooms')
@@ -170,7 +184,10 @@ export function useReservations() {
         .eq('id', roomId)
         .single();
         
-      if (roomError) throw roomError;
+      if (roomError) {
+        console.error("Error checking room status:", roomError);
+        throw roomError;
+      }
       
       if (roomData?.status === 'maintenance') {
         toast({
@@ -189,7 +206,10 @@ export function useReservations() {
         .eq('date', values.date)
         .neq('status', 'completed');
       
-      if (conflictError) throw conflictError;
+      if (conflictError) {
+        console.error("Error checking for conflicts:", conflictError);
+        throw conflictError;
+      }
 
       // Manually check for time overlaps
       const hasTimeConflict = conflicts?.some(booking => {
@@ -220,9 +240,11 @@ export function useReservations() {
         date: values.date,
         start_time: values.startTime,
         end_time: values.endTime,
-        purpose: values.purpose,
+        purpose: values.purpose || 'Class Session', // Provide a default value
         status: 'approved' // Use an explicitly allowed status value
       };
+      
+      console.log("Creating reservation with data:", newReservation);
       
       const { data, error } = await supabase
         .from('room_reservations')
@@ -240,8 +262,11 @@ export function useReservations() {
           description: `You've booked ${values.roomNumber || 'a room'} in ${values.building || 'the building'} on ${values.date} from ${values.startTime} to ${values.endTime}`,
         });
         
-        // Refresh reservations
-        fetchReservations();
+        // Refresh reservations after a short delay
+        setTimeout(() => {
+          fetchReservations();
+        }, 1000);
+        
         return data[0];
       }
       return null;
@@ -267,6 +292,8 @@ export function useReservations() {
     if (!user) return () => {};
     
     try {
+      console.log("Setting up real-time subscription for room reservations");
+      
       const channel = supabase
         .channel('public:room_reservations')
         .on('postgres_changes', { 

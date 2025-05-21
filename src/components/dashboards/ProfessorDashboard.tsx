@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { User } from '@/lib/types';
 import { useRooms } from '@/hooks/useRooms';
@@ -79,8 +80,18 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
     });
   }, [reservations]);
 
-  // Handler for room reservation with proper parameters
+  // Handler for room reservation with proper validation
   const handleReserveClick = (buildingId: string, roomId: string, buildingName: string, roomName: string) => {
+    if (!roomId || roomId.trim() === '') {
+      toast({
+        title: "Invalid Selection",
+        description: "Please select a valid room to reserve.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    console.log(`Selected room for reservation: ${roomId} (${roomName} in ${buildingName})`);
     setSelectedRoomId(roomId); // Store the selected room ID
     setIsDialogOpen(true);
   };
@@ -112,6 +123,69 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
     [reservations]
   );
   
+  const handleCreateReservation = async (data: ReservationFormValues, roomId: string) => {
+    try {
+      console.log("Creating reservation with roomId:", roomId);
+      
+      // Validate room ID
+      if (!roomId || roomId.trim() === '') {
+        toast({
+          title: "Error",
+          description: "Invalid room selection. Please try again.",
+          variant: "destructive",
+          duration: 3000,
+        });
+        return null;
+      }
+      
+      // Use the stored selectedRoomId if available and valid
+      const finalRoomId = roomId || selectedRoomId;
+      
+      if (!finalRoomId || finalRoomId.trim() === '') {
+        toast({
+          title: "Error",
+          description: "No room selected for reservation.",
+          variant: "destructive",
+          duration: 3000,
+        });
+        return null;
+      }
+      
+      const result = await createReservation(data, finalRoomId);
+      
+      if (result) {
+        toast({
+          title: "Room Reserved",
+          description: "Your room has been reserved successfully",
+          duration: 3000,
+        });
+        
+        // Manually refresh data after reservation with delay
+        setTimeout(() => {
+          refreshRooms();
+          fetchReservations();
+          fetchActiveReservations();
+          // Process after everything has updated
+          setTimeout(() => processReservations(), 2000);
+        }, 2000);
+        
+        return result;
+      } else {
+        // No need for toast here as createReservation already handles error toasts
+        return null;
+      }
+    } catch (error) {
+      console.error("Error creating reservation:", error);
+      toast({
+        title: "Error",
+        description: "Failed to reserve room. Please try again.",
+        variant: "destructive",
+        duration: 3000,
+      });
+      return null;
+    }
+  };
+  
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex flex-wrap items-center justify-between mb-8">
@@ -122,33 +196,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
         <RoomBookingDialog 
           buildings={simplifiedBuildings}
           rooms={rooms}
-          createReservation={async (data) => {
-            try {
-              // Use the stored selectedRoomId instead of accessing data.roomId
-              await createReservation(data, selectedRoomId);
-              toast({
-                title: "Room Reserved",
-                description: "Your room has been reserved successfully",
-                duration: 3000, // Ensure toast auto-dismisses after 3 seconds
-              });
-              // Manually refresh data after reservation with delay
-              setTimeout(() => {
-                refreshRooms();
-                fetchReservations();
-                fetchActiveReservations();
-                // Process after everything has updated
-                setTimeout(() => processReservations(), 2000);
-              }, 2000);
-            } catch (error) {
-              console.error("Error creating reservation:", error);
-              toast({
-                title: "Error",
-                description: "Failed to reserve room. Please try again.",
-                variant: "destructive",
-                duration: 3000, // Ensure error toast also auto-dismisses
-              });
-            }
-          }}
+          createReservation={handleCreateReservation}
           isOpen={isDialogOpen}
           onOpenChange={setIsDialogOpen}
         />
@@ -162,7 +210,10 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({ user }) 
 
       {/* Teaching Schedule & Room Management */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <TeachingSchedule reservations={reservations} />
+        <TeachingSchedule 
+          reservations={reservations} 
+          onReservationChange={fetchReservations} 
+        />
         <AvailableRooms 
           rooms={rooms} 
           buildings={simplifiedBuildings} 
