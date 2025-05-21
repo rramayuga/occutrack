@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -89,10 +90,10 @@ const RoomForm: React.FC<RoomFormProps> = ({
         
         if (data) {
           // Transform the Supabase data to match our Building interface
-          const typedBuildings: Building[] = data.map(b => ({
-            id: b.id,
-            name: b.name,
-            floors: b.floors
+          const typedBuildings: Building[] = data.map(building => ({
+            id: building.id,
+            name: building.name,
+            floors: building.floors
           }));
           
           setBuildings(typedBuildings);

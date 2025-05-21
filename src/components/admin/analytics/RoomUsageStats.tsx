@@ -7,13 +7,18 @@ import RoomAnalyticsHeader from './RoomAnalyticsHeader';
 import AnalyticsContent from './AnalyticsContent';
 import { useAnalyticsData } from '@/hooks/useAnalyticsData';
 
+interface Building {
+  id: string;
+  name: string;
+}
+
 const RoomUsageStats: React.FC = () => {
   const [startDate, setStartDate] = useState<Date>(startOfMonth(new Date()));
   const [endDate, setEndDate] = useState<Date>(endOfMonth(new Date()));
   const [selectedBuilding, setSelectedBuilding] = useState<string>("all");
   const [selectedFloor, setSelectedFloor] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [buildings, setBuildings] = useState<{ id: string; name: string }[]>([]);
+  const [buildings, setBuildings] = useState<Building[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
 
   const { roomUsageData, isLoading } = useAnalyticsData(
@@ -31,7 +36,11 @@ const RoomUsageStats: React.FC = () => {
         .select('id, name');
       
       if (!error && data) {
-        setBuildings(data);
+        const typedBuildings: Building[] = data.map(building => ({
+          id: building.id,
+          name: building.name
+        }));
+        setBuildings(typedBuildings);
       }
     };
     

@@ -10,13 +10,18 @@ import RoomAnalyticsFilters from './analytics/RoomAnalyticsFilters';
 import RoomAnalyticsLayout from './analytics/RoomAnalyticsLayout';
 import { useRoomUsageData } from '@/hooks/useRoomUsageData';
 
+interface Building {
+  id: string;
+  name: string;
+}
+
 const RoomUsageStats = () => {
   const [startDate, setStartDate] = useState<Date>(startOfMonth(new Date()));
   const [endDate, setEndDate] = useState<Date>(endOfMonth(new Date()));
   const [selectedBuilding, setSelectedBuilding] = useState<string>("all");
   const [selectedFloor, setSelectedFloor] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [buildings, setBuildings] = useState<{ id: string; name: string }[]>([]);
+  const [buildings, setBuildings] = useState<Building[]>([]);
 
   useEffect(() => {
     const fetchBuildings = async () => {
@@ -25,7 +30,11 @@ const RoomUsageStats = () => {
         .select('id, name');
       
       if (!error && data) {
-        setBuildings(data);
+        const typedBuildings: Building[] = data.map(building => ({
+          id: building.id,
+          name: building.name
+        }));
+        setBuildings(typedBuildings);
       }
     };
     

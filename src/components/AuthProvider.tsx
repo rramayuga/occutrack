@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,8 +21,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { data: facultyRequest, error: facultyError } = await supabase
         .from('faculty_requests')
         .select('status')
-        .eq('user_id', userId as string)
-        .eq('status', 'rejected' as string)
+        .eq('user_id', userId)
+        .eq('status', 'rejected')
         .maybeSingle();
 
       if (facultyError) {
@@ -29,7 +30,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
       
       // If the faculty request was rejected, sign the user out
-      if (facultyRequest && facultyRequest.status === 'rejected') {
+      if (facultyRequest && 'status' in facultyRequest && facultyRequest.status === 'rejected') {
         console.log('Faculty request rejected, signing out user');
         await supabase.auth.signOut();
         toast({
@@ -47,11 +48,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { data: pendingRequest } = await supabase
         .from('faculty_requests')
         .select('status')
-        .eq('user_id', userId as string)
-        .eq('status', 'pending' as string)
+        .eq('user_id', userId)
+        .eq('status', 'pending')
         .maybeSingle();
 
-      if (pendingRequest && pendingRequest.status === 'pending') {
+      if (pendingRequest && 'status' in pendingRequest && pendingRequest.status === 'pending') {
         console.log('Faculty request pending, redirecting to confirmation page');
         await supabase.auth.signOut();
         toast({
@@ -70,7 +71,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', userId as string)
+        .eq('id', userId)
         .single();
 
       if (error) {
@@ -78,7 +79,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return null;
       }
 
-      if (profile) {
+      if (profile && 'id' in profile) {
         console.log('Profile fetched successfully:', profile);
         const userData = {
           id: profile.id,
