@@ -16,6 +16,7 @@ export function useRooms() {
   const [selectedBuilding, setSelectedBuilding] = useState<string>('');
   const lastProcessTime = useRef<number>(Date.now());
   const lastFetchTime = useRef<number>(Date.now());
+  const [connectionError, setConnectionError] = useState<boolean>(false);
 
   // Get building data
   const { buildings } = useBuildings();
@@ -26,7 +27,8 @@ export function useRooms() {
     setRooms,
     loading: isLoading,
     fetchRooms,
-    refetchRooms: refreshRooms
+    refetchRooms: refreshRooms,
+    hasError
   } = useRoomFetching();
   
   // Room updating functionality
@@ -42,10 +44,15 @@ export function useRooms() {
   } = useRoomSubscriptions(fetchRooms, setRooms);
   
   // Get active reservations to check and update room status
-  const { activeReservations, processReservations } = useReservationStatusManager();
+  const { activeReservations, processReservations, hasConnectionError } = useReservationStatusManager();
   
   // Check and update rooms based on reservations - this helps catch any misalignment
   useRoomReservationCheck(rooms, updateRoomAvailability);
+
+  // Update connection error state when any dependent system has an error
+  useEffect(() => {
+    setConnectionError(hasError || hasConnectionError);
+  }, [hasError, hasConnectionError]);
 
   // Set up subscriptions on component mount - only once
   useEffect(() => {
@@ -54,7 +61,9 @@ export function useRooms() {
     console.log("Setting up initial room data and subscriptions");
     
     // Initial data fetch
-    fetchRooms();
+    fetchRooms().catch(() => {
+      setConnectionError(true);
+    });
     
     // Set up real-time subscription channels
     const unsubscribeRooms = setupRoomSubscription();
@@ -86,6 +95,7 @@ export function useRooms() {
     buildings,
     rooms,
     isLoading,
+    connectionError,
     selectedBuilding,
     setSelectedBuilding,
     handleToggleRoomAvailability,

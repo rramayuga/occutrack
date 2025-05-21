@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, isSupabaseError, safeDataAccess, asSupabaseParam } from "@/integrations/supabase/client";
 
 export interface FacultyMember {
   id: string;
@@ -26,14 +26,14 @@ export const useFacultyManagement = () => {
       const { data: facultyRequestsData, error: facultyRequestsError } = await supabase
         .from('faculty_requests')
         .select('*')
-        .eq('status', 'approved');
+        .eq('status', asSupabaseParam('approved'));
         
       if (facultyRequestsError) throw facultyRequestsError;
       
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('role', 'faculty');
+        .eq('role', asSupabaseParam('faculty'));
         
       if (profilesError) throw profilesError;
       
@@ -42,22 +42,24 @@ export const useFacultyManagement = () => {
       
       if (facultyRequestsData) {
         facultyRequestsData.forEach(item => {
-          facultyIds.add(item.user_id);
-          combinedFaculty.push({
-            id: item.id,
-            name: item.name,
-            email: item.email,
-            department: item.department,
-            status: item.status as 'pending' | 'approved' | 'rejected',
-            createdAt: item.created_at,
-            user_id: item.user_id
-          });
+          if (!isSupabaseError(item)) {
+            facultyIds.add(item.user_id);
+            combinedFaculty.push({
+              id: item.id,
+              name: item.name,
+              email: item.email,
+              department: item.department,
+              status: item.status as 'pending' | 'approved' | 'rejected',
+              createdAt: item.created_at,
+              user_id: item.user_id
+            });
+          }
         });
       }
       
       if (profilesData) {
         profilesData.forEach(profile => {
-          if (!facultyIds.has(profile.id)) {
+          if (!isSupabaseError(profile) && !facultyIds.has(profile.id)) {
             combinedFaculty.push({
               id: profile.id,
               name: profile.name,

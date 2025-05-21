@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { startOfMonth, endOfMonth } from "date-fns";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, safeDataAccess, asSupabaseParam } from "@/integrations/supabase/client";
 import RoomAnalyticsFilters from './RoomAnalyticsFilters';
 import RoomAnalyticsHeader from './RoomAnalyticsHeader';
 import AnalyticsContent from './AnalyticsContent';
@@ -26,12 +26,22 @@ const RoomUsageStats: React.FC = () => {
 
   useEffect(() => {
     const fetchBuildings = async () => {
-      const { data, error } = await supabase
-        .from('buildings')
-        .select('id, name');
-      
-      if (!error && data) {
-        setBuildings(data);
+      try {
+        const { data, error } = await supabase
+          .from('buildings')
+          .select('id, name');
+        
+        if (!error && data) {
+          // Safely map and transform building data
+          const safeBuildings = data.map(building => ({
+            id: safeDataAccess<string>(building.id, ''),
+            name: safeDataAccess<string>(building.name, 'Unknown Building')
+          })).filter(building => building.id && building.name);
+          
+          setBuildings(safeBuildings);
+        }
+      } catch (err) {
+        console.error('Error fetching buildings:', err);
       }
     };
     

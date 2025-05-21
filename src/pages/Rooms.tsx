@@ -1,12 +1,16 @@
 
-import React, { useEffect, useCallback, useMemo, memo } from 'react';
+import React, { useEffect, useCallback, useMemo, memo, useState } from 'react';
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { AlertCircle } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 import Navbar from '@/components/layout/Navbar';
 import { useAuth } from '@/lib/auth';
 import BuildingList from '@/components/rooms/BuildingList';
 import FloorRooms from '@/components/rooms/FloorRooms';
 import { useRooms } from '@/hooks/useRooms';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
 
 // Memoized FloorRooms component to prevent unnecessary re-renders
 const MemoizedFloorRooms = memo(FloorRooms);
@@ -15,7 +19,8 @@ const Rooms = () => {
   const { 
     buildings, 
     rooms, 
-    isLoading: loading, 
+    isLoading: loading,
+    connectionError,
     selectedBuilding, 
     setSelectedBuilding, 
     handleToggleRoomAvailability,
@@ -23,6 +28,7 @@ const Rooms = () => {
   } = useRooms();
   
   const { user } = useAuth();
+  const [retryingConnection, setRetryingConnection] = useState(false);
 
   // Set a default building if none is selected and buildings are available
   useEffect(() => {
@@ -79,6 +85,18 @@ const Rooms = () => {
   // Determine if the current user can modify room availability
   const authorizedRoles = ['faculty', 'admin', 'superadmin'];
   const canModifyRooms = user && authorizedRoles.includes(user.role);
+
+  // Handle retry connection
+  const handleRetryConnection = () => {
+    setRetryingConnection(true);
+    refetchRooms()
+      .then(() => {
+        setRetryingConnection(false);
+      })
+      .catch(() => {
+        setRetryingConnection(false);
+      });
+  };
   
   // Memoize building list to prevent re-renders
   const buildingListMemo = useMemo(() => (
@@ -123,6 +141,31 @@ const Rooms = () => {
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">Campus Rooms</h1>
         </div>
+
+        {/* Connection Error Alert */}
+        {connectionError && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Connection Error</AlertTitle>
+            <AlertDescription className="flex items-center justify-between">
+              <span>Unable to connect to the reservation system. Some features may not work correctly.</span>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleRetryConnection}
+                disabled={retryingConnection}
+                className="ml-2 bg-white text-red-600 hover:bg-red-50 border-red-200"
+              >
+                {retryingConnection ? (
+                  <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                )}
+                Retry Connection
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {loading ? (
           <div className="flex justify-center items-center h-64">

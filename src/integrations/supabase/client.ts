@@ -27,3 +27,28 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     schema: 'public'
   }
 });
+
+/**
+ * Helper function to check if a response from Supabase is an error
+ */
+export function isSupabaseError(data: any): boolean {
+  return data && typeof data === 'object' && 'error' in data;
+}
+
+/**
+ * Helper function to safely access properties from Supabase responses
+ * and handle potential errors
+ */
+export function safeDataAccess<T>(data: any, defaultValue: T): T {
+  if (isSupabaseError(data) || !data) {
+    return defaultValue;
+  }
+  return data as T;
+}
+
+/**
+ * Helper function to safely type cast Supabase query parameters
+ */
+export function asSupabaseParam<T>(value: any): T {
+  return value as unknown as T;
+}

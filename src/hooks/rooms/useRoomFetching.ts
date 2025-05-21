@@ -2,7 +2,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { Room, RoomStatus } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, safeDataAccess, asSupabaseParam } from "@/integrations/supabase/client";
 
 /**
  * Hook for fetching room data from the database
@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 export function useRoomFetching() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
   const { toast } = useToast();
   const fetchInProgress = useRef(false);
   const fetchTimeoutId = useRef<number | null>(null);
@@ -41,12 +42,14 @@ export function useRoomFetching() {
       
       if (roomsError) {
         console.error("Error fetching rooms:", roomsError);
+        setHasError(true);
         throw roomsError;
       }
       
       if (!roomsData) {
         console.log("No rooms found in database");
         setRooms([]);
+        setHasError(false);
         return;
       }
       
@@ -61,6 +64,8 @@ export function useRoomFetching() {
       if (availabilityError) {
         console.error("Error fetching room availability:", availabilityError);
         // Continue without availability data instead of failing completely
+        // But still mark that we had an error
+        setHasError(true);
       }
       
       // Create a map for quick lookup of the most recent availability record for each room
@@ -88,51 +93,55 @@ export function useRoomFetching() {
       }
       
       // Process room data with availability information
-      const roomsWithAvailability: Room[] = roomsData.map(room => {
-        const availabilityRecord = availabilityMap.get(room.id);
-        
-        // Determine the correct status - database room status takes precedence
-        let status: RoomStatus;
-        let isAvailable: boolean;
-        
-        // Room status from the rooms table is the source of truth
-        if (room.status) {
-          status = room.status as RoomStatus;
-          // Only "available" status is considered available
-          isAvailable = status === 'available';
-        } else if (availabilityRecord?.status) {
-          // If no explicit room status, use the availability record status
-          status = availabilityRecord.status;
-          isAvailable = status === 'available';
-        } else if (availabilityRecord?.isAvailable !== undefined) {
-          // Fall back to boolean availability if no explicit status
-          isAvailable = availabilityRecord.isAvailable;
-          status = isAvailable ? 'available' : 'occupied';
-        } else {
-          // Default case if no availability info exists
-          status = 'available';
-          isAvailable = true;
-        }
-        
-        return {
-          id: room.id,
-          name: room.name,
-          type: room.type,
-          capacity: room.capacity || 30,
-          isAvailable: isAvailable,
-          floor: room.floor,
-          buildingId: room.building_id,
-          status: status
-        };
-      });
+      const roomsWithAvailability: Room[] = roomsData
+        .filter(room => room && !('error' in room)) // Filter out error responses
+        .map(room => {
+          const availabilityRecord = availabilityMap.get(room.id);
+          
+          // Determine the correct status - database room status takes precedence
+          let status: RoomStatus;
+          let isAvailable: boolean;
+          
+          // Room status from the rooms table is the source of truth
+          if (room.status) {
+            status = room.status as RoomStatus;
+            // Only "available" status is considered available
+            isAvailable = status === 'available';
+          } else if (availabilityRecord?.status) {
+            // If no explicit room status, use the availability record status
+            status = availabilityRecord.status;
+            isAvailable = status === 'available';
+          } else if (availabilityRecord?.isAvailable !== undefined) {
+            // Fall back to boolean availability if no explicit status
+            isAvailable = availabilityRecord.isAvailable;
+            status = isAvailable ? 'available' : 'occupied';
+          } else {
+            // Default case if no availability info exists
+            status = 'available';
+            isAvailable = true;
+          }
+          
+          return {
+            id: safeDataAccess(room.id, ''),
+            name: safeDataAccess(room.name, ''),
+            type: safeDataAccess(room.type, ''),
+            capacity: safeDataAccess(room.capacity, 30),
+            isAvailable: isAvailable,
+            floor: safeDataAccess(room.floor, 1),
+            buildingId: safeDataAccess(room.building_id, ''),
+            status: status
+          };
+        }).filter(room => room.id && room.name);
       
       console.log("Fetched rooms:", roomsWithAvailability.length);
       console.log("Room statuses:", roomsWithAvailability.map(r => `${r.name}: ${r.status}`).join(', '));
       
       setRooms(roomsWithAvailability);
+      setHasError(false);
       retryCount.current = 0; // Reset retry count on success
     } catch (error) {
       console.error("Error fetching rooms:", error);
+      setHasError(true);
       
       // Implement retry logic
       if (retryCount.current < MAX_RETRIES) {
@@ -180,6 +189,7 @@ export function useRoomFetching() {
     rooms,
     setRooms,
     loading,
+    hasError,
     fetchRooms,
     refetchRooms
   };
