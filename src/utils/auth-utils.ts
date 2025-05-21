@@ -78,20 +78,25 @@ export const handleFacultyRegistration = async (
 };
 
 export const handleGoogleSignIn = async () => {
-  // Ensure Google auth only allows NEU domain
+  // Remove domain restriction to allow any Google account to sign in
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
       redirectTo: `${window.location.origin}/dashboard`,
       queryParams: {
         access_type: 'offline',
-        prompt: 'consent',
-        hd: 'neu.edu.ph' // Restrict to NEU domain emails only
+        prompt: 'consent'
+        // Removed the domain restriction (hd: 'neu.edu.ph')
       }
     }
   });
   
-  if (error) throw error;
+  if (error) {
+    console.error('Google sign-in error:', error);
+    throw error;
+  }
+  
+  console.log('Google sign-in initiated:', data);
   return data;
 };
 

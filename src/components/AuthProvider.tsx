@@ -17,54 +17,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       console.log('Fetching user profile for ID:', userId, 'Force refresh:', forceRefresh);
       
-      // Check if this is a faculty member with a rejected request
-      const { data: facultyRequest, error: facultyError } = await supabase
-        .from('faculty_requests')
-        .select('status')
-        .eq('user_id', userId)
-        .eq('status', 'rejected')
-        .maybeSingle();
-
-      if (facultyError) {
-        console.error('Error checking faculty status:', facultyError);
-      }
-      
-      // If the faculty request was rejected, sign the user out
-      if (facultyRequest && facultyRequest.status === 'rejected') {
-        console.log('Faculty request rejected, signing out user');
-        await supabase.auth.signOut();
-        toast({
-          title: 'Access Denied',
-          description: 'Your faculty account request has been rejected. Please contact administration for more information.',
-          variant: 'destructive'
-        });
-        navigate('/login');
-        setUser(null);
-        setIsLoading(false);
-        return null;
-      }
-
-      // Check for pending faculty requests for new Google sign-in users
-      const { data: pendingRequest } = await supabase
-        .from('faculty_requests')
-        .select('status')
-        .eq('user_id', userId)
-        .eq('status', 'pending')
-        .maybeSingle();
-
-      if (pendingRequest && pendingRequest.status === 'pending') {
-        console.log('Faculty request pending, redirecting to confirmation page');
-        await supabase.auth.signOut();
-        toast({
-          title: 'Account Pending',
-          description: 'Your faculty account request is pending approval. Please wait for administrator review.',
-        });
-        navigate('/faculty-confirmation');
-        setUser(null);
-        setIsLoading(false);
-        return null;
-      }
-      
       // Use direct database query with cache control headers
       console.log('Fetching profile data');
       
@@ -76,6 +28,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (error) {
         console.error('Error fetching profile:', error);
+        // Don't throw here, just return null and let the caller handle it
         return null;
       }
 
@@ -97,9 +50,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (error) {
       console.error('Error fetching user profile:', error);
       setIsLoading(false);
-      throw error;
+      // Don't throw here, just return null and let the caller handle it
+      return null;
     }
-  }, [navigate, toast]);
+  }, []);
 
   // Add a refresh user method that forces a fresh data fetch
   const refreshUser = useCallback(async () => {
@@ -126,10 +80,47 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     let mounted = true;
     
-    // Initial auth check
+    // Set up auth listener first (before checking session)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        console.log('Auth state changed:', event, session ? 'session exists' : 'no session');
+        
+        if (session?.user && mounted) {
+          console.log('Auth event:', event);
+          console.log('User ID from auth state change:', session.user.id);
+          
+          // Use setTimeout to avoid potential Supabase auth deadlocks
+          setTimeout(async () => {
+            if (mounted) {
+              if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                console.log('User signed in or token refreshed, fetching profile');
+                const userData = await fetchUserProfile(session.user.id);
+                if (!userData && event === 'SIGNED_IN') {
+                  // For new Google sign-ins, wait briefly for the profile to be created
+                  setTimeout(async () => {
+                    if (mounted) {
+                      await fetchUserProfile(session.user.id, true);
+                      setIsLoading(false);
+                    }
+                  }, 1000);
+                } else {
+                  setIsLoading(false);
+                }
+              } else {
+                setIsLoading(false);
+              }
+            }
+          }, 0);
+        } else if (mounted) {
+          console.log('Auth state changed to logged out');
+          setUser(null);
+          setIsLoading(false);
+        }
+      }
+    );
+    
+    // Check for initial session
     const checkAuth = async () => {
-      setIsLoading(true);
-      
       try {
         console.log('Performing initial auth check');
         const { data: sessionData } = await supabase.auth.getSession();
@@ -140,44 +131,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           
           // Initial fetch of user profile
           await fetchUserProfile(sessionData.session.user.id);
+          setIsLoading(false);
         } else {
           console.log('No session found during initial check');
           setUser(null);
+          setIsLoading(false);
         }
       } catch (error) {
         console.error('Error during initial auth check:', error);
-      } finally {
-        if (mounted) {
-          setIsLoading(false);
-        }
+        setIsLoading(false);
       }
     };
     
     checkAuth();
-    
-    // Set up auth listener - using non-async callback to prevent deadlocks
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        console.log('Auth state changed:', event, session ? 'session exists' : 'no session');
-        
-        if (session?.user && mounted) {
-          // To avoid potential Supabase auth deadlocks, use setTimeout for async operations
-          setTimeout(async () => {
-            if (mounted) {
-              console.log('Auth state changed to logged in, fetching profile');
-              console.log('User ID from auth state change:', session.user.id);
-              
-              await fetchUserProfile(session.user.id);
-              setIsLoading(false);
-            }
-          }, 0);
-        } else if (mounted) {
-          console.log('Auth state changed to logged out');
-          setUser(null);
-          setIsLoading(false);
-        }
-      }
-    );
 
     return () => {
       console.log('Cleaning up AuthProvider');

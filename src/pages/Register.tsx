@@ -89,7 +89,9 @@ const Register = () => {
   
   const handleGoogleAuth = async () => {
     setIsLoading(true);
+    setError('');
     try {
+      console.log("Initiating Google sign-in from registration page");
       await handleGoogleSignIn();
       toast({
         title: "Google Authentication",
@@ -97,6 +99,7 @@ const Register = () => {
       });
     } catch (error: any) {
       console.error('Google sign-in error:', error);
+      setError(error.message || "Failed to sign in with Google. Please try again.");
       toast({
         title: "Authentication Error",
         description: error.message || "Failed to sign in with Google",
@@ -132,7 +135,7 @@ const Register = () => {
             isLoading={isLoading}
             error={error}
             isGoogleSignIn={isGoogleSignIn}
-            showDepartmentField={role === 'faculty'}
+            showDepartmentField={showDepartmentField}
             onNameChange={setName}
             onEmailChange={setEmail}
             onPasswordChange={setPassword}
