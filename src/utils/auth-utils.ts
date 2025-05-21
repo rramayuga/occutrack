@@ -78,7 +78,7 @@ export const handleFacultyRegistration = async (
 };
 
 export const handleGoogleSignIn = async () => {
-  // Updated Google auth to use proper URL and ensure redirect works correctly
+  // Ensure Google auth only allows NEU domain
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
