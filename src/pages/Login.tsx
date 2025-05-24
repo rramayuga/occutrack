@@ -51,7 +51,7 @@ const Login = () => {
         description: "Welcome to NEU OccuTrack!",
       });
       
-      // Navigate to dashboard handled by the AuthProvider monitoring auth status
+      // Navigation will be handled by AuthProvider
     } catch (error: any) {
       console.error('Login error:', error);
       setError(error.message || 'Invalid email or password. Please try again.');
@@ -64,12 +64,9 @@ const Login = () => {
     setError('');
     
     try {
-      console.log("Initiating Google sign-in");
+      console.log("Initiating Google sign-in from login page");
       await handleGoogleSignIn();
-      toast({
-        title: "Google Authentication",
-        description: "Redirecting to Google sign-in...",
-      });
+      // Don't show toast here as the user will be redirected
     } catch (error: any) {
       console.error('Google sign-in error:', error);
       setError(error.message || "Failed to sign in with Google. Please try again.");

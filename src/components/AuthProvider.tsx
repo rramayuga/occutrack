@@ -17,9 +17,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       console.log('Fetching user profile for ID:', userId, 'Force refresh:', forceRefresh);
       
-      // Use direct database query with cache control headers
-      console.log('Fetching profile data');
-      
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
@@ -28,7 +25,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (error) {
         console.error('Error fetching profile:', error);
-        // Don't throw here, just return null and let the caller handle it
         return null;
       }
 
@@ -49,8 +45,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       return null;
     } catch (error) {
       console.error('Error fetching user profile:', error);
-      setIsLoading(false);
-      // Don't throw here, just return null and let the caller handle it
       return null;
     }
   }, []);
@@ -63,7 +57,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       if (data.session?.user) {
         console.log('Active session found during refresh, user ID:', data.session.user.id);
-        // Force refresh by passing true to fetch fresh data
         await fetchUserProfile(data.session.user.id, true);
       } else {
         console.log('No active session found during refresh');
@@ -80,38 +73,39 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     let mounted = true;
     
-    // Set up auth listener first (before checking session)
+    // Set up auth listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         console.log('Auth state changed:', event, session ? 'session exists' : 'no session');
         
-        if (session?.user && mounted) {
+        if (!mounted) return;
+        
+        if (session?.user) {
           console.log('Auth event:', event);
           console.log('User ID from auth state change:', session.user.id);
           
-          // Use setTimeout to avoid potential Supabase auth deadlocks
-          setTimeout(async () => {
-            if (mounted) {
-              if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-                console.log('User signed in or token refreshed, fetching profile');
-                const userData = await fetchUserProfile(session.user.id);
-                if (!userData && event === 'SIGNED_IN') {
-                  // For new Google sign-ins, wait briefly for the profile to be created
-                  setTimeout(async () => {
-                    if (mounted) {
-                      await fetchUserProfile(session.user.id, true);
-                      setIsLoading(false);
-                    }
-                  }, 1000);
-                } else {
-                  setIsLoading(false);
+          if (event === 'SIGNED_IN') {
+            console.log('User signed in, fetching profile and redirecting to dashboard');
+            const userData = await fetchUserProfile(session.user.id);
+            if (userData) {
+              navigate('/dashboard');
+            } else {
+              // For new Google sign-ins, wait briefly for the profile to be created
+              setTimeout(async () => {
+                if (mounted) {
+                  const retryUserData = await fetchUserProfile(session.user.id, true);
+                  if (retryUserData) {
+                    navigate('/dashboard');
+                  }
                 }
-              } else {
-                setIsLoading(false);
-              }
+              }, 1000);
             }
-          }, 0);
-        } else if (mounted) {
+          } else if (event === 'TOKEN_REFRESHED') {
+            console.log('Token refreshed, updating profile');
+            await fetchUserProfile(session.user.id);
+          }
+          setIsLoading(false);
+        } else {
           console.log('Auth state changed to logged out');
           setUser(null);
           setIsLoading(false);
@@ -129,14 +123,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           console.log('Found existing session, auth provider:', sessionData.session.user.app_metadata?.provider);
           console.log('User ID from session:', sessionData.session.user.id);
           
-          // Initial fetch of user profile
           await fetchUserProfile(sessionData.session.user.id);
-          setIsLoading(false);
         } else {
           console.log('No session found during initial check');
           setUser(null);
-          setIsLoading(false);
         }
+        setIsLoading(false);
       } catch (error) {
         console.error('Error during initial auth check:', error);
         setIsLoading(false);
@@ -150,7 +142,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [fetchUserProfile]);
+  }, [fetchUserProfile, navigate]);
 
   const signOut = async () => {
     try {

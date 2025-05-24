@@ -78,26 +78,31 @@ export const handleFacultyRegistration = async (
 };
 
 export const handleGoogleSignIn = async () => {
-  // Remove domain restriction to allow any Google account to sign in
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: `${window.location.origin}/dashboard`,
-      queryParams: {
-        access_type: 'offline',
-        prompt: 'consent'
-        // Removed the domain restriction (hd: 'neu.edu.ph')
+  try {
+    console.log("Starting Google sign-in process");
+    
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/dashboard`,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent'
+        }
       }
+    });
+    
+    if (error) {
+      console.error('Google sign-in error:', error);
+      throw error;
     }
-  });
-  
-  if (error) {
-    console.error('Google sign-in error:', error);
+    
+    console.log('Google sign-in initiated successfully');
+    return data;
+  } catch (error) {
+    console.error('Google sign-in failed:', error);
     throw error;
   }
-  
-  console.log('Google sign-in initiated:', data);
-  return data;
 };
 
 export const handleLogin = async (email: string, password: string) => {
